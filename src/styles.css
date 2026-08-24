@@ -658,13 +658,16 @@ input, select, textarea {
   font-size: 0.9rem;
 }
 
+/* Fixed 44x44 Thumbnails in tables */
 .asset-thumb-box {
-  width: 42px;
-  height: 42px;
+  width: 44px !important;
+  height: 44px !important;
+  max-width: 44px !important;
+  max-height: 44px !important;
   border-radius: 8px;
   overflow: hidden;
   background: #f1f5f9;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #64748b;
@@ -672,10 +675,14 @@ input, select, textarea {
   border: 1px solid #e2e8f0;
 }
 
-.asset-thumb-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.asset-thumb-img, .row-thumb {
+  width: 44px !important;
+  height: 44px !important;
+  max-width: 44px !important;
+  max-height: 44px !important;
+  object-fit: cover !important;
+  border-radius: 8px;
+  display: block;
 }
 
 .asset-code-cell {

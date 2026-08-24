@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   listAssets,
   listCategories,
@@ -25,12 +25,10 @@ import {
   HardDrive,
   Trash2,
   Edit,
-  Eye,
   AlertTriangle,
 } from "lucide-react";
 
 export default function AssetsList() {
-  const navigate = useNavigate();
   const [assets, setAssets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -326,65 +324,199 @@ export default function AssetsList() {
         </select>
       </div>
 
-      {error && <p className="form-error">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
-      {loading ? (
-        <div className="page-loading">กำลังโหลด...</div>
-      ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>รูป</th>
-              <th>รหัส</th>
-              <th>ชื่อ</th>
-              <th>ประเภท</th>
-              <th>สถานะ</th>
-              <th>ตำแหน่ง</th>
-              <th>ผู้รับผิดชอบ</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {assets.length === 0 && (
+      {error && <div className="form-error-banner">โหลดข้อมูลไม่สำเร็จ: {error}</div>}
+
+      {/* 4. Modern Data Table Card */}
+      <div className="table-card">
+        <div className="table-responsive">
+          <table className="modern-table">
+            <thead>
               <tr>
-                <td colSpan={8} className="empty-row">
-                  ยังไม่มีครุภัณฑ์ตามเงื่อนไขที่เลือก
-                </td>
+                <th style={{ width: "60px", textAlign: "center" }}>รูป</th>
+                <th style={{ minWidth: "140px" }}>เลขครุภัณฑ์</th>
+                <th style={{ minWidth: "180px" }}>รายการครุภัณฑ์</th>
+                <th style={{ minWidth: "130px" }}>หมวดหมู่</th>
+                <th style={{ minWidth: "150px" }}>สถานที่</th>
+                <th style={{ minWidth: "120px" }}>ผู้รับผิดชอบ</th>
+                <th style={{ minWidth: "110px" }}>สถานะ</th>
+                <th style={{ minWidth: "120px", textAlign: "right" }}>จัดการ</th>
               </tr>
-            )}
-            {assets.map((a) => (
-              <tr key={a.id}>
-                <td>
-                  {a.image_url ? (
-                    <img src={a.image_url} alt={a.name} className="row-thumb" />
-                  ) : (
-                    <span className="row-thumb-placeholder" />
-                  )}
-                </td>
-                <td>{a.asset_code}</td>
-                <td>{a.name}</td>
-                <td>{a.asset_categories?.category_name || "-"}</td>
-                <td>
-                  <StatusBadge status={a.status} />
-                </td>
-                <td>
-                  {a.rooms
-                    ? `${a.rooms.floors?.buildings?.name || ""} ชั้น ${a.rooms.floors?.floor_number || ""} ห้อง ${a.rooms.room_name}`
-                    : "-"}
-                </td>
-                <td>{a.responsible_person || "-"}</td>
-                <td>
-                  <Link to={`/asset/${a.asset_code}`} className="link">
-                    ดู
-                  </Link>
-                  {" · "}
-                  <Link to={`/assets/${a.id}/edit`} className="link">
-                    แก้ไข
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="table-empty-row">
+                    กำลังโหลดข้อมูลครุภัณฑ์...
+                  </td>
+                </tr>
+              ) : assets.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="table-empty-row">
+                    ไม่พบรายการครุภัณฑ์ตามเงื่อนไขที่เลือก
+                  </td>
+                </tr>
+              ) : (
+                assets.map((asset) => {
+                  const code = asset.asset_code || asset.code || "-";
+                  const categoryName = asset.asset_categories?.category_name || "ครุภัณฑ์ทั่วไป";
+                  const roomText = asset.rooms?.room_name
+                    ? asset.rooms.room_name
+                    : asset.rooms
+                    ? `${asset.rooms.floors?.buildings?.name || ""} ชั้น ${asset.rooms.floors?.floor_number || ""} ห้อง ${asset.rooms.room_name}`
+                    : "ห้องธุรการและสารบรรณ";
+
+                  return (
+                    <tr key={asset.id}>
+                      {/* รูปภาพ Thumbnail ล็อคขนาด 48x48 เสมอ ไม่ให้ขยายตัว */}
+                      <td style={{ textAlign: "center", width: "60px" }}>
+                        <div className="asset-thumb-box">
+                          {asset.image_url ? (
+                            <img
+                              src={asset.image_url}
+                              alt={asset.name}
+                              className="asset-thumb-img"
+                            />
+                          ) : (
+                            getItemIcon(asset.name, categoryName)
+                          )}
+                        </div>
+                      </td>
+
+                      {/* เลขครุภัณฑ์ */}
+                      <td>
+                        <div className="asset-code-cell">
+                          <Link
+                            to={`/asset/${code}`}
+                            className="asset-code-main"
+                            title="ดูรายละเอียด"
+                          >
+                            {code}
+                          </Link>
+                        </div>
+                      </td>
+
+                      {/* รายการครุภัณฑ์ */}
+                      <td>
+                        <div className="asset-name-cell">
+                          <Link
+                            to={`/asset/${code}`}
+                            className="asset-name-main"
+                          >
+                            {asset.name}
+                          </Link>
+                          <span className="asset-name-sub">
+                            {asset.color ? `สี ${asset.color}` : ""}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* หมวดหมู่ */}
+                      <td>
+                        <span className="category-pill">{categoryName}</span>
+                      </td>
+
+                      {/* สถานที่ */}
+                      <td>
+                        <span style={{ fontSize: "0.85rem", color: "#475569" }}>
+                          {roomText}
+                        </span>
+                      </td>
+
+                      {/* ผู้รับผิดชอบ */}
+                      <td>
+                        <span style={{ fontSize: "0.85rem", color: "#334155" }}>
+                          {asset.responsible_person || "ไม่ระบุ"}
+                        </span>
+                      </td>
+
+                      {/* สถานะ */}
+                      <td>
+                        <StatusBadge status={asset.status || "normal"} />
+                      </td>
+
+                      {/* จัดการ */}
+                      <td>
+                        <div className="table-actions" style={{ justifyContent: "flex-end" }}>
+                          <Link
+                            to={`/assets/${asset.id}/edit`}
+                            className="action-btn-link"
+                            title="แก้ไขข้อมูล"
+                          >
+                            แก้ไข
+                          </Link>
+                          <button
+                            type="button"
+                            className="action-btn-link danger"
+                            onClick={() => setDeleteTarget(asset)}
+                            title="ลบครุภัณฑ์"
+                          >
+                            ลบ
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: "#fef2f2",
+                    color: "#dc2626",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <AlertTriangle size={20} />
+                </div>
+                <h3 className="modal-title" style={{ margin: 0 }}>
+                  ยืนยันการลบครุภัณฑ์
+                </h3>
+              </div>
+            </div>
+
+            <p style={{ fontSize: "0.9rem", color: "#475569", margin: "14px 0 20px" }}>
+              คุณแน่ใจหรือไม่ว่าต้องการลบครุภัณฑ์{" "}
+              <strong>"{deleteTarget.name}"</strong> (รหัส:{" "}
+              <strong>{deleteTarget.asset_code || deleteTarget.code}</strong>)?
+              การกระทำนี้ไม่สามารถยกเลิกได้
+            </p>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deletingId !== null}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ backgroundColor: "#dc2626" }}
+                onClick={confirmDelete}
+                disabled={deletingId !== null}
+              >
+                {deletingId ? "กำลังลบ..." : "ยืนยันการลบ"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
