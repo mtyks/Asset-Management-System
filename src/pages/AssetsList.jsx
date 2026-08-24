@@ -48,7 +48,7 @@ export default function AssetsList() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
+  const [deletingCode, setDeletingCode] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   // โหลด Categories, Rooms และ Counts
@@ -95,13 +95,20 @@ export default function AssetsList() {
     ];
 
     const rows = assets.map((a) => {
-      const code = a.asset_code || a.code || "-";
+      const code = a.asset_code || "-";
       const name = a.name || "-";
       const color = a.color || "-";
       const cat = a.asset_categories?.category_name || "-";
       const loc = a.rooms?.room_name || "-";
       const resp = a.responsible_person || "-";
-      const status = a.status === "borrowed" ? "ยืมใช้งาน" : a.status === "repair" ? "ส่งซ่อม" : "ใช้งานปกติ";
+      const status =
+        a.status === "borrowed"
+          ? "ยืมใช้งาน"
+          : a.status === "repair"
+          ? "ส่งซ่อม"
+          : a.status === "damaged"
+          ? "ชำรุด"
+          : "ใช้งานปกติ";
       const date = a.received_date || "-";
       return [code, name, color, cat, loc, resp, status, date];
     });
@@ -129,15 +136,15 @@ export default function AssetsList() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      setDeletingId(deleteTarget.id);
-      await deleteAsset(deleteTarget.id);
+      setDeletingCode(deleteTarget.asset_code);
+      await deleteAsset(deleteTarget.asset_code);
       setDeleteTarget(null);
       fetchAssets();
       getDashboardCounts().then(setCounts).catch(() => {});
     } catch (err) {
       alert("ลบไม่สำเร็จ: " + err.message);
     } finally {
-      setDeletingId(null);
+      setDeletingCode(null);
     }
   };
 
@@ -287,7 +294,7 @@ export default function AssetsList() {
         >
           <option value="">ทุกหมวดหมู่ครุภัณฑ์</option>
           {categories.map((c) => (
-            <option key={c.id} value={c.id}>
+            <option key={c.category_code || c.id} value={c.category_code || c.id}>
               {c.category_name}
             </option>
           ))}
@@ -302,7 +309,7 @@ export default function AssetsList() {
         >
           <option value="">ทุกสถานที่ / ห้อง</option>
           {rooms.map((r) => (
-            <option key={r.id} value={r.id}>
+            <option key={r.room_code || r.id} value={r.room_code || r.id}>
               {r.room_name}
             </option>
           ))}
@@ -357,17 +364,13 @@ export default function AssetsList() {
                 </tr>
               ) : (
                 assets.map((asset) => {
-                  const code = asset.asset_code || asset.code || "-";
+                  const code = asset.asset_code || "-";
                   const categoryName = asset.asset_categories?.category_name || "ครุภัณฑ์ทั่วไป";
-                  const roomText = asset.rooms?.room_name
-                    ? asset.rooms.room_name
-                    : asset.rooms
-                    ? `${asset.rooms.floors?.buildings?.name || ""} ชั้น ${asset.rooms.floors?.floor_number || ""} ห้อง ${asset.rooms.room_name}`
-                    : "ห้องธุรการและสารบรรณ";
+                  const roomText = asset.rooms?.room_name || "ห้องธุรการและสารบรรณ";
 
                   return (
-                    <tr key={asset.id}>
-                      {/* รูปภาพ Thumbnail ล็อคขนาด 48x48 เสมอ ไม่ให้ขยายตัว */}
+                    <tr key={asset.asset_code}>
+                      {/* รูปภาพ Thumbnail ล็อคขนาด 44x44 เสมอ */}
                       <td style={{ textAlign: "center", width: "60px" }}>
                         <div className="asset-thumb-box">
                           {asset.image_url ? (
@@ -405,7 +408,7 @@ export default function AssetsList() {
                             {asset.name}
                           </Link>
                           <span className="asset-name-sub">
-                            {asset.color ? `สี ${asset.color}` : ""}
+                            {asset.color ? `สี/ยี่ห้อ: ${asset.color}` : ""}
                           </span>
                         </div>
                       </td>
@@ -438,7 +441,7 @@ export default function AssetsList() {
                       <td>
                         <div className="table-actions" style={{ justifyContent: "flex-end" }}>
                           <Link
-                            to={`/assets/${asset.id}/edit`}
+                            to={`/assets/${encodeURIComponent(code)}/edit`}
                             className="action-btn-link"
                             title="แก้ไขข้อมูล"
                           >
@@ -492,7 +495,7 @@ export default function AssetsList() {
             <p style={{ fontSize: "0.9rem", color: "#475569", margin: "14px 0 20px" }}>
               คุณแน่ใจหรือไม่ว่าต้องการลบครุภัณฑ์{" "}
               <strong>"{deleteTarget.name}"</strong> (รหัส:{" "}
-              <strong>{deleteTarget.asset_code || deleteTarget.code}</strong>)?
+              <strong>{deleteTarget.asset_code}</strong>)?
               การกระทำนี้ไม่สามารถยกเลิกได้
             </p>
 
@@ -501,7 +504,7 @@ export default function AssetsList() {
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setDeleteTarget(null)}
-                disabled={deletingId !== null}
+                disabled={deletingCode !== null}
               >
                 ยกเลิก
               </button>
@@ -510,9 +513,9 @@ export default function AssetsList() {
                 className="btn btn-primary"
                 style={{ backgroundColor: "#dc2626" }}
                 onClick={confirmDelete}
-                disabled={deletingId !== null}
+                disabled={deletingCode !== null}
               >
-                {deletingId ? "กำลังลบ..." : "ยืนยันการลบ"}
+                {deletingCode ? "กำลังลบ..." : "ยืนยันการลบ"}
               </button>
             </div>
           </div>

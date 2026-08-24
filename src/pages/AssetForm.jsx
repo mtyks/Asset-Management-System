@@ -2,16 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   listCategories,
-  listBuildings,
-  listFloors,
   listRooms,
   createAsset,
   updateAsset,
-  getAssetById,
+  getAssetByCode,
   uploadAssetImage,
 } from "../lib/queries";
 import QRCodeDisplay from "../components/QRCodeDisplay";
-import { Plus, Save, ArrowLeft, RefreshCw, CheckCircle, QrCode, Upload, Image as ImageIcon } from "lucide-react";
+import { Plus, Save, ArrowLeft, RefreshCw, CheckCircle, Upload, Image as ImageIcon } from "lucide-react";
 
 function generateAssetCode() {
   const currentYear = 2569;
@@ -22,11 +20,9 @@ function generateAssetCode() {
 const emptyForm = {
   asset_code: "",
   name: "",
-  category_id: "",
+  category_code: "",
   color: "",
-  building_id: "",
-  floor_id: "",
-  room_id: "",
+  room_code: "",
   received_date: new Date().toISOString().slice(0, 10),
   responsible_person: "",
   image_url: "",
@@ -34,12 +30,11 @@ const emptyForm = {
 
 export default function AssetForm() {
   const navigate = useNavigate();
-  const { assetId } = useParams();
-  const isEditMode = Boolean(assetId);
+  const { assetCode, assetId } = useParams();
+  const actualLookupCode = assetCode || assetId;
+  const isEditMode = Boolean(actualLookupCode);
 
   const [categories, setCategories] = useState([]);
-  const [buildings, setBuildings] = useState([]);
-  const [floors, setFloors] = useState([]);
   const [rooms, setRooms] = useState([]);
 
   const [form, setForm] = useState(() =>
@@ -55,26 +50,22 @@ export default function AssetForm() {
 
   useEffect(() => {
     listCategories().then(setCategories).catch((err) => setError(err.message));
-    listBuildings().then(setBuildings).catch((err) => setError(err.message));
+    listRooms().then(setRooms).catch((err) => setError(err.message));
   }, []);
 
   // โหมดแก้ไข
   useEffect(() => {
     if (!isEditMode) return;
     let cancelled = false;
-    getAssetById(assetId)
+    getAssetByCode(actualLookupCode)
       .then((asset) => {
         if (cancelled) return;
-        const room = asset.rooms;
-        const floor = room?.floors;
         setForm({
-          asset_code: asset.asset_code || asset.code || "",
+          asset_code: asset.asset_code || "",
           name: asset.name || "",
-          category_id: asset.category_id || "",
+          category_code: asset.category_code || "",
           color: asset.color || "",
-          building_id: floor?.building_id || "",
-          floor_id: room?.floor_id || "",
-          room_id: asset.room_id || "",
+          room_code: asset.room_code || "",
           received_date: asset.received_date || "",
           responsible_person: asset.responsible_person || "",
           image_url: asset.image_url || "",
@@ -88,23 +79,7 @@ export default function AssetForm() {
     return () => {
       cancelled = true;
     };
-  }, [assetId, isEditMode]);
-
-  useEffect(() => {
-    if (!form.building_id) {
-      setFloors([]);
-      return;
-    }
-    listFloors(form.building_id).then(setFloors).catch((err) => setError(err.message));
-  }, [form.building_id]);
-
-  useEffect(() => {
-    if (!form.floor_id) {
-      setRooms([]);
-      return;
-    }
-    listRooms(form.floor_id).then(setRooms).catch((err) => setError(err.message));
-  }, [form.floor_id]);
+  }, [actualLookupCode, isEditMode]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -135,17 +110,17 @@ export default function AssetForm() {
       const payload = {
         asset_code: form.asset_code.trim(),
         name: form.name.trim(),
-        category_id: form.category_id || null,
+        category_code: form.category_code || null,
         color: form.color.trim() || null,
-        room_id: form.room_id || null,
+        room_code: form.room_code || null,
         received_date: form.received_date || null,
         responsible_person: form.responsible_person.trim() || null,
         image_url: finalImageUrl || null,
       };
 
       if (isEditMode) {
-        await updateAsset(assetId, payload);
-        navigate(`/asset/${form.asset_code}`);
+        await updateAsset(actualLookupCode, payload);
+        navigate(`/asset/${encodeURIComponent(form.asset_code)}`);
       } else {
         const created = await createAsset(payload);
         setSavedAsset(created);
@@ -189,12 +164,12 @@ export default function AssetForm() {
             บันทึกครุภัณฑ์ลง Supabase สำเร็จแล้ว!
           </h2>
           <p style={{ color: "#64748b", margin: "0 0 24px", fontSize: "0.9rem" }}>
-            รหัสครุภัณฑ์ <strong>{savedAsset.asset_code || savedAsset.code}</strong> ถูกบันทึกขึ้นฐานข้อมูลเรียบร้อย
+            รหัสครุภัณฑ์ <strong>{savedAsset.asset_code}</strong> ถูกบันทึกขึ้นฐานข้อมูลเรียบร้อย
           </p>
 
           <div style={{ margin: "0 auto 24px", display: "inline-block" }}>
             <QRCodeDisplay
-              value={savedAsset.asset_code || savedAsset.code}
+              value={savedAsset.asset_code}
               caption={savedAsset.name}
             />
           </div>
@@ -258,6 +233,7 @@ export default function AssetForm() {
                   value={form.asset_code}
                   onChange={handleChange}
                   required
+                  disabled={isEditMode}
                 />
                 {!isEditMode && (
                   <button
@@ -292,14 +268,14 @@ export default function AssetForm() {
             <div className="form-group">
               <label>หมวดหมู่ครุภัณฑ์</label>
               <select
-                name="category_id"
+                name="category_code"
                 className="form-control"
-                value={form.category_id}
+                value={form.category_code}
                 onChange={handleChange}
               >
                 <option value="">-- ไม่ระบุหมวดหมู่ --</option>
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option key={c.category_code || c.id} value={c.category_code || c.id}>
                     {c.category_name}
                   </option>
                 ))}
@@ -358,73 +334,22 @@ export default function AssetForm() {
 
           <div className="form-grid">
             <div className="form-group">
-              <label>ตึก / อาคาร</label>
-              <select
-                name="building_id"
-                className="form-control"
-                value={form.building_id}
-                onChange={(e) => {
-                  setForm((f) => ({
-                    ...f,
-                    building_id: e.target.value,
-                    floor_id: "",
-                    room_id: "",
-                  }));
-                }}
-              >
-                <option value="">-- เลือกตึก/อาคาร --</option>
-                {buildings.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>ชั้น</label>
-              <select
-                name="floor_id"
-                className="form-control"
-                value={form.floor_id}
-                onChange={(e) => {
-                  setForm((f) => ({
-                    ...f,
-                    floor_id: e.target.value,
-                    room_id: "",
-                  }));
-                }}
-                disabled={!form.building_id}
-              >
-                <option value="">-- เลือกชั้น --</option>
-                {floors.map((fl) => (
-                  <option key={fl.id} value={fl.id}>
-                    {fl.floor_name || `ชั้น ${fl.floor_number}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
               <label>ห้อง / จุดประจำ</label>
               <select
-                name="room_id"
+                name="room_code"
                 className="form-control"
-                value={form.room_id}
+                value={form.room_code}
                 onChange={handleChange}
-                disabled={!form.floor_id}
               >
-                <option value="">-- เลือกห้อง --</option>
+                <option value="">-- เลือกห้อง / สถานที่ --</option>
                 {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.room_name}
+                  <option key={r.room_code || r.id} value={r.room_code || r.id}>
+                    {r.room_name} ({r.room_code})
                   </option>
                 ))}
               </select>
             </div>
-          </div>
 
-          <div className="form-grid">
             <div className="form-group">
               <label>ชื่อผู้รับผิดชอบ / ผู้ดูแล</label>
               <input
@@ -436,7 +361,9 @@ export default function AssetForm() {
                 onChange={handleChange}
               />
             </div>
+          </div>
 
+          <div className="form-grid">
             <div className="form-group">
               <label>วันที่ตรวจรับเข้าคลัง</label>
               <input
