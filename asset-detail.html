@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>รายละเอียดครุภัณฑ์ - ระบบบริหารจัดการครุภัณฑ์</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 flex h-screen overflow-hidden">
+
+  <div id="sidebar-container"></div>
+
+  <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <div id="header-container"></div>
+
+    <main class="p-8 max-w-3xl w-full mx-auto pb-16">
+
+      <div id="loading-state" class="text-center text-slate-400 py-20">
+        <i class="ph ph-spinner text-3xl animate-spin"></i>
+        <p class="mt-2 text-sm">กำลังโหลดข้อมูล...</p>
+      </div>
+
+      <div id="not-found-state" class="hidden text-center py-20">
+        <i class="ph ph-magnifying-glass-minus text-4xl text-slate-300"></i>
+        <p class="mt-3 text-slate-500 font-medium">ไม่พบครุภัณฑ์รหัสนี้ในระบบ</p>
+        <a href="scan.html" class="inline-block mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition">สแกนใหม่อีกครั้ง</a>
+      </div>
+
+      <div id="asset-detail-content" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="md:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div id="detail-image-box" class="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 text-2xl overflow-hidden flex-shrink-0"></div>
+              <div>
+                <h2 id="detail-name" class="text-xl font-bold text-slate-900"></h2>
+                <p id="detail-brand" class="text-sm text-slate-500"></p>
+              </div>
+            </div>
+            <span id="detail-status-badge"></span>
+          </div>
+
+          <dl class="grid grid-cols-2 gap-y-3 gap-x-4 text-sm border-t border-slate-100 pt-4">
+            <dt class="text-slate-400">เลขครุภัณฑ์</dt><dd id="detail-code" class="font-medium text-slate-800"></dd>
+            <dt class="text-slate-400">เลขซีเรียล</dt><dd id="detail-serial" class="font-medium text-slate-800"></dd>
+            <dt class="text-slate-400">หมวดหมู่</dt><dd id="detail-category" class="font-medium text-slate-800"></dd>
+            <dt class="text-slate-400">สภาพ</dt><dd id="detail-condition" class="font-medium text-slate-800"></dd>
+            <dt class="text-slate-400">สถานที่จัดเก็บ</dt><dd id="detail-location" class="font-medium text-slate-800"></dd>
+            <dt class="text-slate-400">ผู้รับผิดชอบ</dt><dd id="detail-person" class="font-medium text-slate-800"></dd>
+          </dl>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col items-center gap-3">
+          <p class="text-xs font-medium text-slate-500">QR ประจำครุภัณฑ์ชิ้นนี้</p>
+          <canvas id="qr-canvas"></canvas>
+          <p id="qr-code-label" class="font-mono text-xs text-slate-600"></p>
+          <div class="flex gap-2 w-full">
+            <button onclick="downloadQr()" class="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition">ดาวน์โหลด</button>
+            <button onclick="printQr()" class="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition">พิมพ์</button>
+          </div>
+          <a href="assets.html" class="text-xs text-blue-600 hover:underline mt-2">ไปหน้ารายการครุภัณฑ์ →</a>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="js/supabase-config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/asset-detail.js"></script>
+</body>
+</html>

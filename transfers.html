@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ย้าย / ยืม / คืน - ระบบบริหารจัดการครุภัณฑ์</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 flex h-screen overflow-hidden">
+
+  <!-- Sidebar Navigation -->
+  <div id="sidebar-container"></div>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <!-- Header Topbar -->
+    <div id="header-container"></div>
+
+    <main class="p-8 space-y-6 max-w-7xl w-full mx-auto pb-16">
+      
+      <!-- Page Header & Actions -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="p-2 bg-cyan-50 rounded-xl text-cyan-600 border border-cyan-200/80">
+              <i class="ph-fill ph-arrows-left-right text-xl"></i>
+            </span>
+            <div>
+              <h2 class="text-2xl font-bold text-slate-900 tracking-tight">ย้าย / ยืม / คืน ครุภัณฑ์</h2>
+              <p class="text-sm text-slate-500 mt-0.5">บันทึกและติดตามการย้ายสถานที่จัดเก็บ และการยืม-คืนครุภัณฑ์ในหน่วยงาน</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center flex-wrap gap-2.5">
+          <button onclick="openTransferModal()" class="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md shadow-cyan-500/20 transition active:scale-95">
+            <i class="ph-bold ph-arrows-left-right"></i>
+            <span>ย้ายสถานที่</span>
+          </button>
+          <button onclick="openBorrowModal()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md shadow-blue-500/20 transition active:scale-95">
+            <i class="ph-bold ph-arrow-up-right"></i>
+            <span>ยืมครุภัณฑ์</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick KPI Stats Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-2xl">
+            <i class="ph ph-receipt"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 font-medium">รายการเคลื่อนไหวทั้งหมด</p>
+            <p class="text-xl font-bold text-slate-800" id="stat-transfer-total">3 รายการ</p>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl">
+            <i class="ph ph-hand-coins"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 font-medium">กำลังถูกยืมใช้งาน</p>
+            <p class="text-xl font-bold text-blue-600" id="stat-transfer-borrow">1 รายการ</p>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center text-2xl">
+            <i class="ph ph-arrows-left-right"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 font-medium">ย้ายสถานที่แล้ว</p>
+            <p class="text-xl font-bold text-cyan-600" id="stat-transfer-trans">1 รายการ</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs & Search Toolbar -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <!-- Tabs -->
+        <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-auto">
+          <button id="tab-all" onclick="setTab('all')" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-blue-600 shadow-sm transition">
+            ทั้งหมด
+          </button>
+          <button id="tab-transfer" onclick="setTab('transfer')" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+            ย้ายสถานที่
+          </button>
+          <button id="tab-borrow" onclick="setTab('borrow')" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+            ยืมใช้งาน
+          </button>
+          <button id="tab-return" onclick="setTab('return')" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+            คืนแล้ว
+          </button>
+        </div>
+
+        <!-- Search input -->
+        <div class="relative w-full sm:w-72">
+          <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+          <input type="text" 
+            id="search-transfer-input"
+            oninput="renderTransferTable()"
+            placeholder="ค้นหาเลขที่, ครุภัณฑ์, ผู้ยืม..." 
+            class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+        </div>
+      </div>
+
+      <!-- DATA TABLE -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50/80 text-slate-600 border-b border-slate-200 text-xs font-semibold">
+                <th class="py-3.5 px-4 w-28">เลขที่เอกสาร</th>
+                <th class="py-3.5 px-4 w-32">ประเภท</th>
+                <th class="py-3.5 px-4">ครุภัณฑ์</th>
+                <th class="py-3.5 px-4">รายละเอียดการย้าย / ยืม</th>
+                <th class="py-3.5 px-4 w-28">วันที่</th>
+                <th class="py-3.5 px-4 text-center w-24">สถานะ</th>
+                <th class="py-3.5 px-4 text-center w-28">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100" id="transfer-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- MODAL: TRANSFER LOCATION -->
+  <div id="modal-transfer" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all">
+      <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center text-xl">
+            <i class="ph-bold ph-arrows-left-right"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">ย้ายสถานที่จัดเก็บครุภัณฑ์</h3>
+            <p class="text-xs text-slate-500">บันทึกการเปลี่ยนห้องจัดเก็บครุภัณฑ์</p>
+          </div>
+        </div>
+        <button onclick="closeTransferModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveTransferAction(event)" class="p-6 space-y-4 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">เลือกครุภัณฑ์ที่ต้องการย้าย <span class="text-red-500">*</span></label>
+          <select id="transfer-form-asset" required onchange="onTransferAssetChange()" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"></select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">สถานที่ปัจจุบัน</label>
+            <input type="text" id="transfer-form-curloc" readonly class="w-full px-3.5 py-2.5 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl text-sm cursor-not-allowed">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">สถานที่ปลายทางใหม่ <span class="text-red-500">*</span></label>
+            <select id="transfer-form-newloc" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">ผู้ดำเนินการ / ผู้รับผิดชอบ</label>
+            <input type="text" id="transfer-form-person" placeholder="เช่น เจ้าหน้าที่พัสดุ" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">วันที่ย้าย <span class="text-red-500">*</span></label>
+            <input type="date" id="transfer-form-date" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition">
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeTransferModal()" class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
+            ยกเลิก
+          </button>
+          <button type="submit" class="px-5 py-2.5 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-xl shadow-md shadow-cyan-500/20 transition active:scale-95">
+            บันทึกการย้าย
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: BORROW ASSET -->
+  <div id="modal-borrow" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all">
+      <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+            <i class="ph-bold ph-arrow-up-right"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">บันทึกการยืมครุภัณฑ์</h3>
+            <p class="text-xs text-slate-500">กรอกข้อมูลผู้ยืมและกำหนดวันส่งคืน</p>
+          </div>
+        </div>
+        <button onclick="closeBorrowModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveBorrowAction(event)" class="p-6 space-y-4 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">เลือกครุภัณฑ์ที่ต้องการยืม <span class="text-red-500">*</span></label>
+          <select id="borrow-form-asset" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"></select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">ชื่อผู้ยืม / ฝ่าย <span class="text-red-500">*</span></label>
+          <input type="text" id="borrow-form-person" required placeholder="เช่น อ. สมใจ (ฝ่ายวิชาการ)" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">วันที่ยืม <span class="text-red-500">*</span></label>
+            <input type="date" id="borrow-form-start" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">กำหนดส่งคืน <span class="text-red-500">*</span></label>
+            <input type="date" id="borrow-form-due" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeBorrowModal()" class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
+            ยกเลิก
+          </button>
+          <button type="submit" class="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition active:scale-95">
+            บันทึกการยืม
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/supabase-config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/transfers.js"></script>
+</body>
+</html>

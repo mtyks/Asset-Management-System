@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ซ่อมบำรุง - ระบบบริหารจัดการครุภัณฑ์</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 flex h-screen overflow-hidden">
+
+  <!-- Sidebar Navigation -->
+  <div id="sidebar-container"></div>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <!-- Header Topbar -->
+    <div id="header-container"></div>
+
+    <main class="p-8 space-y-6 max-w-7xl w-full mx-auto pb-16">
+      
+      <!-- Page Header & Actions -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="p-2 bg-orange-50 rounded-xl text-orange-600 border border-orange-200/80">
+              <i class="ph-fill ph-wrench text-xl"></i>
+            </span>
+            <div>
+              <h2 class="text-2xl font-bold text-slate-900 tracking-tight">ซ่อมบำรุงครุภัณฑ์</h2>
+              <p class="text-sm text-slate-500 mt-0.5">บันทึกประวัติการแจ้งซ่อม ติดตามสถานะ และบันทึกการซ่อมบำรุงครุภัณฑ์</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center flex-wrap gap-2.5">
+          <button onclick="openAddRepairModal()" class="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md shadow-orange-500/20 transition active:scale-95">
+            <i class="ph-bold ph-plus"></i>
+            <span>แจ้งซ่อมครุภัณฑ์</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick KPI Stats Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-2xl">
+            <i class="ph ph-receipt"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 font-medium">รายการแจ้งซ่อมทั้งหมด</p>
+            <p class="text-xl font-bold text-slate-800" id="stat-maint-total">2 รายการ</p>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl">
+            <i class="ph ph-clock"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 font-medium">กำลังส่งซ่อม / รอดำเนินการ</p>
+            <p class="text-xl font-bold text-amber-600" id="stat-maint-pending">1 รายการ</p>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl">
+            <i class="ph ph-check-circle"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 font-medium">ซ่อมเสร็จแล้ว</p>
+            <p class="text-xl font-bold text-emerald-600" id="stat-maint-completed">1 รายการ</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs & Search Toolbar -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <!-- Tabs -->
+        <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-auto">
+          <button id="tab-maint-all" onclick="setMaintTab('all')" class="maint-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-orange-600 shadow-sm transition">
+            ทั้งหมด
+          </button>
+          <button id="tab-maint-pending" onclick="setMaintTab('pending')" class="maint-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+          กำลังส่งซ่อม
+          </button>
+          <button id="tab-maint-completed" onclick="setMaintTab('completed')" class="maint-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+            ซ่อมเสร็จแล้ว
+          </button>
+        </div>
+
+        <!-- Search input -->
+        <div class="relative w-full sm:w-72">
+          <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+          <input type="text" 
+            id="search-maint-input"
+            oninput="renderMaintenanceTable()"
+            placeholder="ค้นหาเลขที่, ครุภัณฑ์, อาการ..." 
+            class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
+        </div>
+      </div>
+
+      <!-- DATA TABLE -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50/80 text-slate-600 border-b border-slate-200 text-xs font-semibold">
+                <th class="py-3.5 px-4 w-28">เลขที่แจ้งซ่อม</th>
+                <th class="py-3.5 px-4">ครุภัณฑ์</th>
+                <th class="py-3.5 px-4">อาการ / ปัญหาที่พบ</th>
+                <th class="py-3.5 px-4 w-32">ผู้แจ้งซ่อม</th>
+                <th class="py-3.5 px-4 w-28">วันที่แจ้ง</th>
+                <th class="py-3.5 px-4 text-center w-32">สถานะ</th>
+                <th class="py-3.5 px-4 text-center w-28">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100" id="maint-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- MODAL: ADD REPAIR -->
+  <div id="modal-repair" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all">
+      <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center text-xl">
+            <i class="ph-bold ph-wrench"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">แจ้งซ่อมครุภัณฑ์</h3>
+            <p class="text-xs text-slate-500">บันทึกข้อมูลและอาการเสียของครุภัณฑ์</p>
+          </div>
+        </div>
+        <button onclick="closeAddRepairModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveRepairAction(event)" class="p-6 space-y-4 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">เลือกครุภัณฑ์ที่ต้องการแจ้งซ่อม <span class="text-red-500">*</span></label>
+          <select id="repair-form-asset" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 transition"></select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">อาการ / ปัญหาที่พบ <span class="text-red-500">*</span></label>
+          <textarea id="repair-form-problem" required rows="3" placeholder="ระบุอาการเสีย เช่น เปิดเครื่องไม่ติด, กระดาษติดบ่อย, หน้าจอแตก" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 transition"></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">ผู้แจ้งซ่อม <span class="text-red-500">*</span></label>
+            <input type="text" id="repair-form-reporter" required placeholder="เช่น สมเกียรติ มั่นคง" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 transition">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">วันที่แจ้งซ่อม <span class="text-red-500">*</span></label>
+            <input type="date" id="repair-form-date" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 transition">
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeAddRepairModal()" class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
+            ยกเลิก
+          </button>
+          <button type="submit" class="px-5 py-2.5 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-md shadow-orange-500/20 transition active:scale-95">
+            บันทึกแจ้งซ่อม
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/supabase-config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/maintenance.js"></script>
+</body>
+</html>

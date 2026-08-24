@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>สถานที่ / ห้อง - ระบบบริหารจัดการครุภัณฑ์</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 flex h-screen overflow-hidden">
+
+  <div id="sidebar-container"></div>
+
+  <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <div id="header-container"></div>
+
+    <main class="p-8 space-y-6 max-w-7xl w-full mx-auto pb-16">
+
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <span class="p-2 bg-pink-50 rounded-xl text-pink-600 border border-pink-200/80">
+            <i class="ph-fill ph-map-pin text-xl"></i>
+          </span>
+          <div>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">สถานที่ / ห้อง</h2>
+            <p class="text-sm text-slate-500 mt-0.5">จัดการโครงสร้าง 3 ระดับ: อาคาร → ชั้น → ห้อง</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-fit">
+        <button id="tab-btn-buildings" onclick="setLocTab('buildings')" class="px-4 py-2 rounded-lg text-sm font-medium transition">อาคาร</button>
+        <button id="tab-btn-floors" onclick="setLocTab('floors')" class="px-4 py-2 rounded-lg text-sm font-medium transition">ชั้น</button>
+        <button id="tab-btn-rooms" onclick="setLocTab('rooms')" class="px-4 py-2 rounded-lg text-sm font-medium transition">ห้อง</button>
+      </div>
+
+      <!-- BUILDINGS PANEL -->
+      <section id="panel-buildings" class="space-y-4">
+        <div class="flex justify-between items-center">
+          <h3 class="font-semibold text-slate-800">รายการอาคาร</h3>
+          <button onclick="openAddBuildingModal()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium text-sm shadow-md shadow-blue-500/20 transition active:scale-95">
+            <i class="ph-bold ph-plus"></i><span>เพิ่มอาคาร</span>
+          </button>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+              <tr>
+                <th class="py-3 px-4 text-left">รหัส</th>
+                <th class="py-3 px-4 text-left">ชื่ออาคาร</th>
+                <th class="py-3 px-4 text-center">จำนวนชั้น</th>
+                <th class="py-3 px-4 text-center">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="building-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- FLOORS PANEL -->
+      <section id="panel-floors" class="space-y-4 hidden">
+        <div class="flex justify-between items-center">
+          <h3 class="font-semibold text-slate-800">รายการชั้น</h3>
+          <button onclick="openAddFloorModal()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium text-sm shadow-md shadow-blue-500/20 transition active:scale-95">
+            <i class="ph-bold ph-plus"></i><span>เพิ่มชั้น</span>
+          </button>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+              <tr>
+                <th class="py-3 px-4 text-left">อาคาร</th>
+                <th class="py-3 px-4 text-left">ชั้นที่</th>
+                <th class="py-3 px-4 text-left">ชื่อชั้น</th>
+                <th class="py-3 px-4 text-center">จำนวนห้อง</th>
+                <th class="py-3 px-4 text-center">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="floor-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ROOMS PANEL -->
+      <section id="panel-rooms" class="space-y-4">
+        <div class="flex justify-between items-center">
+          <h3 class="font-semibold text-slate-800">รายการห้อง</h3>
+          <button onclick="openAddRoomModal()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium text-sm shadow-md shadow-blue-500/20 transition active:scale-95">
+            <i class="ph-bold ph-plus"></i><span>เพิ่มห้อง</span>
+          </button>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+              <tr>
+                <th class="py-3 px-4 text-left">รหัส</th>
+                <th class="py-3 px-4 text-left">ชื่อห้อง</th>
+                <th class="py-3 px-4 text-left">อาคาร / ชั้น</th>
+                <th class="py-3 px-4 text-left">ผู้รับผิดชอบ</th>
+                <th class="py-3 px-4 text-center">ครุภัณฑ์ในห้อง</th>
+                <th class="py-3 px-4 text-center">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="room-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL: Building -->
+  <div id="modal-building" class="hidden fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+      <h3 id="modal-building-title" class="text-lg font-bold text-slate-900">เพิ่มอาคาร</h3>
+      <form onsubmit="saveBuilding(event)" class="space-y-3">
+        <input type="hidden" id="building-form-id">
+        <div>
+          <label class="text-xs font-medium text-slate-600">รหัสอาคาร (ถ้ามี)</label>
+          <input id="building-form-code" class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">ชื่ออาคาร *</label>
+          <input id="building-form-name" required class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-building')" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Floor -->
+  <div id="modal-floor" class="hidden fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+      <h3 id="modal-floor-title" class="text-lg font-bold text-slate-900">เพิ่มชั้น</h3>
+      <form onsubmit="saveFloor(event)" class="space-y-3">
+        <input type="hidden" id="floor-form-id">
+        <div>
+          <label class="text-xs font-medium text-slate-600">อาคาร *</label>
+          <select id="floor-form-building" required class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm"></select>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">ชั้นที่ *</label>
+          <input type="number" id="floor-form-number" required class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">ชื่อชั้น (ถ้ามี)</label>
+          <input id="floor-form-name" class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-floor')" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Room -->
+  <div id="modal-room" class="hidden fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+      <h3 id="modal-room-title" class="text-lg font-bold text-slate-900">เพิ่มห้อง</h3>
+      <form onsubmit="saveRoom(event)" class="space-y-3">
+        <input type="hidden" id="room-form-id">
+        <div>
+          <label class="text-xs font-medium text-slate-600">ชั้น *</label>
+          <select id="room-form-floor" required class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm"></select>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">รหัสห้อง (ถ้ามี)</label>
+          <input id="room-form-code" class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">ชื่อห้อง *</label>
+          <input id="room-form-name" required class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">ผู้รับผิดชอบ</label>
+          <input id="room-form-person" class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">เบอร์ติดต่อ</label>
+          <input id="room-form-phone" class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">รายละเอียด</label>
+          <textarea id="room-form-desc" rows="2" class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-room')" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100">ยกเลิก</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/supabase-config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/locations.js"></script>
+</body>
+</html>

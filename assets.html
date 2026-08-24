@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>รายการครุภัณฑ์ - ระบบบริหารจัดการครุภัณฑ์</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 flex h-screen overflow-hidden">
+
+  <!-- Sidebar Navigation -->
+  <div id="sidebar-container"></div>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <!-- Header Topbar -->
+    <div id="header-container"></div>
+
+    <main class="p-8 space-y-6 max-w-7xl w-full mx-auto pb-16">
+      
+      <!-- Page Title & Top Actions -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <span>รายการครุภัณฑ์</span>
+            <span id="active-category-filter-badge" class="hidden text-xs bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-medium border border-blue-200">
+              กรองตามหมวดหมู่
+            </span>
+            <span id="active-location-filter-badge" class="hidden text-xs bg-pink-100 text-pink-800 px-2.5 py-1 rounded-full font-medium border border-pink-200">
+              กรองตามสถานที่
+            </span>
+          </h2>
+          <p class="text-sm text-slate-500 mt-0.5">ค้นหา กรอง ตรวจสอบ และจัดการข้อมูลครุภัณฑ์ทั้งหมดในระบบ</p>
+        </div>
+
+        <div class="flex items-center flex-wrap gap-2.5">
+          <button onclick="openAddAssetModal()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md shadow-blue-500/20 transition active:scale-95">
+            <i class="ph-bold ph-plus"></i>
+            <span>เพิ่มครุภัณฑ์</span>
+          </button>
+          <button onclick="showToast('ดาวน์โหลดรายงาน PDF เรียบร้อย')" class="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3.5 py-2.5 rounded-xl font-medium text-sm shadow-sm transition">
+            <i class="ph ph-file-pdf text-red-500 text-base"></i>
+            <span>PDF A4</span>
+          </button>
+          <button onclick="showToast('ส่งออกไฟล์ CSV สำเร็จ')" class="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3.5 py-2.5 rounded-xl font-medium text-sm shadow-sm transition">
+            <i class="ph ph-file-csv text-emerald-600 text-base"></i>
+            <span>CSV</span>
+          </button>
+          <button onclick="window.print()" class="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3.5 py-2.5 rounded-xl font-medium text-sm shadow-sm transition">
+            <i class="ph ph-printer text-slate-600 text-base"></i>
+            <span>พิมพ์</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick KPI Stats Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl">
+            <i class="ph ph-cube"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 font-medium">ครุภัณฑ์ทั้งหมด</p>
+            <p class="text-xl font-bold text-slate-800" id="stat-total-assets">1,248 <span class="text-xs font-normal text-slate-500">ชิ้น</span></p>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl">
+            <i class="ph ph-check-circle"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 font-medium">ใช้งานปกติ</p>
+            <p class="text-xl font-bold text-emerald-600">1,180 <span class="text-xs font-normal text-slate-500">ชิ้น</span></p>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-2xl">
+            <i class="ph ph-hand-coins"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 font-medium">ยืมใช้งาน</p>
+            <p class="text-xl font-bold text-sky-600">45 <span class="text-xs font-normal text-slate-500">ชิ้น</span></p>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl">
+            <i class="ph ph-wrench"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 font-medium">ส่งซ่อม / ชำรุด</p>
+            <p class="text-xl font-bold text-amber-600">23 <span class="text-xs font-normal text-slate-500">ชิ้น</span></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter & Search Control Panel -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div class="md:col-span-4 relative">
+            <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+            <input type="text" 
+              id="filter-asset-search"
+              oninput="renderAssetTable()"
+              placeholder="ค้นหาเลขครุภัณฑ์, ชื่อ, ยี่ห้อ, รุ่น, ผู้รับ..." 
+              class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+          </div>
+
+          <div class="md:col-span-3">
+            <select id="filter-asset-category" onchange="renderAssetTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+              <option value="">ทุกหมวดหมู่ครุภัณฑ์</option>
+            </select>
+          </div>
+
+          <div class="md:col-span-3">
+            <select id="filter-asset-location" onchange="renderAssetTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+              <option value="">ทุกสถานที่ / ห้อง</option>
+            </select>
+          </div>
+
+          <div class="md:col-span-2">
+            <select id="filter-asset-status" onchange="renderAssetTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+              <option value="">ทุกสถานะ</option>
+              <option value="in_use">ใช้งานปกติ</option>
+              <option value="borrowed">ยืมใช้งาน</option>
+              <option value="maintenance">ส่งซ่อม</option>
+              <option value="disposed">จำหน่าย/ตัดบัญชี</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- DATA TABLE -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50/80 text-slate-600 border-b border-slate-200 text-xs font-semibold">
+                <th class="py-3.5 px-4 w-16 text-center">รูป</th>
+                <th class="py-3.5 px-4">เลขครุภัณฑ์</th>
+                <th class="py-3.5 px-4">รายการ / ยี่ห้อ / รุ่น</th>
+                <th class="py-3.5 px-4">หมวดหมู่</th>
+                <th class="py-3.5 px-4">สถานที่</th>
+                <th class="py-3.5 px-4">ผู้รับผิดชอบ</th>
+                <th class="py-3.5 px-4 text-center">สถานะ</th>
+                <th class="py-3.5 px-4 text-center">สภาพ</th>
+                <th class="py-3.5 px-4 text-center w-28">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100" id="asset-table-body"></tbody>
+          </table>
+        </div>
+
+        <div class="px-6 py-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600">
+          <div id="asset-table-count-text">กำลังโหลดข้อมูล...</div>
+          <div class="flex items-center gap-1">
+            <button class="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500 disabled:opacity-40" disabled>
+              <i class="ph ph-caret-left"></i>
+            </button>
+            <button class="w-8 h-8 rounded-lg bg-blue-600 text-white font-medium text-xs">1</button>
+            <button class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-700 font-medium text-xs">2</button>
+            <button class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-700 font-medium text-xs">3</button>
+            <span class="px-1 text-slate-400">...</span>
+            <button class="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700">
+              <i class="ph ph-caret-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- MODAL: ADD ASSET -->
+  <div id="modal-asset" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all max-h-[90vh] flex flex-col">
+      <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+            <i class="ph-bold ph-cube"></i>
+          </div>
+          <div>
+            <h3 id="modal-asset-title" class="text-lg font-bold text-slate-900">เพิ่มรายการครุภัณฑ์ใหม่</h3>
+            <p class="text-xs text-slate-500">บันทึกข้อมูลและอัปโหลดรูปภาพครุภัณฑ์เข้าระบบ</p>
+          </div>
+        </div>
+        <button onclick="closeAddAssetModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form id="form-asset" onsubmit="saveAsset(event)" class="p-6 space-y-4 text-sm overflow-y-auto flex-1">
+        <input type="hidden" id="asset-form-id">
+
+        
+        <!-- IMAGE UPLOAD FIELD -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">รูปภาพครุภัณฑ์</label>
+          <div class="flex items-center gap-4 p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
+            <!-- Preview Thumbnail Box -->
+            <div id="asset-image-preview-container" class="w-20 h-20 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 overflow-hidden flex-shrink-0 shadow-xs relative">
+              <img id="asset-image-preview" src="" class="w-full h-full object-cover hidden">
+              <div id="asset-image-placeholder" class="flex flex-col items-center justify-center text-slate-400">
+                <i class="ph ph-image text-2xl"></i>
+                <span class="text-[10px] mt-0.5 font-medium">ไม่มีรูป</span>
+              </div>
+            </div>
+
+            <!-- Upload Controls -->
+            <div class="flex-1 min-w-0">
+              <input type="file" id="asset-form-image-file" accept="image/*" onchange="handleImageUpload(event)" class="hidden">
+              <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" onclick="document.getElementById('asset-form-image-file').click()" class="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-medium border border-slate-200 transition flex items-center gap-1.5 shadow-2xs">
+                  <i class="ph-bold ph-upload-simple text-blue-600"></i>
+                  <span>เลือกไฟล์รูปภาพ...</span>
+                </button>
+                <button type="button" id="btn-remove-image" onclick="removeUploadedImage()" class="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-medium border border-red-200 transition hidden">
+                  ลบรูป
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1.5">รองรับไฟล์ JPG, PNG, WEBP (แปลงเก็บในระบบทันที)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">เลขครุภัณฑ์ <span class="text-red-500">*</span></label>
+            <input type="text" id="asset-form-code" required placeholder="เช่น DEMO-2569-007" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">หมวดหมู่ครุภัณฑ์ <span class="text-red-500">*</span></label>
+            <select id="asset-form-category" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"></select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">ชื่อรายการครุภัณฑ์ <span class="text-red-500">*</span></label>
+          <input type="text" id="asset-form-name" required placeholder="เช่น คอมพิวเตอร์ All-in-One ประจำห้องธุรการ" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">ยี่ห้อ / รุ่น</label>
+            <input type="text" id="asset-form-model" placeholder="เช่น HP Pavilion 24" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">สถานที่จัดเก็บ / ห้อง <span class="text-red-500">*</span></label>
+            <select id="asset-form-location" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">ผู้รับผิดชอบ</label>
+            <input type="text" id="asset-form-person" placeholder="เช่น สมเกียรติ มั่นคง" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">สถานะ</label>
+            <select id="asset-form-status" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+              <option value="in_use">ใช้งานปกติ</option>
+              <option value="borrowed">ยืมใช้งาน</option>
+              <option value="maintenance">ส่งซ่อม</option>
+              <option value="disposed">จำหน่าย/ตัดบัญชี</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">สภาพ</label>
+            <select id="asset-form-condition" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+              <option value="ดี">ดี</option>
+              <option value="พอใช้">พอใช้</option>
+              <option value="ชำรุด">ชำรุด</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5 flex-shrink-0">
+          <button type="button" onclick="closeAddAssetModal()" class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
+            ยกเลิก
+          </button>
+          <button type="submit" class="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition active:scale-95">
+            บันทึกครุภัณฑ์
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: FULL IMAGE LIGHTBOX -->
+  <div id="modal-image-preview" class="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4" onclick="closeFullImage()">
+    <div class="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all" onclick="event.stopPropagation()">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div>
+          <h3 class="text-base font-bold text-slate-900" id="lightbox-title">รูปภาพครุภัณฑ์</h3>
+          <p class="text-xs text-slate-500 font-mono" id="lightbox-code"></p>
+        </div>
+        <button onclick="closeFullImage()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+      <div class="p-6 bg-slate-100/60 flex items-center justify-center">
+        <img id="lightbox-img" src="" class="max-h-[65vh] w-auto max-w-full rounded-2xl object-contain shadow-md border border-slate-200">
+      </div>
+    </div>
+  </div>
+
+  <script src="js/supabase-config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/assets.js"></script>
+</body>
+</html>
