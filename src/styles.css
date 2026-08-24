@@ -163,6 +163,9 @@ input:focus, select:focus { outline: 2px solid var(--navy-700); outline-offset: 
 /* ---------------------------------------------------------------------- */
 .detail-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; align-items: start; }
 .detail-asset-image { width: 100%; max-width: 320px; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 14px; display: block; object-fit: cover; }
+.asset-hero-image { width: 100%; height: 300px; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-md); margin-bottom: 20px; background: var(--surface); border: 1px solid var(--border); }
+.asset-hero-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.asset-hero-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: repeating-linear-gradient(45deg, #f2f4f7, #f2f4f7 10px, #eaedf3 10px, #eaedf3 20px); color: var(--text-secondary); font-size: 0.95rem; font-weight: 500; }
 .detail-info dl { display: grid; grid-template-columns: 140px 1fr; row-gap: 8px; background: var(--surface); padding: 18px; border-radius: var(--radius); box-shadow: var(--shadow-sm); }
 .detail-info dt { color: var(--text-secondary); font-size: 0.85rem; }
 .detail-info dd { margin: 0; font-weight: 500; }

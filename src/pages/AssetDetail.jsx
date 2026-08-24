@@ -114,6 +114,16 @@ export default function AssetDetail() {
         <StatusBadge status={asset.status} />
       </div>
 
+      <div className="asset-hero-image">
+        {asset.image_url ? (
+          <img src={asset.image_url} alt={asset.name} />
+        ) : (
+          <div className="asset-hero-placeholder">
+            <span>ไม่มีรูปภาพประกอบ</span>
+          </div>
+        )}
+      </div>
+
       {user && (
         <div className="form-actions" style={{ marginBottom: 16 }}>
           <Link to={`/assets/${asset.id}/edit`} className="btn btn-secondary">
@@ -124,9 +134,6 @@ export default function AssetDetail() {
 
       <div className="detail-grid">
         <div className="detail-info">
-          {asset.image_url && (
-            <img src={asset.image_url} alt={asset.name} className="detail-asset-image" />
-          )}
           <dl>
             <dt>รหัสครุภัณฑ์</dt>
             <dd>{asset.asset_code}</dd>
