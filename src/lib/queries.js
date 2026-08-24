@@ -233,7 +233,14 @@ export async function listBuildings() {
 }
 
 export async function createBuilding(name, code) {
-  const { data, error } = await supabase.from("buildings").insert({ name, code }).select().single();
+  const { data, error } = await supabase
+    .from("buildings")
+    .insert({
+      name: String(name).trim(),
+      code: code && code.trim() !== "" ? code.trim() : null,
+    })
+    .select()
+    .single();
   if (error) throw error;
   return data;
 }
@@ -241,7 +248,10 @@ export async function createBuilding(name, code) {
 export async function updateBuilding(id, name, code) {
   const { data, error } = await supabase
     .from("buildings")
-    .update({ name, code })
+    .update({
+      name: String(name).trim(),
+      code: code && code.trim() !== "" ? code.trim() : null,
+    })
     .eq("id", id)
     .select()
     .single();
@@ -255,19 +265,42 @@ export async function deleteBuilding(id) {
 }
 
 export async function listFloors(buildingId) {
-  let query = supabase.from("floors").select("*, buildings(name)").order("floor_number");
-  if (buildingId) query = query.eq("building_id", buildingId);
+  let query = supabase.from("floors").select("*, buildings(id, name)").order("floor_number");
+  if (buildingId && buildingId !== "") query = query.eq("building_id", buildingId);
   const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
 
 export async function createFloor(buildingId, floorNumber, floorName) {
+  let targetBuildingId = buildingId && buildingId !== "" ? buildingId : null;
+
+  // ถ้ายังไม่มีอาคาร ให้หาหรือสร้างอาคารหลักอัตโนมัติ
+  if (!targetBuildingId) {
+    const { data: existingBuildings } = await supabase.from("buildings").select("id").limit(1);
+    if (existingBuildings && existingBuildings.length > 0) {
+      targetBuildingId = existingBuildings[0].id;
+    } else {
+      const { data: newBuilding, error: bErr } = await supabase
+        .from("buildings")
+        .insert({ name: "อาคารหลัก", code: "BLD-01" })
+        .select()
+        .single();
+      if (bErr) throw bErr;
+      targetBuildingId = newBuilding.id;
+    }
+  }
+
   const { data, error } = await supabase
     .from("floors")
-    .insert({ building_id: buildingId, floor_number: floorNumber, floor_name: floorName })
+    .insert({
+      building_id: targetBuildingId,
+      floor_number: Number(floorNumber) || 1,
+      floor_name: floorName && floorName.trim() !== "" ? floorName.trim() : `ชั้น ${floorNumber || 1}`,
+    })
     .select()
     .single();
+
   if (error) throw error;
   return data;
 }
@@ -275,7 +308,10 @@ export async function createFloor(buildingId, floorNumber, floorName) {
 export async function updateFloor(id, floorNumber, floorName) {
   const { data, error } = await supabase
     .from("floors")
-    .update({ floor_number: floorNumber, floor_name: floorName })
+    .update({
+      floor_number: Number(floorNumber) || 1,
+      floor_name: floorName && floorName.trim() !== "" ? floorName.trim() : null,
+    })
     .eq("id", id)
     .select()
     .single();
@@ -293,18 +329,55 @@ export async function listRooms(floorId) {
     .from("rooms")
     .select("*, floors(id, floor_number, buildings(id, name))")
     .order("room_name");
-  if (floorId) query = query.eq("floor_id", floorId);
+  if (floorId && floorId !== "") query = query.eq("floor_id", floorId);
   const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
 
 export async function createRoom(floorId, roomName, roomCode) {
+  let targetFloorId = floorId && floorId !== "" ? floorId : null;
+
+  // ถ้ายังไม่มี floorId ที่ส่งมา ให้หาหรือสร้างชั้น/ตึกตั้งต้นอัตโนมัติ
+  if (!targetFloorId) {
+    const { data: existingFloors } = await supabase.from("floors").select("id").limit(1);
+    if (existingFloors && existingFloors.length > 0) {
+      targetFloorId = existingFloors[0].id;
+    } else {
+      let targetBuildingId;
+      const { data: existingBuildings } = await supabase.from("buildings").select("id").limit(1);
+      if (existingBuildings && existingBuildings.length > 0) {
+        targetBuildingId = existingBuildings[0].id;
+      } else {
+        const { data: newBuilding, error: bErr } = await supabase
+          .from("buildings")
+          .insert({ name: "อาคารหลัก", code: "BLD-01" })
+          .select()
+          .single();
+        if (bErr) throw bErr;
+        targetBuildingId = newBuilding.id;
+      }
+
+      const { data: newFloor, error: fErr } = await supabase
+        .from("floors")
+        .insert({ building_id: targetBuildingId, floor_number: 1, floor_name: "ชั้น 1" })
+        .select()
+        .single();
+      if (fErr) throw fErr;
+      targetFloorId = newFloor.id;
+    }
+  }
+
   const { data, error } = await supabase
     .from("rooms")
-    .insert({ floor_id: floorId, room_name: roomName, room_code: roomCode })
+    .insert({
+      floor_id: targetFloorId,
+      room_name: String(roomName).trim(),
+      room_code: roomCode && roomCode.trim() !== "" ? roomCode.trim() : null,
+    })
     .select()
     .single();
+
   if (error) throw error;
   return data;
 }
@@ -312,7 +385,10 @@ export async function createRoom(floorId, roomName, roomCode) {
 export async function updateRoom(id, roomName, roomCode) {
   const { data, error } = await supabase
     .from("rooms")
-    .update({ room_name: roomName, room_code: roomCode })
+    .update({
+      room_name: String(roomName).trim(),
+      room_code: roomCode && roomCode.trim() !== "" ? roomCode.trim() : null,
+    })
     .eq("id", id)
     .select()
     .single();
