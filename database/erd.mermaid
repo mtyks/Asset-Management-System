@@ -1,0 +1,64 @@
+erDiagram
+    BUILDINGS ||--o{ FLOORS : "has"
+    FLOORS ||--o{ ROOMS : "has"
+    ROOMS ||--o{ ASSETS : "houses"
+    ASSET_CATEGORIES ||--o{ ASSETS : "classifies"
+    ASSETS ||--o{ ASSET_STATUS_LOG : "history"
+    ASSETS ||--o{ BORROW_RECORDS : "borrow history"
+    PROFILES ||--o{ ASSET_STATUS_LOG : "changed by"
+    PROFILES ||--o{ BORROW_RECORDS : "recorded by"
+
+    BUILDINGS {
+        uuid id PK
+        text name
+        text code
+    }
+    FLOORS {
+        uuid id PK
+        uuid building_id FK
+        int floor_number
+        text floor_name
+    }
+    ROOMS {
+        uuid id PK
+        uuid floor_id FK
+        text room_name
+        text room_code
+    }
+    ASSET_CATEGORIES {
+        uuid id PK
+        text category_name
+    }
+    ASSETS {
+        uuid id PK
+        text asset_code
+        text name
+        uuid category_id FK
+        text color
+        text status
+        uuid room_id FK
+        text image_url
+        date received_date
+        text responsible_person
+    }
+    ASSET_STATUS_LOG {
+        uuid id PK
+        uuid asset_id FK
+        text old_status
+        text new_status
+        uuid changed_by FK
+        timestamptz changed_at
+    }
+    BORROW_RECORDS {
+        uuid id PK
+        uuid asset_id FK
+        text borrower_name
+        date due_date
+        timestamptz returned_at
+        uuid created_by FK
+    }
+    PROFILES {
+        uuid id PK
+        text full_name
+        text role
+    }

@@ -1,111 +1,20 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - ระบบบริหารจัดการครุภัณฑ์</title>
-  <link rel="stylesheet" href="css/style.css">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-</head>
-<body class="bg-slate-50 text-slate-800 flex h-screen overflow-hidden">
-
-  <!-- Sidebar Navigation -->
-  <div id="sidebar-container"></div>
-
-  <!-- Main Content -->
-  <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
-    <!-- Header Topbar -->
-    <div id="header-container"></div>
-
-    <main class="p-8 space-y-6 max-w-7xl w-full mx-auto pb-16">
-      
-      <!-- Welcome Hero Banner -->
-      <div class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden">
-        <div class="relative z-10 max-w-2xl">
-          <span class="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-medium text-blue-100 inline-block mb-3">ภาพรวมระบบพัสดุและครุภัณฑ์</span>
-          <h2 class="text-3xl font-bold tracking-tight mb-2">ยินดีต้อนรับสู่ระบบบริหารจัดการครุภัณฑ์</h2>
-          <p class="text-blue-100 text-sm leading-relaxed mb-6">ระบบติดตามสถานะ ตรวจนับ และบริหารจัดการหมวดหมู่และสถานที่จัดเก็บครุภัณฑ์แบบเรียลไทม์</p>
-          <div class="flex flex-wrap gap-3">
-            <a href="assets.html" class="bg-white text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-xl text-sm font-semibold transition shadow">
-              ดูรายการครุภัณฑ์
-            </a>
-            <a href="categories.html" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white px-4 py-2 rounded-xl text-sm font-semibold transition border border-white/20">
-              จัดการหมวดหมู่
-            </a>
-            <a href="locations.html" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white px-4 py-2 rounded-xl text-sm font-semibold transition border border-white/20">
-              จัดการสถานที่ / ห้อง
-            </a>
-          </div>
-        </div>
-        <div class="absolute right-4 bottom-4 text-white/10 text-9xl pointer-events-none hidden lg:block">
-          <i class="ph ph-package"></i>
-        </div>
-      </div>
-
-      <!-- Overview Stats Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        <!-- Category Distribution -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h3 class="font-semibold text-slate-800 text-base flex items-center justify-between">
-            <span>สัดส่วนครุภัณฑ์ตามหมวดหมู่</span>
-            <a href="categories.html" class="text-xs text-blue-600 font-normal hover:underline">ดูทั้งหมด</a>
-          </h3>
-          <div class="space-y-3" id="dashboard-category-bars"></div>
-        </div>
-
-        <!-- Location Distribution -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h3 class="font-semibold text-slate-800 text-base flex items-center justify-between">
-            <span>ครุภัณฑ์แยกตามสถานที่</span>
-            <a href="locations.html" class="text-xs text-pink-600 font-normal hover:underline">ดูทั้งหมด</a>
-          </h3>
-          <div class="space-y-3" id="dashboard-location-bars"></div>
-        </div>
-
-        <!-- Quick Actions & Status -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between">
-          <div>
-            <h3 class="font-semibold text-slate-800 text-base mb-3">การดำเนินการด่วน</h3>
-            <div class="space-y-2">
-              <a href="assets.html" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 flex items-center justify-between text-sm transition group">
-                <span class="flex items-center gap-2.5 text-slate-700 font-medium group-hover:text-blue-700">
-                  <i class="ph ph-plus-circle text-lg text-blue-500"></i>
-                  บันทึกรับครุภัณฑ์ใหม่
-                </span>
-                <i class="ph ph-arrow-right text-slate-400 group-hover:text-blue-600"></i>
-              </a>
-              <a href="categories.html" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 flex items-center justify-between text-sm transition group">
-                <span class="flex items-center gap-2.5 text-slate-700 font-medium group-hover:text-blue-700">
-                  <i class="ph ph-plus-circle text-lg text-amber-500"></i>
-                  เพิ่มหมวดหมู่ใหม่
-                </span>
-                <i class="ph ph-arrow-right text-slate-400 group-hover:text-blue-600"></i>
-              </a>
-              <a href="locations.html" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-pink-400 hover:bg-pink-50/40 flex items-center justify-between text-sm transition group">
-                <span class="flex items-center gap-2.5 text-slate-700 font-medium group-hover:text-pink-700">
-                  <i class="ph ph-plus-circle text-lg text-pink-500"></i>
-                  เพิ่มสถานที่ / ห้องใหม่
-                </span>
-                <i class="ph ph-arrow-right text-slate-400 group-hover:text-pink-600"></i>
-              </a>
-            </div>
-          </div>
-          <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 flex items-center gap-2">
-            <i class="ph ph-info text-blue-500 text-base flex-shrink-0"></i>
-            <span>ระบบจัดหมวดหมู่และสถานที่ช่วยให้การค้นหาและตรวจนับสะดวกรวดเร็วยิ่งขึ้น</span>
-          </div>
-        </div>
-
-      </div>
-    </main>
-  </div>
-
-  <script src="js/supabase-config.js"></script>
-  <script src="js/data.js"></script>
-  <script src="js/layout.js"></script>
-  <script src="js/dashboard.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1f3864" />
+    <title>ระบบจัดการครุภัณฑ์</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
