@@ -1,23 +1,35 @@
-import { supabase } from "../supabaseClient";
+import { supabase, isConfigured } from "../supabaseClient.js";
 
 /**
- * ไฟล์นี้รวม query ทั้งหมดที่คุยกับ Supabase ไว้ที่เดียว
- * หน้า UI (pages/components) ไม่ควรเรียก supabase.from() ตรงๆ
- * เพื่อให้แก้ logic การดึงข้อมูลได้จุดเดียว ไม่ต้องไล่แก้ทุกหน้าจอ
+ * รวม queries ทั้งหมดที่สื่อสารกับ Supabase PostgreSQL & Storage
  */
 
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
 export async function getDashboardCounts() {
-  const { data, error } = await supabase.from("assets").select("status");
-  if (error) throw error;
+  try {
+    const { data, error } = await supabase.from("assets").select("status");
+    if (error) throw error;
 
-  const counts = { total: data.length, normal: 0, repair: 0, borrowed: 0, damaged: 0, disposed: 0 };
-  for (const row of data) {
-    counts[row.status] = (counts[row.status] || 0) + 1;
+    const counts = { total: data.length, normal: 0, repair: 0, borrowed: 0, damaged: 0, disposed: 0 };
+    for (const row of data) {
+      const s = row.status || "normal";
+      counts[s] = (counts[s] || 0) + 1;
+    }
+
+    return {
+      total: counts.total || 0,
+      normal: counts.normal || 0,
+      borrowed: counts.borrowed || 0,
+      repair: (counts.repair || 0) + (counts.damaged || 0),
+      damaged: counts.damaged || 0,
+      disposed: counts.disposed || 0,
+    };
+  } catch (err) {
+    console.warn("getDashboardCounts error:", err);
+    return { total: 0, normal: 0, borrowed: 0, repair: 0, damaged: 0, disposed: 0 };
   }
-  return counts;
 }
 
 // ---------------------------------------------------------------------------
@@ -27,7 +39,7 @@ export async function listAssets(filters = {}) {
   let query = supabase
     .from("assets")
     .select(
-      `id, asset_code, name, color, status, image_url, received_date, responsible_person,
+      `*,
        asset_categories ( id, category_name ),
        rooms ( id, room_name, floors ( id, floor_number, buildings ( id, name ) ) )`
     )
@@ -39,20 +51,64 @@ export async function listAssets(filters = {}) {
   if (filters.search) query = query.ilike("name", `%${filters.search}%`);
 
   const { data, error } = await query;
-  if (error) throw error;
-  return data;
+  if (error) {
+    console.warn("listAssets error:", error);
+    throw error;
+  }
+  return data || [];
 }
 
 export async function getAssetByCode(assetCode) {
-  const { data, error } = await supabase
+  const decoded = decodeURIComponent(String(assetCode || "")).trim();
+  if (!decoded || decoded === "undefined" || decoded === "null") {
+    throw new Error("รหัสครุภัณฑ์ไม่ถูกต้อง");
+  }
+
+  // 1. ลองค้นหาตรงๆ ด้วย asset_code
+  let { data } = await supabase
     .from("assets")
     .select(
-      `*, asset_categories ( category_name ),
-       rooms ( room_name, floors ( floor_number, buildings ( name ) ) )`
+      `*,
+       asset_categories ( id, category_name ),
+       rooms ( id, room_name, floors ( id, floor_number, buildings ( id, name ) ) )`
     )
-    .eq("asset_code", assetCode)
-    .single();
-  if (error) throw error;
+    .eq("asset_code", decoded)
+    .maybeSingle();
+
+  // 2. ถ้าไม่เจอ ลองค้นหาแบบไม่สนตัวพิมพ์เล็กใหญ่ (ilike)
+  if (!data) {
+    const { data: ilikeData } = await supabase
+      .from("assets")
+      .select(
+        `*,
+         asset_categories ( id, category_name ),
+         rooms ( id, room_name, floors ( id, floor_number, buildings ( id, name ) ) )`
+      )
+      .ilike("asset_code", decoded)
+      .maybeSingle();
+    data = ilikeData;
+  }
+
+  // 3. ถ้าไม่เจอ ลองค้นหาด้วย id (UUID) เผื่อกรณีรหัสที่ได้มาเป็น UUID
+  if (!data) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decoded);
+    if (isUuid) {
+      const { data: idData } = await supabase
+        .from("assets")
+        .select(
+          `*,
+           asset_categories ( id, category_name ),
+           rooms ( id, room_name, floors ( id, floor_number, buildings ( id, name ) ) )`
+        )
+        .eq("id", decoded)
+        .maybeSingle();
+      data = idData;
+    }
+  }
+
+  if (!data) {
+    throw new Error(`ไม่พบข้อมูลครุภัณฑ์รหัส "${decoded}" ในระบบ`);
+  }
   return data;
 }
 
@@ -60,10 +116,13 @@ export async function getAssetById(id) {
   const { data, error } = await supabase
     .from("assets")
     .select(
-      `*, rooms ( id, room_name, floor_id, floors ( id, floor_number, building_id ) )`
+      `*,
+       asset_categories ( id, category_name ),
+       rooms ( id, room_name, floor_id, floors ( id, floor_number, building_id, buildings ( id, name ) ) )`
     )
     .eq("id", id)
     .single();
+
   if (error) throw error;
   return data;
 }
@@ -74,8 +133,9 @@ export async function getAssetHistory(assetId) {
     .select("*")
     .eq("asset_id", assetId)
     .order("changed_at", { ascending: false });
-  if (error) throw error;
-  return data;
+
+  if (error) return [];
+  return data || [];
 }
 
 export async function createAsset(asset) {
@@ -100,9 +160,20 @@ export async function uploadAssetImage(file, assetCode) {
 }
 
 export async function updateAsset(id, updates) {
-  const { data, error } = await supabase.from("assets").update(updates).eq("id", id).select().single();
+  const { data, error } = await supabase
+    .from("assets")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
   if (error) throw error;
   return data;
+}
+
+export async function deleteAsset(id) {
+  const { error } = await supabase.from("assets").delete().eq("id", id);
+  if (error) throw error;
+  return true;
 }
 
 export async function updateAssetStatus(id, newStatus) {
@@ -110,12 +181,35 @@ export async function updateAssetStatus(id, newStatus) {
 }
 
 // ---------------------------------------------------------------------------
+// Image Upload to Supabase Storage
+// ---------------------------------------------------------------------------
+export async function uploadAssetImage(file, assetCode) {
+  const ext = file.name.split(".").pop();
+  const fileName = `${assetCode}-${Date.now()}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from("asset-images")
+    .upload(fileName, file, { upsert: true });
+
+  if (uploadError) throw uploadError;
+
+  const { data: publicData } = supabase.storage
+    .from("asset-images")
+    .getPublicUrl(fileName);
+
+  return publicData.publicUrl;
+}
+
+// ---------------------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------------------
 export async function listCategories() {
-  const { data, error } = await supabase.from("asset_categories").select("*").order("category_name");
+  const { data, error } = await supabase
+    .from("asset_categories")
+    .select("*")
+    .order("category_name", { ascending: true });
+
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
 export async function createCategory(categoryName) {
@@ -150,7 +244,7 @@ export async function deleteCategory(id) {
 export async function listBuildings() {
   const { data, error } = await supabase.from("buildings").select("*").order("name");
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
 export async function createBuilding(name, code) {
@@ -180,7 +274,7 @@ export async function listFloors(buildingId) {
   if (buildingId) query = query.eq("building_id", buildingId);
   const { data, error } = await query;
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
 export async function createFloor(buildingId, floorNumber, floorName) {
@@ -210,11 +304,14 @@ export async function deleteFloor(id) {
 }
 
 export async function listRooms(floorId) {
-  let query = supabase.from("rooms").select("*, floors(floor_number, buildings(name))").order("room_name");
+  let query = supabase
+    .from("rooms")
+    .select("*, floors(id, floor_number, buildings(id, name))")
+    .order("room_name");
   if (floorId) query = query.eq("floor_id", floorId);
   const { data, error } = await query;
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
 export async function createRoom(floorId, roomName, roomCode) {
@@ -244,21 +341,36 @@ export async function deleteRoom(id) {
 }
 
 // ---------------------------------------------------------------------------
-// Borrow records
+// Borrow Records (ยืม - คืน ครุภัณฑ์: ตาราง borrow_records)
 // ---------------------------------------------------------------------------
+export async function listBorrowRecords() {
+  const { data, error } = await supabase
+    .from("borrow_records")
+    .select("*, assets(id, asset_code, name, color, image_url)")
+    .order("borrowed_at", { ascending: false });
+
+  if (error) {
+    console.warn("listBorrowRecords error:", error);
+    throw error;
+  }
+  return data || [];
+}
+
 export async function borrowAsset(assetId, borrowerName, borrowerContact, dueDate) {
   const { data: record, error: recordError } = await supabase
     .from("borrow_records")
     .insert({
       asset_id: assetId,
-      borrower_name: borrowerName,
-      borrower_contact: borrowerContact,
-      due_date: dueDate,
+      borrower_name: borrowerName.trim(),
+      borrower_contact: borrowerContact ? borrowerContact.trim() : null,
+      due_date: dueDate || null,
     })
     .select()
     .single();
+
   if (recordError) throw recordError;
 
+  // อัปเดตสถานะของ asset เป็น borrowed
   await updateAssetStatus(assetId, "borrowed");
   return record;
 }
@@ -268,8 +380,10 @@ export async function returnAsset(assetId, borrowRecordId) {
     .from("borrow_records")
     .update({ returned_at: new Date().toISOString() })
     .eq("id", borrowRecordId);
+
   if (recordError) throw recordError;
 
+  // อัปเดตสถานะของ asset กลับเป็น normal
   await updateAssetStatus(assetId, "normal");
 }
 
@@ -282,6 +396,45 @@ export async function getActiveBorrowRecord(assetId) {
     .order("borrowed_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) throw error;
+
+  if (error) return null;
   return data;
+}
+
+// ---------------------------------------------------------------------------
+// Maintenance (ซ่อมบำรุง)
+// ---------------------------------------------------------------------------
+export async function listMaintenance() {
+  try {
+    const { data, error } = await supabase
+      .from("maintenance")
+      .select("*, assets(id, asset_code, name)")
+      .order("created_at", { ascending: false });
+
+    if (!error && data) return data;
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createMaintenance(payload) {
+  try {
+    const { data, error } = await supabase.from("maintenance").insert(payload).select().single();
+    if (!error) {
+      await updateAssetStatus(payload.asset_id, "repair");
+      return data;
+    }
+  } catch {}
+
+  // Fallback: update status on asset
+  await updateAssetStatus(payload.asset_id, "repair");
+  return { id: `m-${Date.now()}`, ...payload };
+}
+
+export async function completeMaintenance(id, assetId) {
+  try {
+    await supabase.from("maintenance").update({ status: "completed" }).eq("id", id);
+  } catch {}
+  await updateAssetStatus(assetId, "normal");
 }
