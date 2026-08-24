@@ -1,84 +1,89 @@
 -- ============================================================================
--- Asset Management System - Database Schema (PostgreSQL / Supabase)
--- Run this entire file once in Supabase SQL Editor (Project > SQL Editor > New query)
+-- Asset Management System - Schema v3 (ไม่ใช้ uuid เป็น primary key แล้ว)
+--
+-- ⚠️ เป็น schema ชุดใหม่ทั้งหมด แทนที่ schema.sql เดิม ไม่ใช่ patch
+-- ถ้า Supabase project เดิมมีข้อมูลอยู่แล้ว ให้รัน DROP TABLE ท้ายไฟล์นี้ก่อน
+-- (ข้อมูลเดิมจะหายหมด) แนะนำสำรอง export ข้อมูลก่อนถ้ามีของจริงอยู่แล้ว
+--
+-- หลักการ: ใช้ "รหัสที่มนุษย์อ่านออก" (code) เป็น primary key โดยตรง แทน uuid
+-- เช่น B1000-41400020000/ผ.53-78 สำหรับครุภัณฑ์ ซึ่งเป็นเลขทะเบียนที่มีอยู่แล้ว
+-- ไม่ต้องมี id แยกซ้อนอีกชั้น อ่านง่ายกว่า debug ง่ายกว่า
+--
+-- ข้อยกเว้นเดียว: profiles.id และคอลัมน์ที่อ้างอิงผู้ใช้ (changed_by, created_by)
+-- ยังคงเป็น uuid เพราะผูกกับ auth.users ของ Supabase Auth ซึ่งบังคับให้เป็น uuid
+-- มาจากตัวระบบ Supabase เอง ไม่ใช่สิ่งที่เราออกแบบเองได้
 -- ============================================================================
-
-create extension if not exists "pgcrypto"; -- for gen_random_uuid()
 
 -- ----------------------------------------------------------------------------
 -- 1. LOCATION HIERARCHY: buildings -> floors -> rooms
 -- ----------------------------------------------------------------------------
 
 create table if not exists buildings (
-  id          uuid primary key default gen_random_uuid(),
-  name        text not null,
-  code        text unique,
-  created_at  timestamptz not null default now()
+  building_code  text primary key,        -- เช่น "MAIN", "TECH" (พี่กำหนดเองตอนเพิ่ม)
+  name           text not null,
+  created_at     timestamptz not null default now()
 );
 
 create table if not exists floors (
-  id            uuid primary key default gen_random_uuid(),
-  building_id   uuid not null references buildings(id) on delete restrict,
-  floor_number  int not null,
-  floor_name    text,
-  created_at    timestamptz not null default now(),
-  unique (building_id, floor_number)
+  floor_code     text primary key,        -- generate อัตโนมัติ = building_code || '-F' || floor_number
+  building_code  text not null references buildings(building_code) on delete restrict on update cascade,
+  floor_number   int not null,
+  floor_name     text,
+  created_at     timestamptz not null default now(),
+  unique (building_code, floor_number)
 );
 
 create table if not exists rooms (
-  id          uuid primary key default gen_random_uuid(),
-  floor_id    uuid not null references floors(id) on delete restrict,
+  room_code   text primary key,          -- เช่น "R101" (พี่กำหนดเอง ต้องไม่ซ้ำกันทั้งระบบ)
+  floor_code  text not null references floors(floor_code) on delete restrict on update cascade,
   room_name   text not null,
-  room_code   text,
-  created_at  timestamptz not null default now(),
-  unique (floor_id, room_name)
+  created_at  timestamptz not null default now()
 );
 
 -- ----------------------------------------------------------------------------
--- 2. ASSET CATEGORIES (reference table, avoids free-text duplication)
+-- 2. ASSET CATEGORIES
 -- ----------------------------------------------------------------------------
 
 create table if not exists asset_categories (
-  id             uuid primary key default gen_random_uuid(),
+  category_code  text primary key,        -- เช่น "CAT-01"
   category_name  text not null unique,
   created_at     timestamptz not null default now()
 );
 
 -- ----------------------------------------------------------------------------
--- 3. ASSETS (main table)
+-- 3. ASSETS (main table) — asset_code คือ primary key โดยตรง
 -- ----------------------------------------------------------------------------
 
 create table if not exists assets (
-  id            uuid primary key default gen_random_uuid(),
-  asset_code    text not null unique,          -- printed on the QR code
+  asset_code    text primary key,          -- เช่น "B1000-41400020000/ผ.53-78" — เลขทะเบียนครุภัณฑ์จริง พิมพ์บน QR
   name          text not null,
-  category_id   uuid references asset_categories(id) on delete set null,
+  category_code text references asset_categories(category_code) on delete set null on update cascade,
   color         text,
   status        text not null default 'normal'
                   check (status in ('normal', 'repair', 'borrowed', 'damaged', 'disposed')),
-  room_id       uuid references rooms(id) on delete set null,
+  room_code     text references rooms(room_code) on delete set null on update cascade,
   image_url     text,                          -- Supabase Storage public URL
   received_date date,
-  responsible_person text,                     -- ชื่อผู้รับผิดชอบ/ผู้ดูแลครุภัณฑ์ชิ้นนี้
+  responsible_person text,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
 
 create index if not exists idx_assets_status on assets(status);
-create index if not exists idx_assets_room on assets(room_id);
-create index if not exists idx_assets_category on assets(category_id);
+create index if not exists idx_assets_room on assets(room_code);
+create index if not exists idx_assets_category on assets(category_code);
 
 -- ----------------------------------------------------------------------------
 -- 4. STATUS HISTORY LOG (auto-filled by trigger below)
 -- ----------------------------------------------------------------------------
 
 create table if not exists asset_status_log (
-  id          uuid primary key default gen_random_uuid(),
-  asset_id    uuid not null references assets(id) on delete cascade,
+  id          bigint generated always as identity primary key, -- แค่เลขลำดับ log ไม่ใช่ตัวอ้างอิงธุรกิจ ใช้เลขธรรมดาพอ
+  asset_code  text not null references assets(asset_code) on delete cascade on update cascade,
   old_status  text,
   new_status  text not null,
   note        text,
-  changed_by  uuid references auth.users(id),
+  changed_by  uuid references auth.users(id), -- ต้องเป็น uuid เพราะอ้างอิง Supabase Auth
   changed_at  timestamptz not null default now()
 );
 
@@ -87,20 +92,21 @@ create table if not exists asset_status_log (
 -- ----------------------------------------------------------------------------
 
 create table if not exists borrow_records (
-  id                uuid primary key default gen_random_uuid(),
-  asset_id          uuid not null references assets(id) on delete cascade,
+  id                bigint generated always as identity primary key, -- log/history เช่นกัน ใช้เลขลำดับพอ
+  asset_code        text not null references assets(asset_code) on delete cascade on update cascade,
   borrower_name     text not null,
   borrower_contact  text,
   borrowed_at       timestamptz not null default now(),
   due_date          date,
   returned_at       timestamptz,
-  created_by        uuid references auth.users(id)
+  created_by        uuid references auth.users(id) -- ต้องเป็น uuid เพราะอ้างอิง Supabase Auth
 );
 
-create index if not exists idx_borrow_asset on borrow_records(asset_id);
+create index if not exists idx_borrow_asset on borrow_records(asset_code);
 
 -- ----------------------------------------------------------------------------
 -- 6. STAFF PROFILES (extends Supabase auth.users with a role)
+--    ตารางนี้ id ต้องเป็น uuid เพราะ FK ตรงไปที่ auth.users(id) ของ Supabase Auth โดยตรง
 -- ----------------------------------------------------------------------------
 
 create table if not exists profiles (
@@ -110,7 +116,6 @@ create table if not exists profiles (
   created_at  timestamptz not null default now()
 );
 
--- Auto-create a profile row whenever a new auth user signs up
 create or replace function handle_new_user()
 returns trigger
 language plpgsql
@@ -148,15 +153,15 @@ create trigger trg_assets_updated_at
 create or replace function log_asset_status_change()
 returns trigger
 language plpgsql
-security definer  -- ทำงานด้วยสิทธิ์เจ้าของฟังก์ชัน (bypass RLS) เพราะเป็น log ที่ผู้ใช้ทั่วไปไม่ควร insert เองตรงๆ อยู่แล้ว
+security definer
 as $$
 begin
   if (tg_op = 'INSERT') then
-    insert into asset_status_log (asset_id, old_status, new_status, changed_by)
-    values (new.id, null, new.status, auth.uid());
+    insert into asset_status_log (asset_code, old_status, new_status, changed_by)
+    values (new.asset_code, null, new.status, auth.uid());
   elsif (tg_op = 'UPDATE' and old.status is distinct from new.status) then
-    insert into asset_status_log (asset_id, old_status, new_status, changed_by)
-    values (new.id, old.status, new.status, auth.uid());
+    insert into asset_status_log (asset_code, old_status, new_status, changed_by)
+    values (new.asset_code, old.status, new.status, auth.uid());
   end if;
   return new;
 end;
@@ -169,8 +174,6 @@ create trigger trg_asset_status_log
 
 -- ============================================================================
 -- 8. ROW LEVEL SECURITY
---    Rule of thumb: anyone (incl. public QR scan, not logged in) can VIEW
---    asset info. Only logged-in staff can add/edit/delete.
 -- ============================================================================
 
 alter table buildings          enable row level security;
@@ -182,7 +185,6 @@ alter table asset_status_log   enable row level security;
 alter table borrow_records     enable row level security;
 alter table profiles           enable row level security;
 
--- Public read access (needed so a scanned QR code works without login)
 create policy "public read buildings"   on buildings          for select using (true);
 create policy "public read floors"      on floors             for select using (true);
 create policy "public read rooms"       on rooms              for select using (true);
@@ -190,7 +192,6 @@ create policy "public read categories"  on asset_categories   for select using (
 create policy "public read assets"      on assets             for select using (true);
 create policy "public read status log"  on asset_status_log   for select using (true);
 
--- Authenticated staff: full write access
 create policy "staff write buildings"  on buildings          for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "staff write floors"     on floors             for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "staff write rooms"      on rooms              for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
@@ -202,20 +203,22 @@ create policy "staff read own profile" on profiles for select using (auth.uid() 
 create policy "staff update own profile" on profiles for update using (auth.uid() = id);
 
 -- ============================================================================
--- 9. SEED DATA (optional starting data - safe to delete/edit)
+-- 9. SEED DATA
 -- ============================================================================
 
-insert into asset_categories (category_name) values
-  ('เฟอร์นิเจอร์'), ('อุปกรณ์อิเล็กทรอนิกส์'), ('อุปกรณ์คอมพิวเตอร์'), ('เครื่องใช้ไฟฟ้า'), ('อุปกรณ์การเรียน')
-on conflict (category_name) do nothing;
+insert into asset_categories (category_code, category_name) values
+  ('CAT-01', 'เฟอร์นิเจอร์'),
+  ('CAT-02', 'อุปกรณ์อิเล็กทรอนิกส์'),
+  ('CAT-03', 'อุปกรณ์คอมพิวเตอร์'),
+  ('CAT-04', 'เครื่องใช้ไฟฟ้า'),
+  ('CAT-05', 'อุปกรณ์การเรียน')
+on conflict (category_code) do nothing;
 
 -- ============================================================================
--- Done. Next step: Project Settings > API to copy your Project URL and anon key
--- into the frontend .env file (see README.md).
+-- ถ้า Supabase project เดิมเคยรัน schema.sql เวอร์ชัน uuid ไปแล้ว ต้องลบตารางเก่า
+-- ก่อนรันไฟล์นี้ (สลับลำดับความสัมพันธ์ FK จาก uuid เป็น text ปนกันไม่ได้)
+-- รันบรรทัดนี้ก่อน (ข้อมูลเดิมจะหายทั้งหมด):
+--
+-- drop table if exists asset_status_log, borrow_records, profiles, assets,
+--   asset_categories, rooms, floors, buildings cascade;
 -- ============================================================================
-
--- ----------------------------------------------------------------------------
--- ถ้าพี่เคยรัน schema.sql เวอร์ชันก่อนหน้าไปแล้ว (ไม่มีคอลัมน์ responsible_person)
--- ให้รันแค่บรรทัดนี้บรรทัดเดียวเพิ่มใน SQL Editor แทนที่จะรันทั้งไฟล์ใหม่:
--- ----------------------------------------------------------------------------
--- alter table assets add column if not exists responsible_person text;
