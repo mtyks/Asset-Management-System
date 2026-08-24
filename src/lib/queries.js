@@ -144,21 +144,6 @@ export async function createAsset(asset) {
   return data;
 }
 
-// อัปโหลดรูปภาพครุภัณฑ์ขึ้น Supabase Storage แล้วคืน public URL กลับมา
-// ตั้งชื่อไฟล์ด้วยรหัสครุภัณฑ์ + timestamp กันชื่อไฟล์ซ้ำ
-export async function uploadAssetImage(file, assetCode) {
-  const fileExt = file.name.split(".").pop();
-  const filePath = `${assetCode}-${Date.now()}.${fileExt}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("asset-images")
-    .upload(filePath, file, { cacheControl: "3600", upsert: false });
-  if (uploadError) throw uploadError;
-
-  const { data } = supabase.storage.from("asset-images").getPublicUrl(filePath);
-  return data.publicUrl;
-}
-
 export async function updateAsset(id, updates) {
   const { data, error } = await supabase
     .from("assets")
@@ -399,42 +384,4 @@ export async function getActiveBorrowRecord(assetId) {
 
   if (error) return null;
   return data;
-}
-
-// ---------------------------------------------------------------------------
-// Maintenance (ซ่อมบำรุง)
-// ---------------------------------------------------------------------------
-export async function listMaintenance() {
-  try {
-    const { data, error } = await supabase
-      .from("maintenance")
-      .select("*, assets(id, asset_code, name)")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) return data;
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-export async function createMaintenance(payload) {
-  try {
-    const { data, error } = await supabase.from("maintenance").insert(payload).select().single();
-    if (!error) {
-      await updateAssetStatus(payload.asset_id, "repair");
-      return data;
-    }
-  } catch {}
-
-  // Fallback: update status on asset
-  await updateAssetStatus(payload.asset_id, "repair");
-  return { id: `m-${Date.now()}`, ...payload };
-}
-
-export async function completeMaintenance(id, assetId) {
-  try {
-    await supabase.from("maintenance").update({ status: "completed" }).eq("id", id);
-  } catch {}
-  await updateAssetStatus(assetId, "normal");
 }

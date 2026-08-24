@@ -53,9 +53,6 @@ export default function AssetForm() {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null); // แสดงรูปเดิม (โหมดแก้ไข) หรือรูปที่เพิ่งเลือก
-
   useEffect(() => {
     listCategories().then(setCategories).catch((err) => setError(err.message));
     listBuildings().then(setBuildings).catch((err) => setError(err.message));
@@ -82,7 +79,9 @@ export default function AssetForm() {
           responsible_person: asset.responsible_person || "",
           image_url: asset.image_url || "",
         });
-        if (asset.image_url) setImagePreview(asset.image_url);
+        if (asset.image_url) {
+          setImagePreview(asset.image_url);
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => !cancelled && setLoadingExisting(false));
@@ -112,39 +111,18 @@ export default function AssetForm() {
     setForm((f) => ({ ...f, [name]: value }));
   };
 
-  function handleImageChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file)); // พรีวิวทันทีก่อนอัปโหลดจริง
-  }
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
 
-  async function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-
-    let imageUrl = isEditMode ? undefined : null; // undefined = ไม่แตะฟิลด์นี้ตอน update ถ้าไม่ได้เปลี่ยนรูป
-    if (imageFile) {
-      try {
-        imageUrl = await uploadAssetImage(imageFile, form.asset_code);
-      } catch (err) {
-        setError("อัปโหลดรูปไม่สำเร็จ: " + err.message);
-        setSubmitting(false);
-        return; // fail-stop: ไม่บันทึกข้อมูลอื่นต่อถ้าอัปโหลดรูปพัง เพื่อไม่ให้ข้อมูลไม่ตรงกับรูปที่ตั้งใจแนบ
-      }
-    }
-
-    const payload = {
-      asset_code: form.asset_code,
-      name: form.name,
-      category_id: form.category_id || null,
-      color: form.color || null,
-      room_id: form.room_id || null,
-      received_date: form.received_date || null,
-      responsible_person: form.responsible_person || null,
-    };
-    if (imageUrl !== undefined) payload.image_url = imageUrl;
 
     try {
       let finalImageUrl = form.image_url;
@@ -243,86 +221,14 @@ export default function AssetForm() {
   }
 
   return (
-    <div className="page">
-      <h1>{isEditMode ? `แก้ไขครุภัณฑ์ (${form.asset_code})` : "เพิ่มครุภัณฑ์ใหม่"}</h1>
-      <form className="form-card" onSubmit={handleSubmit}>
-        <label>
-          รหัสครุภัณฑ์ (แก้ไขได้)
-          <input value={form.asset_code} onChange={(e) => update("asset_code", e.target.value)} required />
-        </label>
-
-        <label>
-          ชื่อสิ่งของ
-          <input value={form.name} onChange={(e) => update("name", e.target.value)} required />
-        </label>
-
-        <label>
-          ประเภท
-          <select value={form.category_id} onChange={(e) => update("category_id", e.target.value)}>
-            <option value="">-- เลือกประเภท --</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.category_name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          สี
-          <input value={form.color} onChange={(e) => update("color", e.target.value)} />
-        </label>
-
-        <label>
-          รูปภาพประกอบ
-          <input type="file" accept="image/*" onChange={handleImageChange} />
-        </label>
-        {imagePreview && (
-          <img src={imagePreview} alt="ตัวอย่างรูปครุภัณฑ์" className="image-preview" />
-        )}
-
-        <div className="form-row-3">
-          <label>
-            ตึก
-            <select value={form.building_id} onChange={(e) => update("building_id", e.target.value)}>
-              <option value="">-- เลือกตึก --</option>
-              {buildings.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            ชั้น
-            <select
-              value={form.floor_id}
-              onChange={(e) => update("floor_id", e.target.value)}
-              disabled={!form.building_id}
-            >
-              <option value="">-- เลือกชั้น --</option>
-              {floors.map((f) => (
-                <option key={f.id} value={f.id}>
-                  ชั้น {f.floor_number} {f.floor_name || ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            ห้อง
-            <select
-              value={form.room_id}
-              onChange={(e) => update("room_id", e.target.value)}
-              disabled={!form.floor_id}
-            >
-              <option value="">-- เลือกห้อง --</option>
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.room_name}
-                </option>
-              ))}
-            </select>
-          </label>
+    <div className="page-container" style={{ maxWidth: 960 }}>
+      {/* Header */}
+      <div className="page-heading-row">
+        <div className="page-title-group">
+          <h1>{isEditMode ? "แก้ไขข้อมูลครุภัณฑ์" : "เพิ่มครุภัณฑ์ใหม่"}</h1>
+          <p className="page-subtitle">
+            กรอกข้อมูลรายละเอียดครุภัณฑ์ กำหนดหมวดหมู่ สถานที่ตั้ง และรูปภาพ
+          </p>
         </div>
 
         <div className="page-actions-group">

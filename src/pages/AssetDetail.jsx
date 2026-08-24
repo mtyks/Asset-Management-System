@@ -105,34 +105,13 @@ export default function AssetDetail() {
     }
   };
 
-  if (error) return <div className="page-error">{error}</div>;
-  if (!asset) return <div className="page-loading">กำลังโหลด...</div>;
-
-  const location = asset.rooms
-    ? `${asset.rooms.floors?.buildings?.name || ""} ชั้น ${asset.rooms.floors?.floor_number ?? "-"} ห้อง ${asset.rooms.room_name}`
-    : "ยังไม่ระบุตำแหน่ง";
-
-  return (
-    <div className="page asset-detail">
-      <div className="page-header">
-        <h1>{asset.name}</h1>
-        <StatusBadge status={asset.status} />
-      </div>
-
-      <div className="asset-hero-image">
-        {asset.image_url ? (
-          <img src={asset.image_url} alt={asset.name} />
-        ) : (
-          <div className="asset-hero-placeholder">
-            <span>ไม่มีรูปภาพประกอบ</span>
-          </div>
-        )}
-      </div>
-
-      {user && (
-        <div className="form-actions" style={{ marginBottom: 16 }}>
-          <Link to={`/assets/${asset.id}/edit`} className="btn btn-secondary">
-            แก้ไขข้อมูลทั้งหมด
+  if (error) {
+    return (
+      <div className="page-container" style={{ maxWidth: 640 }}>
+        <div className="form-card" style={{ textAlign: "center" }}>
+          <p className="form-error-banner">{error}</p>
+          <Link to="/assets" className="btn btn-primary">
+            กลับสู่หน้ารายการครุภัณฑ์
           </Link>
         </div>
       </div>
