@@ -102,7 +102,11 @@ export default function AssetsList() {
                 <td>{a.responsible_person || "-"}</td>
                 <td>
                   <Link to={`/asset/${a.asset_code}`} className="link">
-                    ดู/แก้ไข
+                    ดู
+                  </Link>
+                  {" · "}
+                  <Link to={`/assets/${a.id}/edit`} className="link">
+                    แก้ไข
                   </Link>
                 </td>
               </tr>

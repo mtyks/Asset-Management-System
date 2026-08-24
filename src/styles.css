@@ -190,6 +190,9 @@ input:focus, select:focus { outline: 2px solid var(--navy-700); outline-offset: 
 .location-column h2 { margin-top: 0; }
 .simple-list { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; }
 .simple-list li { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.editable-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.row-actions { display: flex; gap: 10px; flex-shrink: 0; }
+.inline-edit-btn.danger { color: var(--status-damaged); }
 
 /* ---------------------------------------------------------------------- */
 /* Responsive                                                               */

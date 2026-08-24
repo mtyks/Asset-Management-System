@@ -56,6 +56,18 @@ export async function getAssetByCode(assetCode) {
   return data;
 }
 
+export async function getAssetById(id) {
+  const { data, error } = await supabase
+    .from("assets")
+    .select(
+      `*, rooms ( id, room_name, floor_id, floors ( id, floor_number, building_id ) )`
+    )
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function getAssetHistory(assetId) {
   const { data, error } = await supabase
     .from("asset_status_log")
@@ -101,6 +113,22 @@ export async function createCategory(categoryName) {
   return data;
 }
 
+export async function updateCategory(id, categoryName) {
+  const { data, error } = await supabase
+    .from("asset_categories")
+    .update({ category_name: categoryName })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCategory(id) {
+  const { error } = await supabase.from("asset_categories").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ---------------------------------------------------------------------------
 // Locations: buildings / floors / rooms
 // ---------------------------------------------------------------------------
@@ -114,6 +142,22 @@ export async function createBuilding(name, code) {
   const { data, error } = await supabase.from("buildings").insert({ name, code }).select().single();
   if (error) throw error;
   return data;
+}
+
+export async function updateBuilding(id, name, code) {
+  const { data, error } = await supabase
+    .from("buildings")
+    .update({ name, code })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteBuilding(id) {
+  const { error } = await supabase.from("buildings").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export async function listFloors(buildingId) {
@@ -134,6 +178,22 @@ export async function createFloor(buildingId, floorNumber, floorName) {
   return data;
 }
 
+export async function updateFloor(id, floorNumber, floorName) {
+  const { data, error } = await supabase
+    .from("floors")
+    .update({ floor_number: floorNumber, floor_name: floorName })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteFloor(id) {
+  const { error } = await supabase.from("floors").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function listRooms(floorId) {
   let query = supabase.from("rooms").select("*, floors(floor_number, buildings(name))").order("room_name");
   if (floorId) query = query.eq("floor_id", floorId);
@@ -150,6 +210,22 @@ export async function createRoom(floorId, roomName, roomCode) {
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function updateRoom(id, roomName, roomCode) {
+  const { data, error } = await supabase
+    .from("rooms")
+    .update({ room_name: roomName, room_code: roomCode })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteRoom(id) {
+  const { error } = await supabase.from("rooms").delete().eq("id", id);
+  if (error) throw error;
 }
 
 // ---------------------------------------------------------------------------

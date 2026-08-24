@@ -48,6 +48,14 @@ export default function App() {
             }
           />
           <Route
+            path="/assets/:assetId/edit"
+            element={
+              <ProtectedRoute>
+                <AssetForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/locations"
             element={
               <ProtectedRoute>

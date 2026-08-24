@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   listCategories,
   listBuildings,
   listFloors,
   listRooms,
   createAsset,
+  updateAsset,
+  getAssetById,
 } from "../lib/queries";
 import QRCodeDisplay from "../components/QRCodeDisplay";
 
@@ -17,27 +19,34 @@ function generateAssetCode() {
   return `A-${datePart}-${randomPart}`;
 }
 
+const emptyForm = {
+  asset_code: "",
+  name: "",
+  category_id: "",
+  color: "",
+  building_id: "",
+  floor_id: "",
+  room_id: "",
+  received_date: new Date().toISOString().slice(0, 10),
+  responsible_person: "",
+};
+
 export default function AssetForm() {
   const navigate = useNavigate();
+  const { assetId } = useParams(); // มีค่าเมื่อเข้าหน้านี้ผ่าน /assets/:assetId/edit เท่านั้น
+  const isEditMode = Boolean(assetId);
 
   const [categories, setCategories] = useState([]);
   const [buildings, setBuildings] = useState([]);
   const [floors, setFloors] = useState([]);
   const [rooms, setRooms] = useState([]);
 
-  const [form, setForm] = useState({
-    asset_code: generateAssetCode(),
-    name: "",
-    category_id: "",
-    color: "",
-    building_id: "",
-    floor_id: "",
-    room_id: "",
-    received_date: new Date().toISOString().slice(0, 10),
-    responsible_person: "",
-  });
+  const [form, setForm] = useState(() =>
+    isEditMode ? emptyForm : { ...emptyForm, asset_code: generateAssetCode() }
+  );
 
-  const [savedAsset, setSavedAsset] = useState(null); // ใช้แสดง QR หลังบันทึกสำเร็จ
+  const [loadingExisting, setLoadingExisting] = useState(isEditMode);
+  const [savedAsset, setSavedAsset] = useState(null); // ใช้แสดง QR หลังบันทึกสำเร็จ (โหมดเพิ่มใหม่เท่านั้น)
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,6 +54,34 @@ export default function AssetForm() {
     listCategories().then(setCategories).catch((err) => setError(err.message));
     listBuildings().then(setBuildings).catch((err) => setError(err.message));
   }, []);
+
+  // โหมดแก้ไข: โหลดข้อมูลครุภัณฑ์เดิมมาเติมในฟอร์ม รวมถึงไล่หา ตึก/ชั้น จาก room_id เดิม
+  useEffect(() => {
+    if (!isEditMode) return;
+    let cancelled = false;
+    getAssetById(assetId)
+      .then((asset) => {
+        if (cancelled) return;
+        const room = asset.rooms;
+        const floor = room?.floors;
+        setForm({
+          asset_code: asset.asset_code,
+          name: asset.name,
+          category_id: asset.category_id || "",
+          color: asset.color || "",
+          building_id: floor?.building_id || "",
+          floor_id: room?.floor_id || "",
+          room_id: asset.room_id || "",
+          received_date: asset.received_date || "",
+          responsible_person: asset.responsible_person || "",
+        });
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => !cancelled && setLoadingExisting(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [assetId, isEditMode]);
 
   useEffect(() => {
     if (!form.building_id) {
@@ -70,23 +107,33 @@ export default function AssetForm() {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    const payload = {
+      asset_code: form.asset_code,
+      name: form.name,
+      category_id: form.category_id || null,
+      color: form.color || null,
+      room_id: form.room_id || null,
+      received_date: form.received_date || null,
+      responsible_person: form.responsible_person || null,
+    };
     try {
-      const asset = await createAsset({
-        asset_code: form.asset_code,
-        name: form.name,
-        category_id: form.category_id || null,
-        color: form.color || null,
-        room_id: form.room_id || null,
-        received_date: form.received_date || null,
-        responsible_person: form.responsible_person || null,
-      });
-      setSavedAsset(asset);
+      if (isEditMode) {
+        await updateAsset(assetId, payload);
+        navigate(`/asset/${form.asset_code}`);
+      } else {
+        const asset = await createAsset(payload);
+        setSavedAsset(asset);
+      }
     } catch (err) {
       // fail-stop: ไม่บันทึกซ้ำอัตโนมัติ ให้ผู้ใช้เห็น error แล้วตัดสินใจเอง (เช่น รหัสซ้ำ)
       setError(err.message);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (loadingExisting) {
+    return <div className="page-loading">กำลังโหลดข้อมูลครุภัณฑ์...</div>;
   }
 
   if (savedAsset) {
@@ -103,7 +150,7 @@ export default function AssetForm() {
             className="btn btn-primary"
             onClick={() => {
               setSavedAsset(null);
-              setForm((f) => ({ ...f, asset_code: generateAssetCode(), name: "", color: "" }));
+              setForm({ ...emptyForm, asset_code: generateAssetCode() });
             }}
           >
             เพิ่มชิ้นถัดไป
@@ -115,7 +162,7 @@ export default function AssetForm() {
 
   return (
     <div className="page">
-      <h1>เพิ่มครุภัณฑ์ใหม่</h1>
+      <h1>{isEditMode ? `แก้ไขครุภัณฑ์ (${form.asset_code})` : "เพิ่มครุภัณฑ์ใหม่"}</h1>
       <form className="form-card" onSubmit={handleSubmit}>
         <label>
           รหัสครุภัณฑ์ (แก้ไขได้)
@@ -208,9 +255,20 @@ export default function AssetForm() {
 
         {error && <p className="form-error">บันทึกไม่สำเร็จ: {error}</p>}
 
-        <button className="btn btn-primary" type="submit" disabled={submitting}>
-          {submitting ? "กำลังบันทึก..." : "บันทึกครุภัณฑ์"}
-        </button>
+        <div className="form-actions">
+          <button className="btn btn-primary" type="submit" disabled={submitting}>
+            {submitting ? "กำลังบันทึก..." : isEditMode ? "บันทึกการแก้ไข" : "บันทึกครุภัณฑ์"}
+          </button>
+          {isEditMode && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate(`/asset/${form.asset_code}`)}
+            >
+              ยกเลิก
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );

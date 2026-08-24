@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import {
   getAssetByCode,
   getAssetHistory,
@@ -113,6 +113,14 @@ export default function AssetDetail() {
         <h1>{asset.name}</h1>
         <StatusBadge status={asset.status} />
       </div>
+
+      {user && (
+        <div className="form-actions" style={{ marginBottom: 16 }}>
+          <Link to={`/assets/${asset.id}/edit`} className="btn btn-secondary">
+            แก้ไขข้อมูลทั้งหมด
+          </Link>
+        </div>
+      )}
 
       <div className="detail-grid">
         <div className="detail-info">
