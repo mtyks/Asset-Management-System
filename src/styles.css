@@ -128,6 +128,8 @@ h2 { font-size: 1.1rem; color: var(--navy-900); margin: 24px 0 10px; }
 .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
 .data-table th { text-align: left; background: #eef1f6; color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; padding: 10px 14px; }
 .data-table td { padding: 12px 14px; border-top: 1px solid var(--border); font-size: 0.92rem; }
+.row-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+.row-thumb-placeholder { display: inline-block; width: 40px; height: 40px; border-radius: 8px; background: #eef1f6; border: 1px dashed var(--border); }
 .empty-row { text-align: center; color: var(--text-secondary); padding: 32px; }
 .link { color: var(--navy-800); font-weight: 600; text-decoration: none; }
 .link:hover { text-decoration: underline; }
@@ -144,6 +146,7 @@ input, select { padding: 10px 12px; border: 1px solid var(--border); border-radi
 input:focus, select:focus { outline: 2px solid var(--navy-700); outline-offset: 1px; }
 
 .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.image-preview { width: 100%; max-width: 220px; border-radius: var(--radius); border: 1px solid var(--border); object-fit: cover; margin-top: -6px; }
 .form-error { color: var(--status-damaged); font-size: 0.88rem; background: #fdeceb; border: 1px solid #f2c6c2; border-radius: 8px; padding: 10px 12px; }
 .form-actions { display: flex; gap: 12px; margin-top: 16px; }
 
@@ -159,6 +162,7 @@ input:focus, select:focus { outline: 2px solid var(--navy-700); outline-offset: 
 /* Asset detail + QR                                                       */
 /* ---------------------------------------------------------------------- */
 .detail-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; align-items: start; }
+.detail-asset-image { width: 100%; max-width: 320px; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 14px; display: block; object-fit: cover; }
 .detail-info dl { display: grid; grid-template-columns: 140px 1fr; row-gap: 8px; background: var(--surface); padding: 18px; border-radius: var(--radius); box-shadow: var(--shadow-sm); }
 .detail-info dt { color: var(--text-secondary); font-size: 0.85rem; }
 .detail-info dd { margin: 0; font-weight: 500; }

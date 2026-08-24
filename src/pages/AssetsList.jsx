@@ -69,6 +69,7 @@ export default function AssetsList() {
         <table className="data-table">
           <thead>
             <tr>
+              <th>รูป</th>
               <th>รหัส</th>
               <th>ชื่อ</th>
               <th>ประเภท</th>
@@ -81,13 +82,20 @@ export default function AssetsList() {
           <tbody>
             {assets.length === 0 && (
               <tr>
-                <td colSpan={7} className="empty-row">
+                <td colSpan={8} className="empty-row">
                   ยังไม่มีครุภัณฑ์ตามเงื่อนไขที่เลือก
                 </td>
               </tr>
             )}
             {assets.map((a) => (
               <tr key={a.id}>
+                <td>
+                  {a.image_url ? (
+                    <img src={a.image_url} alt={a.name} className="row-thumb" />
+                  ) : (
+                    <span className="row-thumb-placeholder" />
+                  )}
+                </td>
                 <td>{a.asset_code}</td>
                 <td>{a.name}</td>
                 <td>{a.asset_categories?.category_name || "-"}</td>

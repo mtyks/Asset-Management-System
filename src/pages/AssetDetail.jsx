@@ -124,6 +124,9 @@ export default function AssetDetail() {
 
       <div className="detail-grid">
         <div className="detail-info">
+          {asset.image_url && (
+            <img src={asset.image_url} alt={asset.name} className="detail-asset-image" />
+          )}
           <dl>
             <dt>รหัสครุภัณฑ์</dt>
             <dd>{asset.asset_code}</dd>

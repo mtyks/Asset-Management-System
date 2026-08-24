@@ -84,6 +84,21 @@ export async function createAsset(asset) {
   return data;
 }
 
+// อัปโหลดรูปภาพครุภัณฑ์ขึ้น Supabase Storage แล้วคืน public URL กลับมา
+// ตั้งชื่อไฟล์ด้วยรหัสครุภัณฑ์ + timestamp กันชื่อไฟล์ซ้ำ
+export async function uploadAssetImage(file, assetCode) {
+  const fileExt = file.name.split(".").pop();
+  const filePath = `${assetCode}-${Date.now()}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("asset-images")
+    .upload(filePath, file, { cacheControl: "3600", upsert: false });
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from("asset-images").getPublicUrl(filePath);
+  return data.publicUrl;
+}
+
 export async function updateAsset(id, updates) {
   const { data, error } = await supabase.from("assets").update(updates).eq("id", id).select().single();
   if (error) throw error;

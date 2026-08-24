@@ -8,6 +8,7 @@ import {
   createAsset,
   updateAsset,
   getAssetById,
+  uploadAssetImage,
 } from "../lib/queries";
 import QRCodeDisplay from "../components/QRCodeDisplay";
 
@@ -50,6 +51,9 @@ export default function AssetForm() {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null); // แสดงรูปเดิม (โหมดแก้ไข) หรือรูปที่เพิ่งเลือก
+
   useEffect(() => {
     listCategories().then(setCategories).catch((err) => setError(err.message));
     listBuildings().then(setBuildings).catch((err) => setError(err.message));
@@ -75,6 +79,7 @@ export default function AssetForm() {
           received_date: asset.received_date || "",
           responsible_person: asset.responsible_person || "",
         });
+        if (asset.image_url) setImagePreview(asset.image_url);
       })
       .catch((err) => setError(err.message))
       .finally(() => !cancelled && setLoadingExisting(false));
@@ -103,10 +108,29 @@ export default function AssetForm() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  function handleImageChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file)); // พรีวิวทันทีก่อนอัปโหลดจริง
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+
+    let imageUrl = isEditMode ? undefined : null; // undefined = ไม่แตะฟิลด์นี้ตอน update ถ้าไม่ได้เปลี่ยนรูป
+    if (imageFile) {
+      try {
+        imageUrl = await uploadAssetImage(imageFile, form.asset_code);
+      } catch (err) {
+        setError("อัปโหลดรูปไม่สำเร็จ: " + err.message);
+        setSubmitting(false);
+        return; // fail-stop: ไม่บันทึกข้อมูลอื่นต่อถ้าอัปโหลดรูปพัง เพื่อไม่ให้ข้อมูลไม่ตรงกับรูปที่ตั้งใจแนบ
+      }
+    }
+
     const payload = {
       asset_code: form.asset_code,
       name: form.name,
@@ -116,6 +140,8 @@ export default function AssetForm() {
       received_date: form.received_date || null,
       responsible_person: form.responsible_person || null,
     };
+    if (imageUrl !== undefined) payload.image_url = imageUrl;
+
     try {
       if (isEditMode) {
         await updateAsset(assetId, payload);
@@ -190,6 +216,14 @@ export default function AssetForm() {
           สี
           <input value={form.color} onChange={(e) => update("color", e.target.value)} />
         </label>
+
+        <label>
+          รูปภาพประกอบ
+          <input type="file" accept="image/*" onChange={handleImageChange} />
+        </label>
+        {imagePreview && (
+          <img src={imagePreview} alt="ตัวอย่างรูปครุภัณฑ์" className="image-preview" />
+        )}
 
         <div className="form-row-3">
           <label>
