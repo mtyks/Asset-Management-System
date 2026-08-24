@@ -3,45 +3,30 @@ import { useParams, Link } from "react-router-dom";
 import {
   getAssetByCode,
   getAssetHistory,
-  updateAssetStatus,
-  borrowAsset,
-  returnAsset,
   getActiveBorrowRecord,
 } from "../lib/queries";
-import { useAuth } from "../lib/AuthContext";
 import StatusBadge from "../components/StatusBadge";
 import QRCodeDisplay from "../components/QRCodeDisplay";
 import {
   ArrowLeft,
-  Edit,
   Printer,
-  QrCode,
   Package,
   MapPin,
   User,
   Calendar,
-  Clock,
-  CheckCircle,
-  ArrowRightLeft,
   Image as ImageIcon,
   ExternalLink,
+  ShieldCheck,
+  Info,
 } from "lucide-react";
 
 export default function AssetDetail() {
   const { assetCode } = useParams();
-  const { user } = useAuth();
 
   const [asset, setAsset] = useState(null);
   const [history, setHistory] = useState([]);
   const [activeBorrow, setActiveBorrow] = useState(null);
   const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
-
-  // Borrow Form state
-  const [borrowerName, setBorrowerName] = useState("");
-  const [borrowerContact, setBorrowerContact] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [showBorrowBox, setShowBorrowBox] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -63,52 +48,10 @@ export default function AssetDetail() {
     load();
   }, [load]);
 
-  const handleStatusChange = async (newStatus) => {
-    setBusy(true);
-    try {
-      await updateAssetStatus(asset.id, newStatus);
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleBorrow = async (e) => {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      await borrowAsset(asset.id, borrowerName, borrowerContact, dueDate || null);
-      setBorrowerName("");
-      setBorrowerContact("");
-      setDueDate("");
-      setShowBorrowBox(false);
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleReturn = async () => {
-    if (!activeBorrow) return;
-    setBusy(true);
-    try {
-      await returnAsset(asset.id, activeBorrow.id);
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   if (error) {
     return (
       <div className="page-container" style={{ maxWidth: 640 }}>
-        <div className="form-card" style={{ textAlign: "center" }}>
+        <div className="form-card" style={{ textAlign: "center", padding: "36px 20px" }}>
           <p className="form-error-banner">{error}</p>
           <Link to="/assets" className="btn btn-primary">
             กลับสู่หน้ารายการครุภัณฑ์
@@ -139,7 +82,7 @@ export default function AssetDetail() {
 
   return (
     <div className="page-container" style={{ maxWidth: 1080 }}>
-      {/* Header */}
+      {/* Header (Read-Only Mode) */}
       <div className="page-heading-row">
         <div className="page-title-group">
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -155,10 +98,6 @@ export default function AssetDetail() {
           <Link to="/assets" className="btn btn-outline-white">
             <ArrowLeft size={16} />
             <span>ย้อนกลับ</span>
-          </Link>
-          <Link to={`/assets/${asset.id}/edit`} className="btn btn-primary">
-            <Edit size={16} />
-            <span>แก้ไขข้อมูล</span>
           </Link>
         </div>
       </div>
@@ -233,28 +172,22 @@ export default function AssetDetail() {
                 }}
               >
                 <ImageIcon size={36} strokeWidth={1.5} />
-                <span style={{ fontSize: "0.85rem" }}>ยังไม่มีรูปภาพครุภัณฑ์ชิ้นนี้</span>
-                <Link
-                  to={`/assets/${asset.id}/edit`}
-                  className="btn btn-outline-white"
-                  style={{ fontSize: "0.78rem", padding: "4px 10px" }}
-                >
-                  + เพิ่มรูปภาพ
-                </Link>
+                <span style={{ fontSize: "0.85rem" }}>ไม่มีรูปภาพประกอบ</span>
               </div>
             )}
           </div>
 
-          {/* Specifications Card */}
+          {/* Specifications Card (Read-Only) */}
           <div className="form-card" style={{ margin: 0 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", fontWeight: 700 }}>
-              ข้อมูลจำเพาะของครุภัณฑ์
+            <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+              <ShieldCheck size={18} color="#059669" />
+              <span>ข้อมูลจำเพาะของครุภัณฑ์</span>
             </h3>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.88rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>
                 <span style={{ color: "#64748b" }}>เลขครุภัณฑ์:</span>
-                <strong style={{ fontFamily: "monospace" }}>{asset.asset_code || asset.code}</strong>
+                <strong style={{ fontFamily: "monospace", fontSize: "0.95rem" }}>{asset.asset_code || asset.code}</strong>
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>
@@ -283,52 +216,40 @@ export default function AssetDetail() {
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>
-                <span style={{ color: "#64748b" }}>สถานะ:</span>
+                <span style={{ color: "#64748b" }}>สถานะปัจจุบัน:</span>
                 <StatusBadge status={asset.status || "normal"} />
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>วันที่ตรวจรับ:</span>
+                <span style={{ color: "#64748b" }}>วันที่ตรวจรับเข้าคลัง:</span>
                 <span>{asset.received_date || "-"}</span>
               </div>
             </div>
 
-            {/* Quick Status Change */}
-            <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid #e2e8f0" }}>
-              <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "#475569", marginBottom: "8px" }}>
-                ปรับเปลี่ยนสถานะด่วน:
+            {/* Borrow Info Banner if borrowed */}
+            {asset.status === "borrowed" && activeBorrow && (
+              <div
+                style={{
+                  marginTop: 18,
+                  backgroundColor: "#eff6ff",
+                  border: "1px solid #bfdbfe",
+                  borderRadius: "8px",
+                  padding: "12px 14px",
+                  fontSize: "0.85rem",
+                }}
+              >
+                <div style={{ fontWeight: 600, color: "#1e40af", marginBottom: 2 }}>
+                  📌 กำลังถูกยืมใช้งานโดย: {activeBorrow.borrower_name}
+                </div>
+                <div style={{ color: "#3b82f6" }}>
+                  ติดต่อ: {activeBorrow.borrower_contact || "-"} | กำหนดคืน: {activeBorrow.due_date || "ไม่ระบุ"}
+                </div>
               </div>
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                <button
-                  className="btn btn-outline-white"
-                  style={{ fontSize: "0.8rem", padding: "6px 10px" }}
-                  disabled={busy || asset.status === "normal"}
-                  onClick={() => handleStatusChange("normal")}
-                >
-                  ปกติ
-                </button>
-                <button
-                  className="btn btn-outline-white"
-                  style={{ fontSize: "0.8rem", padding: "6px 10px" }}
-                  disabled={busy || asset.status === "repair"}
-                  onClick={() => handleStatusChange("repair")}
-                >
-                  ส่งซ่อม
-                </button>
-                <button
-                  className="btn btn-outline-white"
-                  style={{ fontSize: "0.8rem", padding: "6px 10px" }}
-                  disabled={busy || asset.status === "damaged"}
-                  onClick={() => handleStatusChange("damaged")}
-                >
-                  ชำรุด
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Right Column: QR Code & Borrow / Return */}
+        {/* Right Column: QR Code & Status Information */}
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           {/* QR Code Display Card */}
           <div className="form-card" style={{ margin: 0, textAlign: "center" }}>
@@ -354,103 +275,22 @@ export default function AssetDetail() {
             </div>
           </div>
 
-          {/* Borrow / Return Card */}
+          {/* Verification Notice Card */}
           <div className="form-card" style={{ margin: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>
-                การยืม - คืนครุภัณฑ์
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <Info size={18} color="#2563eb" />
+              <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>
+                สถานะการตรวจสอบครุภัณฑ์
               </h3>
-              {asset.status === "borrowed" && activeBorrow && (
-                <button
-                  className="btn btn-primary"
-                  style={{ backgroundColor: "#059669" }}
-                  onClick={handleReturn}
-                  disabled={busy}
-                >
-                  <CheckCircle size={16} />
-                  <span>บันทึกส่งคืน</span>
-                </button>
-              )}
             </div>
-
-            {asset.status === "borrowed" && activeBorrow ? (
-              <div
-                style={{
-                  backgroundColor: "#eff6ff",
-                  border: "1px solid #bfdbfe",
-                  borderRadius: "8px",
-                  padding: "14px 16px",
-                  fontSize: "0.88rem",
-                }}
-              >
-                <div style={{ fontWeight: 600, color: "#1e40af", marginBottom: 4 }}>
-                  ครุภัณฑ์นี้กำลังถูกยืมใช้งานโดย: {activeBorrow.borrower_name}
-                </div>
-                <div style={{ color: "#3b82f6" }}>
-                  ติดต่อ: {activeBorrow.borrower_contact || "-"} | กำหนดคืน: {activeBorrow.due_date || "ไม่ระบุ"}
-                </div>
-              </div>
-            ) : (
-              <div>
-                {!showBorrowBox ? (
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setShowBorrowBox(true)}
-                  >
-                    <ArrowRightLeft size={16} />
-                    <span>บันทึกการขอยืมครุภัณฑ์ชิ้นนี้</span>
-                  </button>
-                ) : (
-                  <form onSubmit={handleBorrow} style={{ maxWidth: 480 }}>
-                    <div className="form-group" style={{ marginBottom: 10 }}>
-                      <label>ชื่อผู้ยืม</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={borrowerName}
-                        onChange={(e) => setBorrowerName(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 10 }}>
-                      <label>เบอร์ติดต่อ / แผนก</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={borrowerContact}
-                        onChange={(e) => setBorrowerContact(e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 14 }}>
-                      <label>กำหนดวันส่งคืน</label>
-                      <input
-                        type="date"
-                        className="form-control"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                      />
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button type="submit" className="btn btn-primary" disabled={busy}>
-                        ยืนยันการยืม
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => setShowBorrowBox(false)}
-                      >
-                        ยกเลิก
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            )}
+            <p style={{ fontSize: "0.84rem", color: "#64748b", margin: 0, lineHeight: 1.6 }}>
+              ข้อมูลนี้ได้รับการรับรองจากระบบบริหารจัดการพัสดุและครุภัณฑ์ หากพบว่าข้อมูลไม่ถูกต้องหรือครุภัณฑ์ชำรุดเสียหาย โปรดติดต่อเจ้าหน้าที่ผู้ดูแลพัสดุ
+            </p>
           </div>
         </div>
       </div>
 
-      {/* History Log */}
+      {/* History Log (Read-Only) */}
       {history.length > 0 && (
         <div className="table-card">
           <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0" }}>
