@@ -1,64 +1,77 @@
 erDiagram
-    BUILDINGS ||--o{ FLOORS : "has"
-    FLOORS ||--o{ ROOMS : "has"
-    ROOMS ||--o{ ASSETS : "houses"
-    ASSET_CATEGORIES ||--o{ ASSETS : "classifies"
-    ASSETS ||--o{ ASSET_STATUS_LOG : "history"
-    ASSETS ||--o{ BORROW_RECORDS : "borrow history"
-    PROFILES ||--o{ ASSET_STATUS_LOG : "changed by"
-    PROFILES ||--o{ BORROW_RECORDS : "recorded by"
+    BUILDINGS ||--o{ FLOORS : "1 อาคาร มีหลายชั้น (building_id)"
+    FLOORS ||--o{ ROOMS : "1 ชั้น มีหลายห้อง (floor_id)"
+    ROOMS ||--o{ ASSETS : "1 ห้อง มีครุภัณฑ์หลายชิ้น (room_id / room_code)"
+    ASSET_CATEGORIES ||--o{ ASSETS : "1 หมวดหมู่ มีครุภัณฑ์หลายชิ้น (category_id / category_code)"
+    ASSETS ||--o{ BORROW_RECORDS : "1 ครุภัณฑ์ มีประวัติการยืม-คืน (asset_id / asset_code)"
+    ASSETS ||--o{ ASSET_STATUS_LOG : "1 ครุภัณฑ์ มีประวัติตรวจสอบสถานะ (asset_id / asset_code)"
 
     BUILDINGS {
-        uuid id PK
-        text name
-        text code
+        uuid id PK "PRIMARY KEY default gen_random_uuid()"
+        text building_code UK "เช่น BLD-01"
+        text name "ชื่ออาคาร"
+        timestamptz created_at
     }
+
     FLOORS {
-        uuid id PK
-        uuid building_id FK
-        int floor_number
-        text floor_name
+        uuid id PK "PRIMARY KEY default gen_random_uuid()"
+        uuid building_id FK "REFERENCES buildings(id) ON DELETE CASCADE"
+        text building_code "รหัสอาคาร"
+        int floor_number "เลขชั้น เช่น 1, 2"
+        text floor_name "ชื่อชั้น"
+        timestamptz created_at
     }
+
     ROOMS {
-        uuid id PK
-        uuid floor_id FK
-        text room_name
-        text room_code
+        uuid id PK "PRIMARY KEY default gen_random_uuid()"
+        uuid floor_id FK "REFERENCES floors(id) ON DELETE SET NULL"
+        text room_code UK "เช่น RM-101"
+        text room_name "เช่น ห้องธุรการ, ห้องประชุม"
+        timestamptz created_at
     }
+
     ASSET_CATEGORIES {
-        uuid id PK
-        text category_name
+        uuid id PK "PRIMARY KEY default gen_random_uuid()"
+        text category_code UK "เช่น CAT-01"
+        text category_name UK "เช่น ครุภัณฑ์สำนักงาน, คอมพิวเตอร์"
+        timestamptz created_at
     }
+
     ASSETS {
-        uuid id PK
-        text asset_code
-        text name
-        uuid category_id FK
-        text color
-        text status
-        uuid room_id FK
-        text image_url
-        date received_date
-        text responsible_person
+        uuid id PK "PRIMARY KEY default gen_random_uuid()"
+        text asset_code UK "เลขครุภัณฑ์ / QR Code เช่น A-2569-1001"
+        text name "ชื่อรายการครุภัณฑ์"
+        uuid category_id FK "REFERENCES asset_categories(id) ON DELETE SET NULL"
+        text category_code "สำเนาคีย์รหัสหมวดหมู่"
+        uuid room_id FK "REFERENCES rooms(id) ON DELETE SET NULL"
+        text room_code "สำเนาคีย์รหัสห้อง"
+        text color "รายละเอียด / สี / ยี่ห้อ / รุ่น"
+        text status "สถานะ: normal, borrowed, repair, damaged, disposed"
+        text image_url "URL รูปภาพใน Supabase Storage"
+        date received_date "วันที่ตรวจรับเข้าคลัง"
+        text responsible_person "ผู้รับผิดชอบ / ผู้ดูแล"
+        timestamptz created_at
+        timestamptz updated_at
     }
-    ASSET_STATUS_LOG {
-        uuid id PK
-        uuid asset_id FK
-        text old_status
-        text new_status
-        uuid changed_by FK
-        timestamptz changed_at
-    }
+
     BORROW_RECORDS {
-        uuid id PK
-        uuid asset_id FK
-        text borrower_name
-        date due_date
-        timestamptz returned_at
-        uuid created_by FK
+        uuid id PK "PRIMARY KEY default gen_random_uuid()"
+        uuid asset_id FK "REFERENCES assets(id) ON DELETE CASCADE"
+        text asset_code "เลขครุภัณฑ์"
+        text borrower_name "ชื่อผู้ขอยืม"
+        text borrower_contact "เบอร์ติดต่อ / สังกัด"
+        timestamptz borrowed_at "วันเวลาที่ยืม"
+        date due_date "กำหนดวันส่งคืน"
+        timestamptz returned_at "วันเวลาที่ส่งคืนจริง (NULL = กำลังยืมอยู่)"
+        timestamptz created_at
     }
-    PROFILES {
-        uuid id PK
-        text full_name
-        text role
+
+    ASSET_STATUS_LOG {
+        uuid id PK "PRIMARY KEY default gen_random_uuid()"
+        uuid asset_id FK "REFERENCES assets(id) ON DELETE CASCADE"
+        text asset_code "เลขครุภัณฑ์"
+        text old_status "สถานะเดิม"
+        text new_status "สถานะใหม่"
+        text note "หมายเหตุ"
+        timestamptz changed_at
     }
