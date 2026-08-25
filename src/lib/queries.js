@@ -52,7 +52,12 @@ export async function listAssets(filters = {}) {
   if (cat) query = query.eq("category_code", cat);
   const rm = filters.roomCode || filters.roomId;
   if (rm) query = query.eq("room_code", rm);
-  if (filters.search) query = query.ilike("name", `%${filters.search}%`);
+  if (filters.search && filters.search.trim()) {
+    const s = filters.search.trim();
+    query = query.or(
+      `asset_code.ilike.%${s}%,name.ilike.%${s}%,color.ilike.%${s}%,responsible_person.ilike.%${s}%`
+    );
+  }
 
   const { data, error } = await query;
   if (error) {
