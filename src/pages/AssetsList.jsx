@@ -62,6 +62,10 @@ export default function AssetsList() {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   // โหลด Categories, Rooms และ Counts
   useEffect(() => {
     Promise.all([
@@ -85,17 +89,32 @@ export default function AssetsList() {
 
   useEffect(() => {
     fetchAssets();
+    setCurrentPage(1); // รีเซ็ตไปหน้า 1 เมื่อ Filter เปลี่ยน
   }, [filters]);
 
+  // คำนวณ Pagination
+  const totalItems = assets.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const startIndex = totalItems > 0 ? (currentPage - 1) * pageSize : 0;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const currentAssets = assets.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
+
   // Selection Logic
-  const isAllSelected = assets.length > 0 && selectedCodes.length === assets.length;
-  const isSomeSelected = selectedCodes.length > 0 && selectedCodes.length < assets.length;
+  const isAllSelected = currentAssets.length > 0 && currentAssets.every((a) => selectedCodes.includes(a.asset_code));
+  const isSomeSelected = currentAssets.some((a) => selectedCodes.includes(a.asset_code)) && !isAllSelected;
 
   const toggleSelectAll = () => {
+    const pageCodes = currentAssets.map((a) => a.asset_code);
     if (isAllSelected) {
-      setSelectedCodes([]);
+      setSelectedCodes((prev) => prev.filter((c) => !pageCodes.includes(c)));
     } else {
-      setSelectedCodes(assets.map((a) => a.asset_code));
+      setSelectedCodes((prev) => Array.from(new Set([...prev, ...pageCodes])));
     }
   };
 
@@ -445,7 +464,7 @@ export default function AssetsList() {
                       if (el) el.indeterminate = isSomeSelected;
                     }}
                     onChange={toggleSelectAll}
-                    title="เลือกทั้งหมด"
+                    title="เลือกทั้งหมดในหน้านี้"
                   />
                 </th>
                 <th style={{ width: "60px", textAlign: "center" }}>รูป</th>
@@ -465,14 +484,14 @@ export default function AssetsList() {
                     กำลังโหลดข้อมูลครุภัณฑ์...
                   </td>
                 </tr>
-              ) : assets.length === 0 ? (
+              ) : currentAssets.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="table-empty-row">
                     ไม่พบรายการครุภัณฑ์ตามเงื่อนไขที่เลือก
                   </td>
                 </tr>
               ) : (
-                assets.map((asset) => {
+                currentAssets.map((asset) => {
                   const code = asset.asset_code || "-";
                   const categoryName = asset.asset_categories?.category_name || "ครุภัณฑ์ทั่วไป";
                   const roomText = asset.rooms?.room_name || "ห้องธุรการและสารบรรณ";
@@ -590,6 +609,103 @@ export default function AssetsList() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {!loading && totalItems > 0 && (
+          <div className="pagination-wrapper">
+            <div className="pagination-info">
+              แสดง <strong>{startIndex + 1}</strong> - <strong>{endIndex}</strong> จากทั้งหมด <strong>{totalItems.toLocaleString()}</strong> รายการ
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+              {/* Page Size Selector */}
+              <div className="pagination-size-wrap">
+                <span>แสดง:</span>
+                <select
+                  className="pagination-size-select"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value={10}>10 รายการ / หน้า</option>
+                  <option value={25}>25 รายการ / หน้า</option>
+                  <option value={50}>50 รายการ / หน้า</option>
+                  <option value={100}>100 รายการ / หน้า</option>
+                </select>
+              </div>
+
+              {/* Page Navigation Buttons */}
+              <div className="pagination-controls">
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage(1)}
+                  title="หน้าแรก"
+                >
+                  &laquo;
+                </button>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  title="หน้าก่อนหน้า"
+                >
+                  &lsaquo;
+                </button>
+
+                {/* Numbered Page Buttons */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (p) =>
+                      p === 1 ||
+                      p === totalPages ||
+                      (p >= currentPage - 2 && p <= currentPage + 2)
+                  )
+                  .map((p, idx, arr) => {
+                    const prev = arr[idx - 1];
+                    const showEllipsis = prev && p - prev > 1;
+                    return (
+                      <React.Fragment key={p}>
+                        {showEllipsis && (
+                          <span style={{ padding: "0 4px", color: "#94a3b8" }}>...</span>
+                        )}
+                        <button
+                          type="button"
+                          className={`pagination-btn ${p === currentPage ? "active" : ""}`}
+                          onClick={() => setCurrentPage(p)}
+                        >
+                          {p}
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  title="หน้าถัดไป"
+                >
+                  &rsaquo;
+                </button>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  title="หน้าสุดท้าย"
+                >
+                  &raquo;
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Single Delete Confirmation Modal */}
