@@ -227,11 +227,11 @@ export async function listCategories() {
   }));
 }
 
-export async function createCategory(categoryName, categoryCode) {
+export async function createCategory(categoryCode, categoryName) {
   const code = categoryCode || `CAT-${Date.now().toString().slice(-4)}`;
   const { data, error } = await supabase
     .from("asset_categories")
-    .insert({ category_name: categoryName.trim(), category_code: code })
+    .insert({ category_code: String(code).trim(), category_name: String(categoryName).trim() })
     .select()
     .single();
   if (error) throw error;
@@ -241,7 +241,7 @@ export async function createCategory(categoryName, categoryCode) {
 export async function updateCategory(categoryCode, categoryName) {
   const { data, error } = await supabase
     .from("asset_categories")
-    .update({ category_name: categoryName.trim() })
+    .update({ category_name: String(categoryName).trim() })
     .eq("category_code", categoryCode)
     .select()
     .single();
@@ -398,4 +398,124 @@ export async function getActiveBorrowRecord(assetCode) {
 
   if (error) return null;
   return data;
+}
+
+// ---------------------------------------------------------------------------
+// CSV Batch Import
+// ---------------------------------------------------------------------------
+export async function importAssetsBatch(rawItems, onProgress) {
+  if (!rawItems || rawItems.length === 0) {
+    throw new Error("ไม่มีรายการข้อมูลสำหรับนำเข้า");
+  }
+
+  // 1. ดึง categories, buildings และ rooms ที่มีอยู่เดิม
+  const [existingCategories, existingBuildings, existingRooms] = await Promise.all([
+    listCategories().catch(() => []),
+    listBuildings().catch(() => []),
+    listRooms().catch(() => []),
+  ]);
+
+  const categoryMap = new Map();
+  for (const c of existingCategories) {
+    if (c.category_name) categoryMap.set(c.category_name.toLowerCase().trim(), c.category_code);
+    if (c.category_code) categoryMap.set(c.category_code.toLowerCase().trim(), c.category_code);
+  }
+
+  // เตรียม building เริ่มต้น หากยังไม่มี
+  let defaultBuildingCode = existingBuildings[0]?.building_code;
+  if (!defaultBuildingCode) {
+    try {
+      const createdB = await createBuilding("MAIN", "อาคารหลัก");
+      defaultBuildingCode = createdB.building_code;
+    } catch {
+      defaultBuildingCode = "MAIN";
+    }
+  }
+
+  const roomMap = new Map();
+  for (const r of existingRooms) {
+    if (r.room_name) roomMap.set(r.room_name.toLowerCase().trim(), r.room_code);
+    if (r.room_code) roomMap.set(r.room_code.toLowerCase().trim(), r.room_code);
+  }
+
+  // 2. ตรวจสอบและสร้างหมวดหมู่ใหม่ที่ยังไม่มีในฐานข้อมูล
+  const neededCategories = new Set();
+  for (const item of rawItems) {
+    const rawCat = (item.category || item.category_name || item.category_code || "").trim();
+    if (rawCat && !categoryMap.has(rawCat.toLowerCase())) {
+      neededCategories.add(rawCat);
+    }
+  }
+
+  for (const catName of neededCategories) {
+    try {
+      const code = `CAT-${Math.floor(10 + Math.random() * 90)}`;
+      const created = await createCategory(code, catName);
+      categoryMap.set(catName.toLowerCase(), created.category_code);
+      categoryMap.set(code.toLowerCase(), created.category_code);
+    } catch {
+      // ignore conflict
+    }
+  }
+
+  // 3. ตรวจสอบและสร้างห้องใหม่ที่ยังไม่มีในฐานข้อมูล
+  const neededRooms = new Set();
+  for (const item of rawItems) {
+    const rawRoom = (item.room || item.room_name || item.room_code || item.location || "").trim();
+    if (rawRoom && !roomMap.has(rawRoom.toLowerCase())) {
+      neededRooms.add(rawRoom);
+    }
+  }
+
+  for (const roomName of neededRooms) {
+    try {
+      const code = `R${Math.floor(100 + Math.random() * 900)}`;
+      const created = await createRoom(defaultBuildingCode, 1, code, roomName);
+      roomMap.set(roomName.toLowerCase(), created.room_code);
+      roomMap.set(code.toLowerCase(), created.room_code);
+    } catch {
+      // ignore conflict
+    }
+  }
+
+  // 4. แปลงข้อมูลพร้อม insert
+  const payloadRows = rawItems.map((item) => {
+    const rawCat = (item.category || item.category_name || item.category_code || "").toLowerCase().trim();
+    const resolvedCatCode = categoryMap.get(rawCat) || null;
+
+    const rawRoom = (item.room || item.room_name || item.room_code || item.location || "").toLowerCase().trim();
+    const resolvedRoomCode = roomMap.get(rawRoom) || null;
+
+    let status = (item.status || "normal").toLowerCase().trim();
+    if (status.includes("ยืม") || status === "borrowed") status = "borrowed";
+    else if (status.includes("ซ่อม") || status === "repair") status = "repair";
+    else if (status.includes("ชำรุด") || status === "damaged") status = "damaged";
+    else if (status.includes("จำหน่าย") || status === "disposed") status = "disposed";
+    else status = "normal";
+
+    return {
+      asset_code: String(item.asset_code || item.code).trim(),
+      name: String(item.name || "ไม่ระบุชื่อครุภัณฑ์").trim(),
+      category_code: resolvedCatCode,
+      room_code: resolvedRoomCode,
+      color: item.color ? String(item.color).trim() : null,
+      status: status,
+      received_date: item.received_date ? String(item.received_date).trim() : null,
+      responsible_person: item.responsible_person ? String(item.responsible_person).trim() : null,
+      image_url: item.image_url ? String(item.image_url).trim() : null,
+    };
+  });
+
+  // 5. บันทึกเป็น Chunks ขึ้น Supabase
+  const chunkSize = 50;
+  let successCount = 0;
+  for (let i = 0; i < payloadRows.length; i += chunkSize) {
+    const chunk = payloadRows.slice(i, i + chunkSize);
+    const { error } = await supabase.from("assets").upsert(chunk, { onConflict: "asset_code" });
+    if (error) throw error;
+    successCount += chunk.length;
+    if (onProgress) onProgress(Math.min(100, Math.round((successCount / payloadRows.length) * 100)));
+  }
+
+  return { total: payloadRows.length, success: successCount };
 }

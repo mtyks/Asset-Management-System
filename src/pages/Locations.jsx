@@ -163,7 +163,7 @@ export default function Locations() {
           onClick={() => setActiveTab("rooms")}
         >
           <MapPin size={16} />
-          <span>ห้อง / จุดประจำ ({rooms.length})</span>
+          <span>ห้อง ({rooms.length})</span>
         </button>
         <button
           className={`btn ${activeTab === "buildings" ? "btn-primary" : "btn-outline-white"}`}
@@ -179,12 +179,12 @@ export default function Locations() {
         <>
           <div className="form-card">
             <h3 style={{ margin: "0 0 14px", fontSize: "1.05rem", fontWeight: 700 }}>
-              + เพิ่มห้อง / จุดประจำใหม่
+              + เพิ่มห้อง 
             </h3>
             <form onSubmit={handleAddRoom}>
               <div className="form-grid">
                 <div className="form-group">
-                  <label>ชื่อห้อง / จุดประจำ *</label>
+                  <label>ชื่อห้อง *</label>
                   <input
                     type="text"
                     className="form-control"
@@ -255,7 +255,7 @@ export default function Locations() {
                 <thead>
                   <tr>
                     <th>รหัสห้อง</th>
-                    <th>ชื่อห้อง / จุดประจำ</th>
+                    <th>ชื่อห้อง</th>
                     <th>อาคาร</th>
                     <th>ชั้น</th>
                     <th style={{ textAlign: "right" }}>จัดการ</th>

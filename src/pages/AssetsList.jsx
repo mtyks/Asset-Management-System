@@ -8,9 +8,10 @@ import {
   deleteAsset,
 } from "../lib/queries";
 import StatusBadge from "../components/StatusBadge";
+import ImportCSVModal from "../components/ImportCSVModal";
 import {
   Plus,
-  FileText,
+  Upload,
   FileSpreadsheet,
   Printer,
   Search,
@@ -50,6 +51,7 @@ export default function AssetsList() {
   const [error, setError] = useState(null);
   const [deletingCode, setDeletingCode] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // โหลด Categories, Rooms และ Counts
   useEffect(() => {
@@ -186,17 +188,29 @@ export default function AssetsList() {
             <span>เพิ่มครุภัณฑ์</span>
           </Link>
 
-          <button className="btn btn-outline-white" onClick={handlePrint} title="ส่งออกเป็นเอกสาร PDF A4">
-            <FileText size={16} className="btn-icon-red" />
-            <span>PDF A4</span>
+          <button
+            className="btn btn-outline-white"
+            onClick={() => setShowImportModal(true)}
+            title="นำเข้าข้อมูลครุภัณฑ์จากไฟล์ CSV"
+          >
+            <Upload size={16} className="btn-icon-green" />
+            <span>นำเข้า CSV</span>
           </button>
 
-          <button className="btn btn-outline-white" onClick={handleExportCSV} title="ดาวน์โหลดไฟล์ CSV">
+          <button
+            className="btn btn-outline-white"
+            onClick={handleExportCSV}
+            title="ดาวน์โหลดไฟล์ CSV ทั้งหมด"
+          >
             <FileSpreadsheet size={16} className="btn-icon-green" />
-            <span>CSV</span>
+            <span>ส่งออก CSV</span>
           </button>
 
-          <button className="btn btn-outline-white" onClick={handlePrint} title="พิมพ์หน้ารายการครุภัณฑ์">
+          <button
+            className="btn btn-outline-white"
+            onClick={handlePrint}
+            title="พิมพ์หน้ารายการครุภัณฑ์"
+          >
             <Printer size={16} />
             <span>พิมพ์</span>
           </button>
@@ -389,7 +403,7 @@ export default function AssetsList() {
                       <td>
                         <div className="asset-code-cell">
                           <Link
-                            to={`/asset/${code}`}
+                            to={`/asset/${encodeURIComponent(code)}`}
                             className="asset-code-main"
                             title="ดูรายละเอียด"
                           >
@@ -402,7 +416,7 @@ export default function AssetsList() {
                       <td>
                         <div className="asset-name-cell">
                           <Link
-                            to={`/asset/${code}`}
+                            to={`/asset/${encodeURIComponent(code)}`}
                             className="asset-name-main"
                           >
                             {asset.name}
@@ -521,6 +535,16 @@ export default function AssetsList() {
           </div>
         </div>
       )}
+
+      {/* Import CSV Modal */}
+      <ImportCSVModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => {
+          fetchAssets();
+          getDashboardCounts().then(setCounts).catch(() => {});
+        }}
+      />
     </div>
   );
 }
