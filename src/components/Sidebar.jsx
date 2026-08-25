@@ -27,9 +27,7 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Header Title without Icon */}
         <div className="sidebar-header" style={{ padding: "20px 18px" }}>
           <div className="sidebar-logo-title" style={{ fontSize: "1.05rem", fontWeight: 800, lineHeight: 1.3, letterSpacing: "-0.01em" }}>
-            ระบบบริหารจัดการ
-            <br />
-            ครุภัณฑ์
+            ระบบบริหารจัดการครุภัณฑ์
           </div>
           {isOpen && (
             <button
