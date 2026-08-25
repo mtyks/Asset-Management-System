@@ -155,6 +155,43 @@ export async function deleteAsset(assetCode) {
   return true;
 }
 
+export async function bulkUpdateAssets(assetCodes, updates) {
+  if (!assetCodes || assetCodes.length === 0) return [];
+  const payload = { ...updates };
+  if (payload.category_id) {
+    payload.category_code = payload.category_id;
+    delete payload.category_id;
+  }
+  if (payload.room_id) {
+    payload.room_code = payload.room_id;
+    delete payload.room_id;
+  }
+  delete payload.id;
+  delete payload.asset_categories;
+  delete payload.rooms;
+  payload.updated_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("assets")
+    .update(payload)
+    .in("asset_code", assetCodes)
+    .select();
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function bulkDeleteAssets(assetCodes) {
+  if (!assetCodes || assetCodes.length === 0) return true;
+  const { error } = await supabase
+    .from("assets")
+    .delete()
+    .in("asset_code", assetCodes);
+
+  if (error) throw error;
+  return true;
+}
+
 export async function updateAssetStatus(assetCode, newStatus, note = "") {
   const { data: current } = await supabase
     .from("assets")

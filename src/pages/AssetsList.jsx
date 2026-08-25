@@ -6,9 +6,11 @@ import {
   listRooms,
   getDashboardCounts,
   deleteAsset,
+  bulkDeleteAssets,
 } from "../lib/queries";
 import StatusBadge from "../components/StatusBadge";
 import ImportCSVModal from "../components/ImportCSVModal";
+import BulkEditModal from "../components/BulkEditModal";
 import {
   Plus,
   Upload,
@@ -27,6 +29,7 @@ import {
   Trash2,
   Edit,
   AlertTriangle,
+  CheckSquare,
 } from "lucide-react";
 
 export default function AssetsList() {
@@ -53,6 +56,12 @@ export default function AssetsList() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showImportModal, setShowImportModal] = useState(false);
 
+  // Multi-Select & Bulk Edit States
+  const [selectedCodes, setSelectedCodes] = useState([]);
+  const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   // โหลด Categories, Rooms และ Counts
   useEffect(() => {
     Promise.all([
@@ -78,6 +87,24 @@ export default function AssetsList() {
     fetchAssets();
   }, [filters]);
 
+  // Selection Logic
+  const isAllSelected = assets.length > 0 && selectedCodes.length === assets.length;
+  const isSomeSelected = selectedCodes.length > 0 && selectedCodes.length < assets.length;
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedCodes([]);
+    } else {
+      setSelectedCodes(assets.map((a) => a.asset_code));
+    }
+  };
+
+  const toggleSelectRow = (code) => {
+    setSelectedCodes((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    );
+  };
+
   // Export CSV
   const handleExportCSV = () => {
     if (!assets || assets.length === 0) {
@@ -96,7 +123,11 @@ export default function AssetsList() {
       "วันที่ตรวจรับ",
     ];
 
-    const rows = assets.map((a) => {
+    const exportRows = selectedCodes.length > 0
+      ? assets.filter((a) => selectedCodes.includes(a.asset_code))
+      : assets;
+
+    const rows = exportRows.map((a) => {
       const code = a.asset_code || "-";
       const name = a.name || "-";
       const color = a.color || "-";
@@ -134,12 +165,13 @@ export default function AssetsList() {
     window.print();
   };
 
-  // ลบครุภัณฑ์
+  // ลบครุภัณฑ์ชิ้นเดียว
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
       setDeletingCode(deleteTarget.asset_code);
       await deleteAsset(deleteTarget.asset_code);
+      setSelectedCodes((prev) => prev.filter((c) => c !== deleteTarget.asset_code));
       setDeleteTarget(null);
       fetchAssets();
       getDashboardCounts().then(setCounts).catch(() => {});
@@ -147,6 +179,23 @@ export default function AssetsList() {
       alert("ลบไม่สำเร็จ: " + err.message);
     } finally {
       setDeletingCode(null);
+    }
+  };
+
+  // ลบครุภัณฑ์หลายชิ้นพร้อมกัน
+  const confirmBulkDelete = async () => {
+    if (selectedCodes.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      await bulkDeleteAssets(selectedCodes);
+      setSelectedCodes([]);
+      setShowBulkDeleteModal(false);
+      fetchAssets();
+      getDashboardCounts().then(setCounts).catch(() => {});
+    } catch (err) {
+      alert("ลบรายการที่เลือกไม่สำเร็จ: " + err.message);
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -200,10 +249,10 @@ export default function AssetsList() {
           <button
             className="btn btn-outline-white"
             onClick={handleExportCSV}
-            title="ดาวน์โหลดไฟล์ CSV ทั้งหมด"
+            title={selectedCodes.length > 0 ? `ดาวน์โหลด CSV (${selectedCodes.length} รายการที่เลือก)` : "ดาวน์โหลดไฟล์ CSV ทั้งหมด"}
           >
             <FileSpreadsheet size={16} className="btn-icon-green" />
-            <span>ส่งออก CSV</span>
+            <span>{selectedCodes.length > 0 ? `ส่งออก (${selectedCodes.length})` : "ส่งออก CSV"}</span>
           </button>
 
           <button
@@ -344,6 +393,41 @@ export default function AssetsList() {
         </select>
       </div>
 
+      {/* Bulk Action Bar (Visible when >= 1 items selected) */}
+      {selectedCodes.length > 0 && (
+        <div className="bulk-action-bar">
+          <div className="bulk-action-info">
+            <span className="bulk-badge-count">{selectedCodes.length}</span>
+            <span>รายการที่เลือกอยู่</span>
+          </div>
+          <div className="bulk-action-buttons">
+            <button
+              type="button"
+              className="bulk-btn-edit"
+              onClick={() => setShowBulkEditModal(true)}
+            >
+              <Edit size={15} />
+              <span>แก้ไขพร้อมกัน ({selectedCodes.length})</span>
+            </button>
+            <button
+              type="button"
+              className="bulk-btn-delete"
+              onClick={() => setShowBulkDeleteModal(true)}
+            >
+              <Trash2 size={15} />
+              <span>ลบที่เลือก ({selectedCodes.length})</span>
+            </button>
+            <button
+              type="button"
+              className="bulk-btn-clear"
+              onClick={() => setSelectedCodes([])}
+            >
+              <span>ยกเลิก</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && <div className="form-error-banner">โหลดข้อมูลไม่สำเร็จ: {error}</div>}
 
       {/* 4. Modern Data Table Card */}
@@ -352,6 +436,18 @@ export default function AssetsList() {
           <table className="modern-table">
             <thead>
               <tr>
+                <th style={{ width: "40px", textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    className="table-checkbox"
+                    checked={isAllSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isSomeSelected;
+                    }}
+                    onChange={toggleSelectAll}
+                    title="เลือกทั้งหมด"
+                  />
+                </th>
                 <th style={{ width: "60px", textAlign: "center" }}>รูป</th>
                 <th style={{ minWidth: "140px" }}>เลขครุภัณฑ์</th>
                 <th style={{ minWidth: "180px" }}>รายการครุภัณฑ์</th>
@@ -365,13 +461,13 @@ export default function AssetsList() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="table-empty-row">
+                  <td colSpan={9} className="table-empty-row">
                     กำลังโหลดข้อมูลครุภัณฑ์...
                   </td>
                 </tr>
               ) : assets.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="table-empty-row">
+                  <td colSpan={9} className="table-empty-row">
                     ไม่พบรายการครุภัณฑ์ตามเงื่อนไขที่เลือก
                   </td>
                 </tr>
@@ -380,9 +476,26 @@ export default function AssetsList() {
                   const code = asset.asset_code || "-";
                   const categoryName = asset.asset_categories?.category_name || "ครุภัณฑ์ทั่วไป";
                   const roomText = asset.rooms?.room_name || "ห้องธุรการและสารบรรณ";
+                  const isSelected = selectedCodes.includes(asset.asset_code);
 
                   return (
-                    <tr key={asset.asset_code}>
+                    <tr
+                      key={asset.asset_code}
+                      style={{
+                        backgroundColor: isSelected ? "#f0fdf4" : undefined,
+                        transition: "background-color 0.15s ease",
+                      }}
+                    >
+                      {/* Checkbox Column */}
+                      <td style={{ textAlign: "center", width: "40px" }}>
+                        <input
+                          type="checkbox"
+                          className="table-checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectRow(asset.asset_code)}
+                        />
+                      </td>
+
                       {/* รูปภาพ Thumbnail ล็อคขนาด 44x44 เสมอ */}
                       <td style={{ textAlign: "center", width: "60px" }}>
                         <div className="asset-thumb-box">
@@ -479,7 +592,7 @@ export default function AssetsList() {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Single Delete Confirmation Modal */}
       {deleteTarget && (
         <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -534,6 +647,75 @@ export default function AssetsList() {
           </div>
         </div>
       )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="modal-overlay" onClick={() => setShowBulkDeleteModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: "#fef2f2",
+                    color: "#dc2626",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <AlertTriangle size={20} />
+                </div>
+                <h3 className="modal-title" style={{ margin: 0 }}>
+                  ยืนยันการลบหลายรายการพร้อมกัน
+                </h3>
+              </div>
+            </div>
+
+            <p style={{ fontSize: "0.9rem", color: "#475569", margin: "14px 0 20px" }}>
+              คุณแน่ใจหรือไม่ว่าต้องการลบครุภัณฑ์ที่เลือกทั้งหมดจำนวน{" "}
+              <strong style={{ color: "#dc2626" }}>{selectedCodes.length}</strong> รายการ?
+              การกระทำนี้ไม่สามารถยกเลิกได้
+            </p>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowBulkDeleteModal(false)}
+                disabled={bulkDeleting}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ backgroundColor: "#dc2626" }}
+                onClick={confirmBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting ? "กำลังลบ..." : `ยืนยันลบ ${selectedCodes.length} รายการ`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Edit Modal */}
+      <BulkEditModal
+        isOpen={showBulkEditModal}
+        onClose={() => setShowBulkEditModal(false)}
+        selectedCodes={selectedCodes}
+        categories={categories}
+        rooms={rooms}
+        onSuccess={() => {
+          setSelectedCodes([]);
+          fetchAssets();
+          getDashboardCounts().then(setCounts).catch(() => {});
+        }}
+      />
 
       {/* Import CSV Modal */}
       <ImportCSVModal
