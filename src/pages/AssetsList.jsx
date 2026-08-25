@@ -341,7 +341,6 @@ export default function AssetsList() {
           <option value="borrowed">ยืมใช้งาน</option>
           <option value="repair">ส่งซ่อม</option>
           <option value="damaged">ชำรุด</option>
-          <option value="disposed">จำหน่ายแล้ว</option>
         </select>
       </div>
 

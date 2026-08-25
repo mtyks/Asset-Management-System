@@ -50,7 +50,7 @@ create table if not exists assets (
   category_code text references asset_categories(category_code) on delete set null on update cascade,
   color         text,
   status        text not null default 'normal'
-                  check (status in ('normal', 'repair', 'borrowed', 'damaged', 'disposed')),
+                  check (status in ('normal', 'repair', 'borrowed', 'damaged')),
   room_code     text references rooms(room_code) on delete set null on update cascade,
   image_url     text,
   received_date date,

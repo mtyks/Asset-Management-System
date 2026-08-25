@@ -24,7 +24,6 @@ export default function Dashboard() {
     borrowed: 0,
     repair: 0,
     damaged: 0,
-    disposed: 0,
   });
   const [recentAssets, setRecentAssets] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -19,7 +19,7 @@ export async function getDashboardCounts() {
     const { data, error } = await supabase.from("assets").select("status");
     if (error) throw error;
 
-    const counts = { total: data.length, normal: 0, repair: 0, borrowed: 0, damaged: 0, disposed: 0 };
+    const counts = { total: data.length, normal: 0, repair: 0, borrowed: 0, damaged: 0 };
     for (const row of data) {
       const s = row.status || "normal";
       counts[s] = (counts[s] || 0) + 1;
@@ -31,11 +31,10 @@ export async function getDashboardCounts() {
       borrowed: counts.borrowed || 0,
       repair: (counts.repair || 0) + (counts.damaged || 0),
       damaged: counts.damaged || 0,
-      disposed: counts.disposed || 0,
     };
   } catch (err) {
     console.warn("getDashboardCounts error:", err);
-    return { total: 0, normal: 0, borrowed: 0, repair: 0, damaged: 0, disposed: 0 };
+    return { total: 0, normal: 0, borrowed: 0, repair: 0, damaged: 0 };
   }
 }
 
@@ -490,7 +489,6 @@ export async function importAssetsBatch(rawItems, onProgress) {
     if (status.includes("ยืม") || status === "borrowed") status = "borrowed";
     else if (status.includes("ซ่อม") || status === "repair") status = "repair";
     else if (status.includes("ชำรุด") || status === "damaged") status = "damaged";
-    else if (status.includes("จำหน่าย") || status === "disposed") status = "disposed";
     else status = "normal";
 
     return {
