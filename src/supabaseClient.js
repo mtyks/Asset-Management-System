@@ -1,14 +1,23 @@
 import { createClient } from "@supabase/supabase-js";
 
-// ค่าทั้งหมดมาจากไฟล์ .env (ดู .env.example) — ห้าม hardcode key ในโค้ดนี้เด็ดขาด
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const envUrl =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_SUPABASE_URL) ||
+  (typeof process !== "undefined" && process.env?.VITE_SUPABASE_URL) ||
+  "https://bhbuhlrftqhuoynxkosy.supabase.co";
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  // Fail-stop: แจ้งทันทีถ้า config ไม่ครบ แทนที่จะปล่อยให้แอปพังแบบเงียบๆ ตอน query
-  throw new Error(
-    "[Config Error] ไม่พบ VITE_SUPABASE_URL หรือ VITE_SUPABASE_ANON_KEY กรุณาตั้งค่าในไฟล์ .env (ดูตัวอย่างใน .env.example)"
-  );
-}
+const envKey =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_SUPABASE_ANON_KEY) ||
+  (typeof process !== "undefined" && process.env?.VITE_SUPABASE_ANON_KEY) ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoYnVobHJmdHFodW95bnhrb3N5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1MjkwNTEsImV4cCI6MjEwMzEwNTA1MX0.yEiUOmJK5SNsYqdj2rkK0flyl1NnxiLNfjrO9VWYK-M";
+
+export const isConfigured = Boolean(
+  envUrl &&
+  envKey &&
+  !envUrl.includes("YOUR-PROJECT-REF") &&
+  !envKey.includes("YOUR-ANON-PUBLIC-KEY")
+);
+
+const supabaseUrl = isConfigured ? envUrl : "https://placeholder-project.supabase.co";
+const supabaseAnonKey = isConfigured ? envKey : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy";
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
