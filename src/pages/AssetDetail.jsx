@@ -104,7 +104,7 @@ export default function AssetDetail() {
   if (!asset) return <div className="page-loading">กำลังโหลด...</div>;
 
   const location = asset.rooms
-    ? `${asset.rooms.floors?.buildings?.name || ""} ชั้น ${asset.rooms.floors?.floor_number ?? "-"} ห้อง ${asset.rooms.room_name}`
+    ? `${asset.rooms.buildings?.name || ""} ชั้น ${asset.rooms.floor_number ?? "-"} ห้อง ${asset.rooms.room_name}`
     : "ยังไม่ระบุตำแหน่ง";
 
   return (

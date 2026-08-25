@@ -3,7 +3,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   listCategories,
   listBuildings,
-  listFloors,
   listRooms,
   createAsset,
   updateAsset,
@@ -27,7 +26,6 @@ const emptyForm = {
   category_code: "",
   color: "",
   building_code: "",
-  floor_code: "",
   room_code: "",
   received_date: new Date().toISOString().slice(0, 10),
   responsible_person: "",
@@ -40,7 +38,6 @@ export default function AssetForm() {
 
   const [categories, setCategories] = useState([]);
   const [buildings, setBuildings] = useState([]);
-  const [floors, setFloors] = useState([]);
   const [rooms, setRooms] = useState([]);
 
   const [form, setForm] = useState(() =>
@@ -60,7 +57,7 @@ export default function AssetForm() {
     listBuildings().then(setBuildings).catch((err) => setError(err.message));
   }, []);
 
-  // โหมดแก้ไข: โหลดข้อมูลครุภัณฑ์เดิมมาเติมในฟอร์ม รวมถึงไล่หา ตึก/ชั้น จาก room เดิม
+  // โหมดแก้ไข: โหลดข้อมูลครุภัณฑ์เดิมมาเติมในฟอร์ม รวมถึงไล่หา ตึก จาก room เดิม
   useEffect(() => {
     if (!isEditMode) return;
     let cancelled = false;
@@ -68,14 +65,12 @@ export default function AssetForm() {
       .then((asset) => {
         if (cancelled) return;
         const room = asset.rooms;
-        const floor = room?.floors;
         setForm({
           asset_code: asset.asset_code,
           name: asset.name,
           category_code: asset.category_code || "",
           color: asset.color || "",
-          building_code: floor?.building_code || "",
-          floor_code: room?.floor_code || "",
+          building_code: room?.building_code || "",
           room_code: asset.room_code || "",
           received_date: asset.received_date || "",
           responsible_person: asset.responsible_person || "",
@@ -91,19 +86,11 @@ export default function AssetForm() {
 
   useEffect(() => {
     if (!form.building_code) {
-      setFloors([]);
-      return;
-    }
-    listFloors(form.building_code).then(setFloors).catch((err) => setError(err.message));
-  }, [form.building_code]);
-
-  useEffect(() => {
-    if (!form.floor_code) {
       setRooms([]);
       return;
     }
-    listRooms(form.floor_code).then(setRooms).catch((err) => setError(err.message));
-  }, [form.floor_code]);
+    listRooms(form.building_code).then(setRooms).catch((err) => setError(err.message));
+  }, [form.building_code]);
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -243,31 +230,16 @@ export default function AssetForm() {
             </select>
           </label>
           <label>
-            ชั้น
-            <select
-              value={form.floor_code}
-              onChange={(e) => update("floor_code", e.target.value)}
-              disabled={!form.building_code}
-            >
-              <option value="">-- เลือกชั้น --</option>
-              {floors.map((f) => (
-                <option key={f.floor_code} value={f.floor_code}>
-                  ชั้น {f.floor_number} {f.floor_name || ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
             ห้อง
             <select
               value={form.room_code}
               onChange={(e) => update("room_code", e.target.value)}
-              disabled={!form.floor_code}
+              disabled={!form.building_code}
             >
               <option value="">-- เลือกห้อง --</option>
               {rooms.map((r) => (
                 <option key={r.room_code} value={r.room_code}>
-                  {r.room_name}
+                  ชั้น {r.floor_number} — {r.room_name}
                 </option>
               ))}
             </select>

@@ -30,7 +30,7 @@ export async function listAssets(filters = {}) {
     .select(
       `asset_code, name, color, status, image_url, received_date, responsible_person,
        asset_categories ( category_code, category_name ),
-       rooms ( room_code, room_name, floors ( floor_code, floor_number, buildings ( building_code, name ) ) )`
+       rooms ( room_code, room_name, floor_number, buildings ( building_code, name ) )`
     )
     .order("created_at", { ascending: false });
 
@@ -49,7 +49,7 @@ export async function getAssetByCode(assetCode) {
     .from("assets")
     .select(
       `*, asset_categories ( category_code, category_name ),
-       rooms ( room_code, room_name, floor_code, floors ( floor_number, building_code, buildings ( name ) ) )`
+       rooms ( room_code, room_name, floor_number, building_code, buildings ( name ) )`
     )
     .eq("asset_code", assetCode)
     .single();
@@ -172,67 +172,28 @@ export async function deleteBuilding(buildingCode) {
   if (error) throw error;
 }
 
-function makeFloorCode(buildingCode, floorNumber) {
-  return `${buildingCode}-F${floorNumber}`;
-}
-
-export async function listFloors(buildingCode) {
-  let query = supabase.from("floors").select("*, buildings(name)").order("floor_number");
+export async function listRooms(buildingCode) {
+  let query = supabase.from("rooms").select("*, buildings(name)").order("floor_number").order("room_name");
   if (buildingCode) query = query.eq("building_code", buildingCode);
   const { data, error } = await query;
   if (error) throw error;
   return data;
 }
 
-export async function createFloor(buildingCode, floorNumber, floorName) {
-  const floorCode = makeFloorCode(buildingCode, floorNumber);
-  const { data, error } = await supabase
-    .from("floors")
-    .insert({ floor_code: floorCode, building_code: buildingCode, floor_number: floorNumber, floor_name: floorName })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function updateFloor(floorCode, floorNumber, floorName) {
-  const { data, error } = await supabase
-    .from("floors")
-    .update({ floor_number: floorNumber, floor_name: floorName })
-    .eq("floor_code", floorCode)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteFloor(floorCode) {
-  const { error } = await supabase.from("floors").delete().eq("floor_code", floorCode);
-  if (error) throw error;
-}
-
-export async function listRooms(floorCode) {
-  let query = supabase.from("rooms").select("*, floors(floor_number, buildings(name))").order("room_name");
-  if (floorCode) query = query.eq("floor_code", floorCode);
-  const { data, error } = await query;
-  if (error) throw error;
-  return data;
-}
-
-export async function createRoom(floorCode, roomCode, roomName) {
+export async function createRoom(buildingCode, floorNumber, roomCode, roomName) {
   const { data, error } = await supabase
     .from("rooms")
-    .insert({ room_code: roomCode, floor_code: floorCode, room_name: roomName })
+    .insert({ room_code: roomCode, building_code: buildingCode, floor_number: floorNumber, room_name: roomName })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateRoom(roomCode, roomName) {
+export async function updateRoom(roomCode, floorNumber, roomName) {
   const { data, error } = await supabase
     .from("rooms")
-    .update({ room_name: roomName })
+    .update({ floor_number: floorNumber, room_name: roomName })
     .eq("room_code", roomCode)
     .select()
     .single();

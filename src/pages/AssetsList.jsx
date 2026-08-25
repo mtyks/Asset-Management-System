@@ -104,7 +104,7 @@ export default function AssetsList() {
                 </td>
                 <td>
                   {a.rooms
-                    ? `${a.rooms.floors?.buildings?.name || ""} ชั้น ${a.rooms.floors?.floor_number || ""} ห้อง ${a.rooms.room_name}`
+                    ? `${a.rooms.buildings?.name || ""} ชั้น ${a.rooms.floor_number || ""} ห้อง ${a.rooms.room_name}`
                     : "-"}
                 </td>
                 <td>{a.responsible_person || "-"}</td>
