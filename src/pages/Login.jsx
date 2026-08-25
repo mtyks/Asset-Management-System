@@ -34,18 +34,37 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-wrapper">
-      <div className="auth-card-modern">
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#f6faf8",
+        padding: "20px",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "420px",
+          backgroundColor: "#ffffff",
+          borderRadius: "16px",
+          border: "1px solid #e2ece6",
+          boxShadow: "0 10px 25px -5px rgba(6, 46, 36, 0.08)",
+          padding: "32px 28px",
+        }}
+      >
         {/* Brand Header */}
-        <div className="auth-logo-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
           <div className="sidebar-logo-icon">
             <Box size={24} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700, color: "#0f172a" }}>
+            <h2 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700, color: "#0f291e" }}>
               ระบบบริหารจัดการครุภัณฑ์
             </h2>
-            <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
+            <span style={{ fontSize: "0.78rem", color: "#52796f" }}>
               เข้าสู่ระบบสำหรับเจ้าหน้าที่พัสดุ
             </span>
           </div>
@@ -56,16 +75,14 @@ export default function Login() {
         <form onSubmit={handleSubmit}>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label>อีเมลผู้ใช้งาน</label>
-            <div style={{ position: "relative" }}>
-              <input
-                type="email"
-                className="form-control"
-                placeholder="name@organization.go.th"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
+            <input
+              type="email"
+              className="form-control"
+              placeholder="name@organization.go.th"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
 
           <div className="form-group" style={{ marginBottom: 20 }}>
@@ -97,7 +114,7 @@ export default function Login() {
             onClick={fillDemo}
             style={{
               fontSize: "0.78rem",
-              color: "#2563eb",
+              color: "#059669",
               textDecoration: "underline",
               cursor: "pointer",
             }}
@@ -110,13 +127,13 @@ export default function Login() {
           style={{
             marginTop: 20,
             paddingTop: 16,
-            borderTop: "1px solid #e2e8f0",
+            borderTop: "1px solid #e2ece6",
             textAlign: "center",
             fontSize: "0.8rem",
-            color: "#64748b",
+            color: "#52796f",
           }}
         >
-          <Link to="/scan" style={{ color: "#2563eb", fontWeight: 600 }}>
+          <Link to="/scan" style={{ color: "#059669", fontWeight: 600 }}>
             สแกน QR ตรวจสอบครุภัณฑ์ (ไม่ต้องเข้าสู่ระบบ)
           </Link>
         </div>

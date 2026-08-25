@@ -184,7 +184,7 @@ export default function ScanQR() {
             margin: "0 auto",
             borderRadius: 12,
             overflow: "hidden",
-            backgroundColor: cameraActive ? "#0b1329" : "transparent",
+            backgroundColor: cameraActive ? "#062e24" : "transparent",
           }}
         />
 
@@ -192,8 +192,8 @@ export default function ScanQR() {
           <div
             style={{
               padding: "36px 20px",
-              backgroundColor: "#f8fafc",
-              border: "2px dashed #cbd5e1",
+              backgroundColor: "#f6faf8",
+              border: "2px dashed #a7f3d0",
               borderRadius: 12,
               display: "flex",
               flexDirection: "column",
@@ -206,8 +206,8 @@ export default function ScanQR() {
                 width: 60,
                 height: 60,
                 borderRadius: "50%",
-                backgroundColor: "#eff6ff",
-                color: "#2563eb",
+                backgroundColor: "#ecfdf5",
+                color: "#059669",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -216,10 +216,10 @@ export default function ScanQR() {
               <Camera size={30} />
             </div>
             <div>
-              <h3 style={{ margin: "0 0 6px", fontSize: "1.1rem", fontWeight: 700 }}>
+              <h3 style={{ margin: "0 0 6px", fontSize: "1.1rem", fontWeight: 700, color: "#0f291e" }}>
                 เปิดกล้องสแกน QR Code
               </h3>
-              <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "#52796f" }}>
                 ส่องกล้องไปที่ป้ายสติ๊กเกอร์ QR Code บนตัวครุภัณฑ์
               </p>
             </div>
@@ -238,7 +238,7 @@ export default function ScanQR() {
         )}
 
         {/* Action: Upload Image Option */}
-        <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid #f1f5f9" }}>
+        <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid #e2ece6" }}>
           <label
             className="btn btn-outline-white"
             style={{ display: "inline-flex", cursor: "pointer", fontSize: "0.85rem" }}
@@ -258,11 +258,11 @@ export default function ScanQR() {
 
       {/* 2. Manual Code Search Card */}
       <div className="form-card" style={{ padding: 24 }}>
-        <h3 style={{ margin: "0 0 12px", fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-          <Search size={18} color="#2563eb" />
+        <h3 style={{ margin: "0 0 12px", fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8, color: "#0f291e" }}>
+          <Search size={18} color="#059669" />
           <span>ค้นหาด้วยรหัสครุภัณฑ์โดยตรง</span>
         </h3>
-        <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0 0 16px" }}>
+        <p style={{ fontSize: "0.85rem", color: "#52796f", margin: "0 0 16px" }}>
           หากกล้องไม่สามารถสแกนได้ สามารถพิมพ์รหัสครุภัณฑ์เพื่อเข้าดูรายละเอียดได้ทันที
         </p>
 
@@ -270,7 +270,7 @@ export default function ScanQR() {
           <input
             type="text"
             className="form-control"
-            placeholder="เช่น A-20260824-2124 หรือพิมพ์รหัสครุภัณฑ์"
+            placeholder="เช่น A-2569-4469 หรือพิมพ์รหัสครุภัณฑ์"
             value={manualCode}
             onChange={(e) => setManualCode(e.target.value)}
             required
@@ -285,7 +285,7 @@ export default function ScanQR() {
       {/* 3. Quick Test Click List */}
       {recentAssets.length > 0 && (
         <div className="form-card" style={{ padding: 20 }}>
-          <h4 style={{ margin: "0 0 12px", fontSize: "0.9rem", color: "#475569" }}>
+          <h4 style={{ margin: "0 0 12px", fontSize: "0.9rem", color: "#3b6354" }}>
             หรือคลิกทดสอบดูครุภัณฑ์ล่าสุดในระบบ:
           </h4>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -293,23 +293,23 @@ export default function ScanQR() {
               const code = asset.asset_code || asset.code;
               return (
                 <Link
-                  key={asset.id}
-                  to={`/asset/${code}`}
+                  key={asset.asset_code}
+                  to={`/asset/${encodeURIComponent(code)}`}
                   style={{
                     padding: "6px 12px",
-                    backgroundColor: "#f8fafc",
-                    border: "1px solid #e2e8f0",
+                    backgroundColor: "#f0fdf4",
+                    border: "1px solid #d1fae5",
                     borderRadius: 6,
                     fontSize: "0.82rem",
                     fontWeight: 600,
-                    color: "#1e293b",
+                    color: "#064e3b",
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 6,
                     textDecoration: "none",
                   }}
                 >
-                  <Package size={14} color="#2563eb" />
+                  <Package size={14} color="#059669" />
                   <span>{code} ({asset.name})</span>
                 </Link>
               );

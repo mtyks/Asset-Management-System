@@ -71,7 +71,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 2. Stat Summary Cards Grid (4 cards) */}
+      {/* 2. Stat Summary Cards Grid (4 cards in Green & White tone) */}
       <div className="stats-summary-grid">
         <div className="stat-box">
           <div className="stat-box-icon total">
@@ -157,13 +157,13 @@ export default function Dashboard() {
                   justifyContent: "space-between",
                   fontSize: "0.82rem",
                   marginBottom: "4px",
-                  color: "#334155",
+                  color: "#1e3a2f",
                 }}
               >
                 <span>ใช้งานปกติ ({normalPct}%)</span>
                 <span style={{ fontWeight: 600 }}>{normalCount} ชิ้น</span>
               </div>
-              <div style={{ height: "8px", backgroundColor: "#f1f5f9", borderRadius: "999px", overflow: "hidden" }}>
+              <div style={{ height: "8px", backgroundColor: "#f0f7f3", borderRadius: "999px", overflow: "hidden" }}>
                 <div
                   style={{
                     height: "100%",
@@ -182,18 +182,18 @@ export default function Dashboard() {
                   justifyContent: "space-between",
                   fontSize: "0.82rem",
                   marginBottom: "4px",
-                  color: "#334155",
+                  color: "#1e3a2f",
                 }}
               >
                 <span>ยืมใช้งาน ({borrowedPct}%)</span>
                 <span style={{ fontWeight: 600 }}>{borrowedCount} ชิ้น</span>
               </div>
-              <div style={{ height: "8px", backgroundColor: "#f1f5f9", borderRadius: "999px", overflow: "hidden" }}>
+              <div style={{ height: "8px", backgroundColor: "#f0f7f3", borderRadius: "999px", overflow: "hidden" }}>
                 <div
                   style={{
                     height: "100%",
                     width: `${borrowedPct}%`,
-                    backgroundColor: "#3b82f6",
+                    backgroundColor: "#0d9488",
                     transition: "width 0.3s ease",
                   }}
                 />
@@ -207,13 +207,13 @@ export default function Dashboard() {
                   justifyContent: "space-between",
                   fontSize: "0.82rem",
                   marginBottom: "4px",
-                  color: "#334155",
+                  color: "#1e3a2f",
                 }}
               >
                 <span>ชำรุด / ส่งซ่อม ({repairPct}%)</span>
                 <span style={{ fontWeight: 600 }}>{repairCount} ชิ้น</span>
               </div>
-              <div style={{ height: "8px", backgroundColor: "#f1f5f9", borderRadius: "999px", overflow: "hidden" }}>
+              <div style={{ height: "8px", backgroundColor: "#f0f7f3", borderRadius: "999px", overflow: "hidden" }}>
                 <div
                   style={{
                     height: "100%",
@@ -227,7 +227,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Quick Menu Hub */}
+        {/* Quick Menu Hub in Green-White style */}
         <div className="form-card" style={{ margin: 0 }}>
           <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", fontWeight: 700 }}>
             เมนูลัดการจัดการ
@@ -240,15 +240,16 @@ export default function Dashboard() {
                 alignItems: "center",
                 gap: "10px",
                 padding: "12px",
-                backgroundColor: "#f8fafc",
+                backgroundColor: "#f0fdf4",
                 borderRadius: "8px",
-                border: "1px solid #e2e8f0",
+                border: "1px solid #d1fae5",
                 fontSize: "0.88rem",
                 fontWeight: 600,
-                color: "#1e293b",
+                color: "#064e3b",
+                transition: "all 0.15s ease",
               }}
             >
-              <Package size={18} color="#2563eb" />
+              <Package size={18} color="#059669" />
               <span>ค้นหาครุภัณฑ์</span>
             </Link>
 
@@ -259,15 +260,16 @@ export default function Dashboard() {
                 alignItems: "center",
                 gap: "10px",
                 padding: "12px",
-                backgroundColor: "#f8fafc",
+                backgroundColor: "#f0fdfa",
                 borderRadius: "8px",
-                border: "1px solid #e2e8f0",
+                border: "1px solid #ccfbf1",
                 fontSize: "0.88rem",
                 fontWeight: 600,
-                color: "#1e293b",
+                color: "#115e59",
+                transition: "all 0.15s ease",
               }}
             >
-              <ArrowLeftRight size={18} color="#0284c7" />
+              <ArrowLeftRight size={18} color="#0d9488" />
               <span>ยืม / คืน ครุภัณฑ์</span>
             </Link>
 
@@ -278,15 +280,16 @@ export default function Dashboard() {
                 alignItems: "center",
                 gap: "10px",
                 padding: "12px",
-                backgroundColor: "#f8fafc",
+                backgroundColor: "#f0fdf4",
                 borderRadius: "8px",
-                border: "1px solid #e2e8f0",
+                border: "1px solid #d1fae5",
                 fontSize: "0.88rem",
                 fontWeight: 600,
-                color: "#1e293b",
+                color: "#064e3b",
+                transition: "all 0.15s ease",
               }}
             >
-              <Layers size={18} color="#8b5cf6" />
+              <Layers size={18} color="#059669" />
               <span>หมวดหมู่ครุภัณฑ์</span>
             </Link>
 
@@ -297,15 +300,16 @@ export default function Dashboard() {
                 alignItems: "center",
                 gap: "10px",
                 padding: "12px",
-                backgroundColor: "#f8fafc",
+                backgroundColor: "#f0fdf4",
                 borderRadius: "8px",
-                border: "1px solid #e2e8f0",
+                border: "1px solid #d1fae5",
                 fontSize: "0.88rem",
                 fontWeight: 600,
-                color: "#1e293b",
+                color: "#064e3b",
+                transition: "all 0.15s ease",
               }}
             >
-              <MapPin size={18} color="#ec4899" />
+              <MapPin size={18} color="#059669" />
               <span>สถานที่ / ห้อง</span>
             </Link>
           </div>
@@ -317,21 +321,25 @@ export default function Dashboard() {
         <div
           style={{
             padding: "16px 20px",
-            borderBottom: "1px solid #e2e8f0",
+            borderBottom: "1px solid #e2ece6",
             display: "flex",
-            alignItems: "center",
             justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          <div>
-            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
-              รายการครุภัณฑ์ล่าสุด
-            </h3>
-          </div>
+          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
+            รายการครุภัณฑ์ล่าสุด
+          </h3>
           <Link
             to="/assets"
-            className="btn btn-outline-white"
-            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+            style={{
+              fontSize: "0.82rem",
+              fontWeight: 600,
+              color: "#059669",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
           >
             <span>ดูทั้งหมด</span>
             <ArrowRight size={14} />
@@ -351,7 +359,13 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {recentAssets.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="table-empty-row">
+                    กำลังโหลดข้อมูล...
+                  </td>
+                </tr>
+              ) : recentAssets.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="table-empty-row">
                     ยังไม่มีข้อมูลครุภัณฑ์ในระบบ
@@ -359,26 +373,22 @@ export default function Dashboard() {
                 </tr>
               ) : (
                 recentAssets.map((asset) => {
-                  const code = asset.asset_code || asset.code || "-";
-                  const cat = asset.asset_categories?.category_name || asset.asset_categories?.name || "-";
-                  const room = asset.rooms?.room_name || "ห้องธุรการและสารบรรณ";
+                  const code = asset.asset_code || "-";
+                  const categoryName = asset.asset_categories?.category_name || "ครุภัณฑ์ทั่วไป";
+                  const roomText = asset.rooms?.room_name || "ห้องธุรการและสารบรรณ";
+
                   return (
-                    <tr key={asset.id}>
-                      <td>
-                        <Link to={`/asset/${code}`} style={{ fontWeight: 700, color: "#0f172a" }}>
+                    <tr key={asset.asset_code}>
+                      <td style={{ fontWeight: 700, fontFamily: "monospace" }}>
+                        <Link to={`/asset/${encodeURIComponent(code)}`} style={{ color: "#0f291e" }}>
                           {code}
                         </Link>
                       </td>
+                      <td style={{ fontWeight: 600, color: "#0f291e" }}>{asset.name}</td>
                       <td>
-                        <div style={{ fontWeight: 600, color: "#0f172a" }}>{asset.name}</div>
-                        <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                          {asset.color ? `สี ${asset.color}` : "-"}
-                        </div>
+                        <span className="category-pill">{categoryName}</span>
                       </td>
-                      <td>
-                        <span className="category-pill">{cat}</span>
-                      </td>
-                      <td>{room}</td>
+                      <td>{roomText}</td>
                       <td>{asset.responsible_person || "-"}</td>
                       <td>
                         <StatusBadge status={asset.status || "normal"} />

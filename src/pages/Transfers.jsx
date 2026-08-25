@@ -27,7 +27,7 @@ export default function Transfers() {
   const [showBorrowModal, setShowBorrowModal] = useState(false);
 
   // Form State
-  const [selectedAssetId, setSelectedAssetId] = useState("");
+  const [selectedAssetCode, setSelectedAssetCode] = useState("");
   const [borrowerName, setBorrowerName] = useState("");
   const [borrowerContact, setBorrowerContact] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -48,21 +48,21 @@ export default function Transfers() {
 
   const handleCreateBorrow = async (e) => {
     e.preventDefault();
-    if (!selectedAssetId || !borrowerName.trim()) {
+    if (!selectedAssetCode || !borrowerName.trim()) {
       alert("กรุณาเลือกครุภัณฑ์และระบุชื่อผู้ยืม");
       return;
     }
     setSubmitting(true);
     try {
       await borrowAsset(
-        selectedAssetId,
+        selectedAssetCode,
         borrowerName.trim(),
         borrowerContact.trim(),
         dueDate || null
       );
 
       setShowBorrowModal(false);
-      setSelectedAssetId("");
+      setSelectedAssetCode("");
       setBorrowerName("");
       setBorrowerContact("");
       setDueDate("");
@@ -77,7 +77,8 @@ export default function Transfers() {
 
   const handleReturnAction = async (record) => {
     try {
-      await returnAsset(record.asset_id, record.id);
+      const code = record.asset_code || record.assets?.asset_code;
+      await returnAsset(code, record.id);
       refreshData();
       alert("บันทึกการส่งคืนครุภัณฑ์เรียบร้อยแล้ว");
     } catch (err) {
@@ -93,7 +94,7 @@ export default function Transfers() {
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      const code = (r.assets?.asset_code || "").toLowerCase();
+      const code = (r.assets?.asset_code || r.asset_code || "").toLowerCase();
       const name = (r.assets?.name || "").toLowerCase();
       const borrower = (r.borrower_name || "").toLowerCase();
       return code.includes(q) || name.includes(q) || borrower.includes(q);
@@ -101,16 +102,13 @@ export default function Transfers() {
     return true;
   });
 
-  // Filter available assets (that are normal or currently not borrowed)
-  const availableAssets = assets.filter((a) => a.status === "normal");
-
   return (
     <div className="page-container">
       <div className="page-heading-row">
         <div className="page-title-group">
           <h1>ยืม / คืน ครุภัณฑ์</h1>
           <p className="page-subtitle">
-            บันทึกประวัติการขอยืม-คืนครุภัณฑ์ ตรวจสอบสถานะ และกำหนดวันส่งคืน (ตาราง <code>borrow_records</code>)
+            บันทึกประวัติการขอยืม-คืนครุภัณฑ์ ตรวจสอบสถานะ และกำหนดวันส่งคืน
           </p>
         </div>
 
@@ -190,7 +188,7 @@ export default function Transfers() {
               ) : (
                 filteredRecords.map((r) => {
                   const isBorrowing = !r.returned_at;
-                  const assetCode = r.assets?.asset_code || "-";
+                  const assetCode = r.assets?.asset_code || r.asset_code || "-";
                   const assetName = r.assets?.name || "ครุภัณฑ์";
                   const borrowDate = r.borrowed_at ? new Date(r.borrowed_at).toLocaleDateString("th-TH") : "-";
                   const returnDate = r.returned_at ? new Date(r.returned_at).toLocaleDateString("th-TH") : "-";
@@ -199,23 +197,23 @@ export default function Transfers() {
                     <tr key={r.id}>
                       <td>
                         <Link
-                          to={`/asset/${assetCode}`}
-                          style={{ fontWeight: 700, color: "#0f172a" }}
+                          to={`/asset/${encodeURIComponent(assetCode)}`}
+                          style={{ fontWeight: 700, color: "#0f291e" }}
                         >
                           {assetCode}
                         </Link>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 600, color: "#0f172a" }}>{assetName}</div>
-                        <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                        <div style={{ fontWeight: 600, color: "#0f291e" }}>{assetName}</div>
+                        <div style={{ fontSize: "0.75rem", color: "#52796f" }}>
                           {r.assets?.color ? `สี ${r.assets.color}` : ""}
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 600, color: "#1e293b" }}>{r.borrower_name}</div>
+                        <div style={{ fontWeight: 600, color: "#0f291e" }}>{r.borrower_name}</div>
                       </td>
                       <td>
-                        <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                        <span style={{ fontSize: "0.85rem", color: "#52796f" }}>
                           {r.borrower_contact || "-"}
                         </span>
                       </td>
@@ -271,14 +269,14 @@ export default function Transfers() {
                 <label>เลือกครุภัณฑ์ที่ต้องการยืม *</label>
                 <select
                   className="form-control"
-                  value={selectedAssetId}
-                  onChange={(e) => setSelectedAssetId(e.target.value)}
+                  value={selectedAssetCode}
+                  onChange={(e) => setSelectedAssetCode(e.target.value)}
                   required
                 >
                   <option value="">-- กรุณาเลือกครุภัณฑ์ --</option>
                   {assets.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.asset_code || a.code} - {a.name} ({a.status === "normal" ? "พร้อมให้ยืม" : `สถานะ: ${a.status}`})
+                    <option key={a.asset_code} value={a.asset_code}>
+                      {a.asset_code} - {a.name} ({a.status === "normal" ? "พร้อมให้ยืม" : `สถานะ: ${a.status}`})
                     </option>
                   ))}
                 </select>
