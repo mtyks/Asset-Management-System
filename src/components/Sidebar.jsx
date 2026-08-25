@@ -2,7 +2,6 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import {
-  Box,
   LayoutDashboard,
   Package,
   Tag,
@@ -25,12 +24,9 @@ export default function Sidebar({ isOpen, onClose }) {
     <>
       {isOpen && <div className="sidebar-backdrop" onClick={onClose} />}
       <aside className={`app-sidebar ${isOpen ? "sidebar-open" : ""}`}>
-        {/* Header with Logo */}
-        <div className="sidebar-header">
-          <div className="sidebar-logo-icon">
-            <Box size={22} strokeWidth={2.2} />
-          </div>
-          <div className="sidebar-logo-title">
+        {/* Header Title without Icon */}
+        <div className="sidebar-header" style={{ padding: "20px 18px" }}>
+          <div className="sidebar-logo-title" style={{ fontSize: "1.05rem", fontWeight: 800, lineHeight: 1.3, letterSpacing: "-0.01em" }}>
             ระบบบริหารจัดการ
             <br />
             ครุภัณฑ์
@@ -38,7 +34,7 @@ export default function Sidebar({ isOpen, onClose }) {
           {isOpen && (
             <button
               className="mobile-menu-btn"
-              style={{ marginLeft: "auto", color: "#94a3b8" }}
+              style={{ marginLeft: "auto", color: "#93c5b5" }}
               onClick={onClose}
               aria-label="ปิดเมนู"
             >

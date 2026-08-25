@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
-import { Box, Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -52,22 +52,17 @@ export default function Login() {
           borderRadius: "16px",
           border: "1px solid #e2ece6",
           boxShadow: "0 10px 25px -5px rgba(6, 46, 36, 0.08)",
-          padding: "32px 28px",
+          padding: "36px 28px",
         }}
       >
-        {/* Brand Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-          <div className="sidebar-logo-icon">
-            <Box size={24} />
-          </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700, color: "#0f291e" }}>
-              ระบบบริหารจัดการครุภัณฑ์
-            </h2>
-            <span style={{ fontSize: "0.78rem", color: "#52796f" }}>
-              เข้าสู่ระบบสำหรับเจ้าหน้าที่พัสดุ
-            </span>
-          </div>
+        {/* Brand Header without Icon */}
+        <div style={{ textAlign: "center", marginBottom: 26 }}>
+          <h2 style={{ margin: "0 0 6px", fontSize: "1.25rem", fontWeight: 800, color: "#0f291e", letterSpacing: "-0.01em" }}>
+            ระบบบริหารจัดการครุภัณฑ์
+          </h2>
+          <span style={{ fontSize: "0.85rem", color: "#52796f" }}>
+            เข้าสู่ระบบสำหรับเจ้าหน้าที่พัสดุ
+          </span>
         </div>
 
         {error && <div className="form-error-banner">{error}</div>}

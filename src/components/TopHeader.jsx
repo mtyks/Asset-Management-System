@@ -22,7 +22,7 @@ export default function TopHeader({ onToggleSidebar }) {
   const pathSegments = location.pathname.split("/").filter(Boolean);
 
   // สร้าง breadcrumb items
-  const breadcrumbs = [{ label: "หน้าหลัก", path: "/" }];
+  const breadcrumbs = [{}];
   if (pathSegments.length > 0) {
     if (pathSegments[0] === "assets" && pathSegments[1] === "new") {
       breadcrumbs.push({ label: "รายการครุภัณฑ์", path: "/assets" });
