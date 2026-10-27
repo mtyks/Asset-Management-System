@@ -1,16 +1,17 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, ChevronRight, Calendar } from "lucide-react";
+import { Menu, ChevronRight, Calendar, LayoutGrid } from "lucide-react";
 
 const ROUTE_NAME_MAP = {
   "": "ภาพรวมระบบ",
+  "dashboard": "Dashboard ภาพรวม",
   "assets": "รายการครุภัณฑ์",
   "new": "เพิ่มครุภัณฑ์ใหม่",
   "edit": "แก้ไขข้อมูลครุภัณฑ์",
   "categories": "หมวดหมู่ครุภัณฑ์",
   "locations": "สถานที่ / ห้อง",
-  "transfers": "ย้าย / ยืม / คืน",
-  "maintenance": "ซ่อมบำรุง",
+  "transfers": "ยืม / คืน ครุภัณฑ์",
+  "maintenance": "ระบบแจ้งซ่อมและบำรุงรักษา",
   "settings": "ตั้งค่าระบบ",
   "scan": "ตรวจนับ QR / Demo",
   "login": "เข้าสู่ระบบ",
@@ -22,7 +23,7 @@ export default function TopHeader({ onToggleSidebar }) {
   const pathSegments = location.pathname.split("/").filter(Boolean);
 
   // สร้าง breadcrumb items
-  const breadcrumbs = [{}];
+  const breadcrumbs = [];
   if (pathSegments.length > 0) {
     if (pathSegments[0] === "assets" && pathSegments[1] === "new") {
       breadcrumbs.push({ label: "รายการครุภัณฑ์", path: "/assets" });
@@ -38,7 +39,7 @@ export default function TopHeader({ onToggleSidebar }) {
       breadcrumbs.push({ label: pageTitle, path: `/${pathSegments[0]}` });
     }
   } else {
-    breadcrumbs.push({ label: "Dashboard", path: "/" });
+    breadcrumbs.push({ label: "Dashboard", path: "/dashboard" });
   }
 
   return (
@@ -53,6 +54,12 @@ export default function TopHeader({ onToggleSidebar }) {
         </button>
 
         <nav className="breadcrumb" aria-label="Breadcrumb">
+          <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#64748b" }}>
+            <LayoutGrid size={13} />
+            <span>หน้าหลัก</span>
+          </Link>
+          <ChevronRight size={14} className="breadcrumb-separator" />
+
           {breadcrumbs.map((crumb, idx) => {
             const isLast = idx === breadcrumbs.length - 1;
             return (
@@ -70,6 +77,22 @@ export default function TopHeader({ onToggleSidebar }) {
       </div>
 
       <div className="top-header-right">
+        <Link
+          to="/"
+          className="btn btn-outline-white"
+          style={{
+            fontSize: "0.8rem",
+            padding: "5px 12px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+          title="สลับไปหน้าเลือกเมนูรวม"
+        >
+          <LayoutGrid size={14} />
+          <span>หน้าเลือกเมนู</span>
+        </Link>
+
         <div className="budget-year-badge">
           <Calendar size={13} style={{ color: "#64748b" }} />
           <span>ปีงบประมาณ 2569</span>

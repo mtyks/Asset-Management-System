@@ -3,6 +3,8 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import TopHeader from "./components/TopHeader";
 
+import Portal from "./pages/Portal";
+import Maintenance from "./pages/Maintenance";
 import Dashboard from "./pages/Dashboard";
 import AssetsList from "./pages/AssetsList";
 import AssetForm from "./pages/AssetForm";
@@ -19,7 +21,20 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isLoginPage = location.pathname === "/login";
+  const isPortalPage = location.pathname === "/" || location.pathname === "/portal";
+  const isMaintenancePage = location.pathname.startsWith("/maintenance");
 
+  // 1. หน้าเลือกเมนูระบบงาน (Portal Selection Page)
+  if (isPortalPage) {
+    return (
+      <Routes>
+        <Route path="/" element={<Portal />} />
+        <Route path="/portal" element={<Portal />} />
+      </Routes>
+    );
+  }
+
+  // 2. หน้าเข้าสู่ระบบ
   if (isLoginPage) {
     return (
       <Routes>
@@ -28,9 +43,20 @@ export default function App() {
     );
   }
 
+  // 3. ระบบแจ้งซ่อมและบำรุงรักษา (Standalone Maintenance & Repair Service System)
+  if (isMaintenancePage) {
+    return (
+      <Routes>
+        <Route path="/maintenance" element={<Maintenance />} />
+        <Route path="*" element={<Maintenance />} />
+      </Routes>
+    );
+  }
+
+  // 4. ระบบบริหารจัดการครุภัณฑ์ (Asset Management System with Sidebar & TopHeader)
   return (
     <div className="app-layout">
-      {/* Dark Navy Sidebar */}
+      {/* Dark Navy/Forest Emerald Sidebar - จัดการเฉพาะงานครุภัณฑ์ 100% */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content Area */}
@@ -42,8 +68,8 @@ export default function App() {
             <Route path="/scan" element={<ScanQR />} />
             <Route path="/asset/:assetCode" element={<AssetDetail />} />
 
-            {/* หน้าจัดการระบบ */}
-            <Route path="/" element={<Dashboard />} />
+            {/* ระบบบริหารจัดการครุภัณฑ์ */}
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/assets" element={<AssetsList />} />
             <Route path="/assets/new" element={<AssetForm />} />
             <Route path="/assets/:assetId/edit" element={<AssetForm />} />
