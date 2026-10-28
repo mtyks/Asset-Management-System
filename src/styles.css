@@ -1926,17 +1926,9 @@ input, select, textarea {
 }
 
 .keypad-num {
-  font-size: 1.25rem;
+  font-size: 1.45rem;
   font-weight: 700;
   line-height: 1;
-}
-
-.keypad-sub {
-  font-size: 0.6rem;
-  font-weight: 600;
-  color: #94a3b8;
-  letter-spacing: 0.05em;
-  margin-top: 1px;
 }
 
 .passcode-card-footer {

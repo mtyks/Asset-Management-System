@@ -30,19 +30,19 @@ export default function Register() {
   const [successMessage, setSuccessMessage] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Keypad definitions like a phone lock screen
+  // Keypad definitions with numbers only (no letter subscripts)
   const KEYPAD_BUTTONS = [
-    { num: "1", sub: "" },
-    { num: "2", sub: "ABC" },
-    { num: "3", sub: "DEF" },
-    { num: "4", sub: "GHI" },
-    { num: "5", sub: "JKL" },
-    { num: "6", sub: "MNO" },
-    { num: "7", sub: "PQRS" },
-    { num: "8", sub: "TUV" },
-    { num: "9", sub: "WXYZ" },
+    { num: "1" },
+    { num: "2" },
+    { num: "3" },
+    { num: "4" },
+    { num: "5" },
+    { num: "6" },
+    { num: "7" },
+    { num: "8" },
+    { num: "9" },
     { num: "clear", label: "ล้าง" },
-    { num: "0", sub: "+" },
+    { num: "0" },
     { num: "backspace", label: "⌫" },
   ];
 
@@ -346,7 +346,7 @@ export default function Register() {
               </div>
             )}
 
-            {/* Phone Lock Screen Keypad */}
+            {/* Phone Lock Screen Keypad - Clean Numbers Only */}
             <div className="phone-keypad-grid">
               {KEYPAD_BUTTONS.map((btn) => {
                 if (btn.num === "clear") {
@@ -386,7 +386,6 @@ export default function Register() {
                     onClick={() => handleKeypadPress(btn.num)}
                   >
                     <span className="keypad-num">{btn.num}</span>
-                    {btn.sub && <span className="keypad-sub">{btn.sub}</span>}
                   </button>
                 );
               })}
