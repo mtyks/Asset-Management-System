@@ -30,8 +30,24 @@ export default function Portal() {
               <Calendar size={13} style={{ color: "#64748b" }} />
               <span>ปีงบประมาณ 2569</span>
             </div>
-            <Link to="/login" className="btn btn-outline-white" style={{ fontSize: "0.82rem", padding: "6px 14px" }}>
-              เข้าสู่ระบบเจ้าหน้าที่
+            <Link
+              to="/login"
+              style={{
+                fontSize: "0.82rem",
+                color: "#064e3b",
+                fontWeight: 600,
+                textDecoration: "none",
+                padding: "6px 12px",
+              }}
+            >
+              เข้าสู่ระบบ
+            </Link>
+            <Link
+              to="/register"
+              className="btn btn-primary"
+              style={{ fontSize: "0.82rem", padding: "6px 16px" }}
+            >
+              สมัครสมาชิก
             </Link>
           </div>
         </div>

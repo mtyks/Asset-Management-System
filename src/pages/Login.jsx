@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
-import { Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { Lock, Mail, ArrowRight, ShieldCheck, ChevronLeft } from "lucide-react";
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -21,7 +21,7 @@ export default function Login() {
     const { error: signInError } = await signIn(email, password);
     setSubmitting(false);
     if (signInError) {
-      setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือยังไม่ได้สร้างผู้ใช้ใน Supabase");
+      setError("อีเมลหรือรหัสผ่าน Passcode ไม่ถูกต้อง หรือยังไม่ได้สร้างผู้ใช้ในระบบ");
       return;
     }
     navigate(redirectTo, { replace: true });
@@ -55,13 +55,32 @@ export default function Login() {
           padding: "36px 28px",
         }}
       >
-        {/* Brand Header without Icon */}
+        {/* Back Link */}
+        <div style={{ marginBottom: 12 }}>
+          <Link
+            to="/"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: "0.82rem",
+              color: "#52796f",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+          >
+            <ChevronLeft size={16} />
+            <span>กลับหน้าหลัก</span>
+          </Link>
+        </div>
+
+        {/* Brand Header */}
         <div style={{ textAlign: "center", marginBottom: 26 }}>
           <h2 style={{ margin: "0 0 6px", fontSize: "1.25rem", fontWeight: 800, color: "#0f291e", letterSpacing: "-0.01em" }}>
             ระบบบริหารจัดการครุภัณฑ์
           </h2>
           <span style={{ fontSize: "0.85rem", color: "#52796f" }}>
-            เข้าสู่ระบบสำหรับเจ้าหน้าที่พัสดุ
+            เข้าสู่ระบบสำหรับเจ้าหน้าที่
           </span>
         </div>
 
@@ -81,7 +100,7 @@ export default function Login() {
           </div>
 
           <div className="form-group" style={{ marginBottom: 20 }}>
-            <label>รหัสผ่าน</label>
+            <label>รหัสผ่าน / Passcode</label>
             <input
               type="password"
               className="form-control"
@@ -103,7 +122,7 @@ export default function Login() {
           </button>
         </form>
 
-        <div style={{ textAlign: "center", marginTop: 16 }}>
+        <div style={{ textAlign: "center", marginTop: 12 }}>
           <button
             type="button"
             onClick={fillDemo}
@@ -112,6 +131,8 @@ export default function Login() {
               color: "#059669",
               textDecoration: "underline",
               cursor: "pointer",
+              background: "none",
+              border: "none",
             }}
           >
             ใช้ข้อมูลจำลอง (Demo Auto-fill)
@@ -124,13 +145,24 @@ export default function Login() {
             paddingTop: 16,
             borderTop: "1px solid #e2ece6",
             textAlign: "center",
-            fontSize: "0.8rem",
+            fontSize: "0.82rem",
             color: "#52796f",
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
           }}
         >
-          <Link to="/scan" style={{ color: "#059669", fontWeight: 600 }}>
-            สแกน QR ตรวจสอบครุภัณฑ์ (ไม่ต้องเข้าสู่ระบบ)
-          </Link>
+          <div>
+            <span>ยังไม่มีบัญชีผู้ใช้งาน? </span>
+            <Link to="/register" style={{ color: "#059669", fontWeight: 700, textDecoration: "none" }}>
+              สมัครสมาชิกใหม่
+            </Link>
+          </div>
+          <div>
+            <Link to="/scan" style={{ color: "#64748b", textDecoration: "none", fontSize: "0.78rem" }}>
+              สแกน QR ตรวจสอบครุภัณฑ์ (ไม่ต้องเข้าสู่ระบบ)
+            </Link>
+          </div>
         </div>
       </div>
     </div>

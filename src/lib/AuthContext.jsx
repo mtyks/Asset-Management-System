@@ -48,6 +48,21 @@ export function AuthProvider({ children }) {
       }
       return supabase.auth.signInWithPassword({ email, password });
     },
+    signUp: async (email, password, metadata = {}) => {
+      if (!isConfigured) {
+        const u = { id: "user-" + Date.now(), email, user_metadata: metadata };
+        setDemoUser(u);
+        setSession({ user: u });
+        return { data: { user: u }, error: null };
+      }
+      return supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata,
+        },
+      });
+    },
     signOut: async () => {
       if (!isConfigured) {
         setDemoUser(null);

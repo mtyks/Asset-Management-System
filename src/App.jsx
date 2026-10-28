@@ -15,12 +15,14 @@ import Categories from "./pages/Categories";
 import Transfers from "./pages/Transfers";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 export default function App() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isLoginPage = location.pathname === "/login";
+  const isRegisterPage = location.pathname === "/register";
   const isPortalPage = location.pathname === "/" || location.pathname === "/portal";
   const isMaintenancePage = location.pathname.startsWith("/maintenance");
 
@@ -34,11 +36,19 @@ export default function App() {
     );
   }
 
-  // 2. หน้าเข้าสู่ระบบ
+  // 2. หน้าเข้าสู่ระบบ และ สมัครสมาชิก
   if (isLoginPage) {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
+      </Routes>
+    );
+  }
+
+  if (isRegisterPage) {
+    return (
+      <Routes>
+        <Route path="/register" element={<Register />} />
       </Routes>
     );
   }
