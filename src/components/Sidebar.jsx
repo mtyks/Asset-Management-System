@@ -150,9 +150,9 @@ export default function Sidebar({ isOpen, onClose }) {
           </NavLink>
         </nav>
 
-        {/* Footer Logout Action (ไม่มีการแสดงชื่อผู้ใช้งาน) */}
-        <div className="sidebar-footer">
-          {user ? (
+        {/* Footer Section (แสดงเฉพาะปุ่มออกจากระบบเมื่อเข้าสู่ระบบอยู่ ไม่มีปุ่มเข้าสู่ระบบ) */}
+        {user && (
+          <div className="sidebar-footer">
             <button
               className="sidebar-logout-btn"
               onClick={signOut}
@@ -178,35 +178,8 @@ export default function Sidebar({ isOpen, onClose }) {
               <LogOut size={16} />
               <span>ออกจากระบบ</span>
             </button>
-          ) : (
-            <NavLink
-              to="/login"
-              className="sidebar-logout-btn"
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                padding: "9px 14px",
-                borderRadius: "8px",
-                fontSize: "0.82rem",
-                fontWeight: 600,
-                color: "#a7f3d0",
-                background: "rgba(255, 255, 255, 0.05)",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
-                textDecoration: "none",
-                transition: "all 0.15s ease",
-              }}
-              title="เข้าสู่ระบบ"
-              aria-label="เข้าสู่ระบบ"
-              onClick={handleLinkClick}
-            >
-              <LogOut size={16} style={{ transform: "rotate(180deg)" }} />
-              <span>เข้าสู่ระบบ</span>
-            </NavLink>
-          )}
-        </div>
+          </div>
+        )}
       </aside>
     </>
   );

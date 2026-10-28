@@ -10,6 +10,8 @@ import {
   Upload,
   RefreshCw,
   ArrowRight,
+  ArrowLeft,
+  LayoutGrid,
   Package,
   CheckCircle,
   CameraOff,
@@ -142,6 +144,34 @@ export default function ScanQR() {
     <div className="page-container" style={{ maxWidth: 680 }}>
       {/* Hidden element for file scanning */}
       <div id="qr-file-scanner-temp" style={{ display: "none" }} />
+
+      {/* Top Navigation Row (ปุ่มย้อนกลับ) */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate("/dashboard");
+            }
+          }}
+          className="btn btn-outline-white"
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.85rem", padding: "6px 14px", cursor: "pointer" }}
+        >
+          <ArrowLeft size={16} />
+          <span>ย้อนกลับ</span>
+        </button>
+
+        <Link
+          to="/dashboard"
+          className="btn btn-outline-white"
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", padding: "6px 14px" }}
+        >
+          <LayoutGrid size={15} />
+          <span>Dashboard</span>
+        </Link>
+      </div>
 
       {/* Header */}
       <div className="page-heading-row" style={{ textAlign: "center", justifyContent: "center" }}>
