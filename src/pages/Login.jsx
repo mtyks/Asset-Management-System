@@ -12,7 +12,11 @@ export default function Login() {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const redirectTo = location.state?.from?.pathname || "/";
+  const redirectTo = location.state?.from?.pathname || "/dashboard";
+  const targetPath = location.state?.from?.pathname || "";
+  const systemTitle = targetPath.includes("maintenance")
+    ? "ระบบแจ้งซ่อมและบำรุงรักษา"
+    : "ระบบบริหารจัดการครุภัณฑ์";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -77,10 +81,10 @@ export default function Login() {
         {/* Brand Header */}
         <div style={{ textAlign: "center", marginBottom: 26 }}>
           <h2 style={{ margin: "0 0 6px", fontSize: "1.25rem", fontWeight: 800, color: "#0f291e", letterSpacing: "-0.01em" }}>
-            ระบบบริหารจัดการครุภัณฑ์
+            {systemTitle}
           </h2>
           <span style={{ fontSize: "0.85rem", color: "#52796f" }}>
-            เข้าสู่ระบบสำหรับเจ้าหน้าที่
+            เข้าสู่ระบบเพื่อเริ่มใช้งาน
           </span>
         </div>
 

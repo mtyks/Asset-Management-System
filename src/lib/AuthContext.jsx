@@ -10,6 +10,7 @@ const DEFAULT_DEMO_USER = {
 };
 
 const LOCAL_USERS_KEY = "app_local_users";
+const ACTIVE_USER_KEY = "app_active_user";
 
 function getLocalUsers() {
   try {
@@ -34,23 +35,62 @@ function saveLocalUser(userRecord) {
   }
 }
 
+function getActiveUser() {
+  try {
+    return JSON.parse(localStorage.getItem(ACTIVE_USER_KEY)) || null;
+  } catch {
+    return null;
+  }
+}
+
+function saveActiveUser(u) {
+  try {
+    if (u) {
+      localStorage.setItem(ACTIVE_USER_KEY, JSON.stringify(u));
+    } else {
+      localStorage.removeItem(ACTIVE_USER_KEY);
+    }
+  } catch (err) {
+    console.warn("Could not save active user:", err);
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(isConfigured ? undefined : { user: DEFAULT_DEMO_USER });
-  const [demoUser, setDemoUser] = useState(isConfigured ? null : DEFAULT_DEMO_USER);
+  const [session, setSession] = useState(isConfigured ? undefined : { user: getActiveUser() });
+  const [demoUser, setDemoUser] = useState(getActiveUser());
 
   useEffect(() => {
     if (!isConfigured) {
-      setSession({ user: DEFAULT_DEMO_USER });
+      const active = getActiveUser();
+      setSession(active ? { user: active } : null);
+      setDemoUser(active);
       return;
     }
 
     supabase.auth
       .getSession()
-      .then(({ data }) => setSession(data?.session || null))
-      .catch(() => setSession(null));
+      .then(({ data }) => {
+        if (data?.session) {
+          setSession(data.session);
+          saveActiveUser(data.session.user);
+        } else {
+          // If no Supabase session, check local active user
+          const active = getActiveUser();
+          setSession(active ? { user: active } : null);
+          setDemoUser(active);
+        }
+      })
+      .catch(() => {
+        const active = getActiveUser();
+        setSession(active ? { user: active } : null);
+        setDemoUser(active);
+      });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      if (newSession?.user) {
+        saveActiveUser(newSession.user);
+      }
     });
 
     return () => {
@@ -67,13 +107,13 @@ export function AuthProvider({ children }) {
     signIn: async (email, password) => {
       const normalizedEmail = (email || "").trim().toLowerCase();
 
-      // Check if configured
       if (!isConfigured) {
         const localUsers = getLocalUsers();
         const found = localUsers.find((u) => u.email === normalizedEmail && u.password === password);
         const u = found
           ? { id: found.id, email: found.email, user_metadata: found.user_metadata }
           : { id: "demo-user-id", email, user_metadata: { full_name: "ผู้ดูแลระบบ" } };
+        saveActiveUser(u);
         setDemoUser(u);
         setSession({ user: u });
         return { data: { user: u }, error: null };
@@ -82,7 +122,6 @@ export function AuthProvider({ children }) {
       try {
         const res = await supabase.auth.signInWithPassword({ email: (email || "").trim(), password });
         if (res.error) {
-          // If network / fetch failed (e.g. Supabase project paused or offline), check local storage
           const isNetworkError =
             res.error.message?.includes("Failed to fetch") ||
             res.error.message?.includes("fetch failed") ||
@@ -93,11 +132,13 @@ export function AuthProvider({ children }) {
             const found = localUsers.find((u) => u.email === normalizedEmail && u.password === password);
             if (found) {
               const u = { id: found.id, email: found.email, user_metadata: found.user_metadata };
+              saveActiveUser(u);
               setDemoUser(u);
               setSession({ user: u });
               return { data: { user: u }, error: null, isOfflineFallback: true };
             }
             if (normalizedEmail === "admin@organization.go.th" && password === "password123") {
+              saveActiveUser(DEFAULT_DEMO_USER);
               setDemoUser(DEFAULT_DEMO_USER);
               setSession({ user: DEFAULT_DEMO_USER });
               return { data: { user: DEFAULT_DEMO_USER }, error: null };
@@ -105,18 +146,22 @@ export function AuthProvider({ children }) {
           }
           return res;
         }
+        if (res.data?.user) {
+          saveActiveUser(res.data.user);
+        }
         return res;
       } catch (err) {
-        // Catch direct network failure
         const localUsers = getLocalUsers();
         const found = localUsers.find((u) => u.email === normalizedEmail && u.password === password);
         if (found) {
           const u = { id: found.id, email: found.email, user_metadata: found.user_metadata };
+          saveActiveUser(u);
           setDemoUser(u);
           setSession({ user: u });
           return { data: { user: u }, error: null, isOfflineFallback: true };
         }
         if (normalizedEmail === "admin@organization.go.th" && password === "password123") {
+          saveActiveUser(DEFAULT_DEMO_USER);
           setDemoUser(DEFAULT_DEMO_USER);
           setSession({ user: DEFAULT_DEMO_USER });
           return { data: { user: DEFAULT_DEMO_USER }, error: null };
@@ -138,6 +183,7 @@ export function AuthProvider({ children }) {
       if (!isConfigured) {
         saveLocalUser(localRecord);
         const u = { id: localRecord.id, email: normalizedEmail, user_metadata: metadata };
+        saveActiveUser(u);
         setDemoUser(u);
         setSession({ user: u });
         return { data: { user: u }, error: null };
@@ -161,6 +207,7 @@ export function AuthProvider({ children }) {
           if (isNetworkError) {
             saveLocalUser(localRecord);
             const u = { id: localRecord.id, email: normalizedEmail, user_metadata: metadata };
+            saveActiveUser(u);
             setDemoUser(u);
             setSession({ user: u });
             return {
@@ -174,6 +221,9 @@ export function AuthProvider({ children }) {
         }
 
         saveLocalUser(localRecord);
+        if (res.data?.user) {
+          saveActiveUser(res.data.user);
+        }
         return res;
       } catch (err) {
         const isNetworkError =
@@ -184,6 +234,7 @@ export function AuthProvider({ children }) {
         if (isNetworkError) {
           saveLocalUser(localRecord);
           const u = { id: localRecord.id, email: normalizedEmail, user_metadata: metadata };
+          saveActiveUser(u);
           setDemoUser(u);
           setSession({ user: u });
           return {
@@ -198,13 +249,14 @@ export function AuthProvider({ children }) {
     },
 
     signOut: async () => {
+      saveActiveUser(null);
       setDemoUser(null);
       setSession(null);
       if (isConfigured) {
         try {
           await supabase.auth.signOut();
         } catch {
-          // ignore network errors on signout
+          // ignore
         }
       }
       return { error: null };

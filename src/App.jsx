@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { useAuth } from "./lib/AuthContext";
 import Sidebar from "./components/Sidebar";
 import TopHeader from "./components/TopHeader";
 
@@ -18,6 +19,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 
 export default function App() {
+  const { user } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -25,6 +27,8 @@ export default function App() {
   const isRegisterPage = location.pathname === "/register";
   const isPortalPage = location.pathname === "/" || location.pathname === "/portal";
   const isMaintenancePage = location.pathname.startsWith("/maintenance");
+  const isScanOrPublicAsset =
+    location.pathname.startsWith("/scan") || location.pathname.startsWith("/asset/");
 
   // 1. หน้าเลือกเมนูระบบงาน (Portal Selection Page)
   if (isPortalPage) {
@@ -53,7 +57,22 @@ export default function App() {
     );
   }
 
-  // 3. ระบบแจ้งซ่อมและบำรุงรักษา (Standalone Maintenance & Repair Service System)
+  // 3. สาธารณะ: สแกน QR & ดูรายละเอียดครุภัณฑ์
+  if (isScanOrPublicAsset) {
+    return (
+      <Routes>
+        <Route path="/scan" element={<ScanQR />} />
+        <Route path="/asset/:assetCode" element={<AssetDetail />} />
+      </Routes>
+    );
+  }
+
+  // 4. บังคับเข้าสู่ระบบเมื่อจะเข้าใช้งานระบบต่างๆ หากยังไม่ได้เข้าสู่ระบบ
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // 5. ระบบแจ้งซ่อมและบำรุงรักษา (Standalone Maintenance & Repair Service System)
   if (isMaintenancePage) {
     return (
       <Routes>
@@ -63,7 +82,7 @@ export default function App() {
     );
   }
 
-  // 4. ระบบบริหารจัดการครุภัณฑ์ (Asset Management System with Sidebar & TopHeader)
+  // 6. ระบบบริหารจัดการครุภัณฑ์ (Asset Management System with Sidebar & TopHeader)
   return (
     <div className="app-layout">
       {/* Dark Navy/Forest Emerald Sidebar - จัดการเฉพาะงานครุภัณฑ์ 100% */}
@@ -74,10 +93,6 @@ export default function App() {
         <TopHeader onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
         <main>
           <Routes>
-            {/* สาธารณะ: สแกน QR & ดูรายละเอียดครุภัณฑ์ */}
-            <Route path="/scan" element={<ScanQR />} />
-            <Route path="/asset/:assetCode" element={<AssetDetail />} />
-
             {/* ระบบบริหารจัดการครุภัณฑ์ */}
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/assets" element={<AssetsList />} />
