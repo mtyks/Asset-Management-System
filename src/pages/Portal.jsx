@@ -3,16 +3,9 @@ import { Link } from "react-router-dom";
 import {
   Package,
   Wrench,
-  QrCode,
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
-  Clock,
-  Layers,
-  FileSpreadsheet,
-  Headphones,
-  ExternalLink,
-  ChevronRight,
   Calendar,
 } from "lucide-react";
 
@@ -148,39 +141,12 @@ export default function Portal() {
             </div>
           </div>
         </div>
-
-        {/* Quick Utilities Bar */}
-        <div className="portal-quick-utilities">
-          <div className="portal-quick-card">
-            <div className="portal-quick-icon">
-              <QrCode size={22} color="#059669" />
-            </div>
-            <div className="portal-quick-info">
-              <div className="portal-quick-title">สแกน QR Code ตรวจสอบครุภัณฑ์</div>
-              <div className="portal-quick-desc">เปิดกล้องมือถือสแกนป้ายเพื่อดูข้อมูลครุภัณฑ์ทันที</div>
-            </div>
-            <Link to="/scan" className="portal-quick-link">
-              <span>สแกนป้าย</span>
-              <ChevronRight size={16} />
-            </Link>
-          </div>
-
-          <div className="portal-quick-card">
-            <div className="portal-quick-icon">
-              <Headphones size={22} color="#0d9488" />
-            </div>
-            <div className="portal-quick-info">
-              <div className="portal-quick-title">ศูนย์ช่วยเหลือและสนับสนุนทางเทคนิค</div>
-              <div className="portal-quick-desc">ติดต่อฝ่ายสารสนเทศ โทร. 0xx-xxx-xxxx </div>
-            </div>
-            <a href="mailto:support@organization.go.th" className="portal-quick-link">
-              <span>ติดต่อฝ่ายไอที</span>
-              <ChevronRight size={16} />
-            </a>
-          </div>
-        </div>
       </main>
-      
+
+      {/* Footer */}
+      <footer className="portal-footer">
+        <p>© 2569 ระบบบริหารจัดการครุภัณฑ์และบริการซ่อมบำรุงองค์กร สงวนลิขสิทธิ์</p>
+      </footer>
     </div>
   );
 }
