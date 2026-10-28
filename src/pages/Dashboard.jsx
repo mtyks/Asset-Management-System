@@ -10,15 +10,23 @@ import {
   Plus,
   QrCode,
   ArrowRight,
-  FolderOpen,
   MapPin,
-  Clock,
   Sparkles,
   ShieldCheck,
   AlertTriangle,
   Layers,
   Building2,
+  Box,
 } from "lucide-react";
+
+const CATEGORY_COLORS = [
+  "#10b981", // Emerald
+  "#0ea5e9", // Sky Blue
+  "#8b5cf6", // Violet
+  "#f59e0b", // Amber
+  "#ec4899", // Pink
+  "#14b8a6", // Teal
+];
 
 export default function Dashboard() {
   const [counts, setCounts] = useState({
@@ -36,11 +44,13 @@ export default function Dashboard() {
   useEffect(() => {
     Promise.all([
       getDashboardCounts().then(setCounts).catch(() => {}),
-      listAssets().then((data) => {
-        const assets = data || [];
-        setAllAssets(assets);
-        setRecentAssets(assets.slice(0, 6));
-      }).catch(() => {}),
+      listAssets()
+        .then((data) => {
+          const assets = data || [];
+          setAllAssets(assets);
+          setRecentAssets(assets.slice(0, 7));
+        })
+        .catch(() => {}),
     ])
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -55,7 +65,7 @@ export default function Dashboard() {
   const borrowedPct = totalCount > 0 ? Math.round((borrowedCount / totalCount) * 100) : 0;
   const repairPct = totalCount > 0 ? Math.round((repairCount / totalCount) * 100) : 0;
 
-  // 1. หมวดหมู่ครุภัณฑ์ (Category Distribution Tiles)
+  // 1. หมวดหมู่ครุภัณฑ์ (Category Breakdown)
   const categoryMap = {};
   for (const a of allAssets) {
     const catName = a.asset_categories?.category_name || "ครุภัณฑ์ทั่วไป";
@@ -65,15 +75,16 @@ export default function Dashboard() {
     .map((name) => ({
       name,
       count: categoryMap[name],
+      pct: totalCount > 0 ? Math.round((categoryMap[name] / totalCount) * 100) : 0,
     }))
     .sort((a, b) => b.count - a.count);
 
-  // 2. สถานที่ / ห้องประจำ (Location Distribution List)
+  // 2. สถานที่จัดเก็บหลัก (Top Locations)
   const locationMap = {};
   for (const a of allAssets) {
     const rName = a.rooms?.room_name || "ไม่ระบุห้อง";
-    const bName = a.rooms?.buildings?.name ? `(${a.rooms.buildings.name})` : "";
-    const label = `${rName} ${bName}`.trim();
+    const bName = a.rooms?.buildings?.name ? `${a.rooms.buildings.name}` : "";
+    const label = bName ? `${rName} (${bName})` : rName;
     locationMap[label] = (locationMap[label] || 0) + 1;
   }
   const locationStats = Object.keys(locationMap)
@@ -85,23 +96,25 @@ export default function Dashboard() {
 
   return (
     <div className="page-container">
-      {/* 1. Header Row */}
-      <div className="page-heading-row">
+      {/* 1. Clean Modern Header */}
+      <div className="page-heading-row" style={{ marginBottom: 24 }}>
         <div className="page-title-group">
-          <h1>Dashboard ภาพรวมระบบครุภัณฑ์</h1>
-          <p className="page-subtitle">
-            สถิติครุภัณฑ์ การจัดสรรพื้นที่ และสถานะความพร้อมใช้งานของทรัพย์สิน
+          <h1 style={{ fontSize: "1.55rem", fontWeight: 800, letterSpacing: "-0.02em" }}>
+            ภาพรวมระบบครุภัณฑ์
+          </h1>
+          <p className="page-subtitle" style={{ marginTop: 4 }}>
+            สรุปสถานะทรัพย์สิน หมวดหมู่ และสถานที่จัดเก็บประจำหน่วยงาน
           </p>
         </div>
 
         <div className="page-actions-group">
+          <Link to="/scan" className="btn btn-outline-white">
+            <QrCode size={16} />
+            <span>สแกน QR</span>
+          </Link>
           <Link to="/assets/new" className="btn btn-primary">
             <Plus size={16} strokeWidth={2.5} />
             <span>เพิ่มครุภัณฑ์ใหม่</span>
-          </Link>
-          <Link to="/scan" className="btn btn-outline-white">
-            <QrCode size={16} />
-            <span>สแกน QR ตรวจนับ</span>
           </Link>
         </div>
       </div>
@@ -112,184 +125,122 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 2. Top Summary KPI Cards (4 distinct metrics) */}
+      {/* 2. Top 4 KPI Cards (Interactive & Clean) */}
       <div className="dashboard-kpi-grid">
-        {/* Total Assets */}
-        <div className="kpi-card total">
-          <div className="kpi-card-content">
-            <span className="kpi-card-label">ครุภัณฑ์ทั้งหมด</span>
-            <div className="kpi-card-value">
-              {totalCount.toLocaleString()}
-              <span className="kpi-card-unit">รายการ</span>
+        {/* Card 1: Total */}
+        <Link to="/assets" className="kpi-card">
+          <div className="kpi-card-top">
+            <div>
+              <span className="kpi-card-label">ครุภัณฑ์ทั้งหมด</span>
+              <div className="kpi-card-value">
+                {totalCount.toLocaleString()}
+                <span className="kpi-card-unit">รายการ</span>
+              </div>
             </div>
-            <span className="kpi-card-badge total">ทะเบียนในระบบ</span>
+            <div className="kpi-card-icon total">
+              <Package size={24} />
+            </div>
           </div>
-          <div className="kpi-card-icon total">
-            <Package size={24} />
+          <div className="kpi-card-footer">
+            <span className="kpi-card-badge total">ทะเบียนทั้งหมด</span>
+            <span style={{ color: "#64748b", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              ดูรายการ <ArrowRight size={13} />
+            </span>
           </div>
-        </div>
+        </Link>
 
-        {/* Normal / Ready */}
-        <div className="kpi-card normal">
-          <div className="kpi-card-content">
-            <span className="kpi-card-label">พร้อมใช้งานปกติ</span>
-            <div className="kpi-card-value" style={{ color: "#059669" }}>
-              {normalCount.toLocaleString()}
-              <span className="kpi-card-unit">รายการ</span>
+        {/* Card 2: Ready / Normal */}
+        <Link to="/assets" className="kpi-card">
+          <div className="kpi-card-top">
+            <div>
+              <span className="kpi-card-label">พร้อมใช้งานปกติ</span>
+              <div className="kpi-card-value" style={{ color: "#059669" }}>
+                {normalCount.toLocaleString()}
+                <span className="kpi-card-unit">รายการ</span>
+              </div>
             </div>
+            <div className="kpi-card-icon normal">
+              <CheckCircle2 size={24} />
+            </div>
+          </div>
+          <div className="kpi-card-footer">
             <span className="kpi-card-badge normal">
               <ShieldCheck size={12} />
               พร้อมใช้ {normalPct}%
             </span>
+            <span style={{ color: "#94a3b8" }}>สภาพปกติ</span>
           </div>
-          <div className="kpi-card-icon normal">
-            <CheckCircle2 size={24} />
-          </div>
-        </div>
+        </Link>
 
-        {/* Borrowed */}
-        <div className="kpi-card borrow">
-          <div className="kpi-card-content">
-            <span className="kpi-card-label">อยู่ระหว่างยืมใช้งาน</span>
-            <div className="kpi-card-value" style={{ color: "#d97706" }}>
-              {borrowedCount.toLocaleString()}
-              <span className="kpi-card-unit">รายการ</span>
+        {/* Card 3: Borrowed */}
+        <Link to="/transfers" className="kpi-card">
+          <div className="kpi-card-top">
+            <div>
+              <span className="kpi-card-label">กำลังถูกยืมใช้งาน</span>
+              <div className="kpi-card-value" style={{ color: "#d97706" }}>
+                {borrowedCount.toLocaleString()}
+                <span className="kpi-card-unit">รายการ</span>
+              </div>
             </div>
-            <span className="kpi-card-badge borrow">
-              <ArrowLeftRight size={12} />
-              ยืมออก {borrowedPct}%
+            <div className="kpi-card-icon borrow">
+              <ArrowLeftRight size={24} />
+            </div>
+          </div>
+          <div className="kpi-card-footer">
+            <span className="kpi-card-badge borrow">ยืมออก {borrowedPct}%</span>
+            <span style={{ color: "#64748b", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              ระบบยืม-คืน <ArrowRight size={13} />
             </span>
           </div>
-          <div className="kpi-card-icon borrow">
-            <ArrowLeftRight size={24} />
-          </div>
-        </div>
+        </Link>
 
-        {/* Repair / Damaged */}
-        <div className="kpi-card repair">
-          <div className="kpi-card-content">
-            <span className="kpi-card-label">ส่งซ่อม / ชำรุด</span>
-            <div className="kpi-card-value" style={{ color: "#dc2626" }}>
-              {repairCount.toLocaleString()}
-              <span className="kpi-card-unit">รายการ</span>
+        {/* Card 4: Repair / Damaged */}
+        <Link to="/assets" className="kpi-card">
+          <div className="kpi-card-top">
+            <div>
+              <span className="kpi-card-label">ส่งซ่อม / ชำรุด</span>
+              <div className="kpi-card-value" style={{ color: "#dc2626" }}>
+                {repairCount.toLocaleString()}
+                <span className="kpi-card-unit">รายการ</span>
+              </div>
             </div>
+            <div className="kpi-card-icon repair">
+              <Wrench size={24} />
+            </div>
+          </div>
+          <div className="kpi-card-footer">
             <span className="kpi-card-badge repair">
               <AlertTriangle size={12} />
-              {repairCount > 0 ? "ต้องดำเนินการ" : "ไม่มีครุภัณฑ์เสีย"}
+              {repairCount > 0 ? `ชำรุด ${repairPct}%` : "ปกติทั้งหมด"}
+            </span>
+            <span style={{ color: "#94a3b8" }}>
+              {repairCount > 0 ? "ต้องตรวจสอบ" : "ไม่มีค้างซ่อม"}
             </span>
           </div>
-          <div className="kpi-card-icon repair">
-            <Wrench size={24} />
-          </div>
-        </div>
+        </Link>
       </div>
 
-      {/* 3. Middle Section: Two Distinct Perspectives (Visual Tiles vs Room List) */}
-      <div className="dashboard-section-row">
-        {/* Panel 1: หมวดหมู่ครุภัณฑ์ (Category Visual Tiles) */}
-        <div className="dash-panel">
-          <div className="dash-panel-header">
-            <h3 className="dash-panel-title">
-              <FolderOpen size={18} color="#059669" />
-              <span>แยกตามหมวดหมู่ครุภัณฑ์</span>
-            </h3>
-            <Link to="/assets" className="dash-panel-link">
-              <span>ดูทั้งหมด ({categoryStats.length} หมวด)</span>
-              <ArrowRight size={14} />
-            </Link>
-          </div>
-
-          {categoryStats.length === 0 ? (
-            <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "auto 0", textAlign: "center", padding: "20px 0" }}>
-              ยังไม่มีข้อมูลหมวดหมู่ในระบบ
-            </p>
-          ) : (
-            <div className="category-tiles-grid">
-              {categoryStats.slice(0, 6).map((cat) => (
-                <Link
-                  key={cat.name}
-                  to={`/assets`}
-                  className="category-tile"
-                  title={`ดูรายการในหมวด ${cat.name}`}
-                >
-                  <div className="category-tile-icon">
-                    <Layers size={18} />
-                  </div>
-                  <div className="category-tile-name">{cat.name}</div>
-                  <div className="category-tile-count">
-                    {cat.count}
-                    <span className="category-tile-unit">ชิ้น</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Panel 2: สถานที่จัดเก็บและห้องประจำ (Location Overview) */}
-        <div className="dash-panel">
-          <div className="dash-panel-header">
-            <h3 className="dash-panel-title">
-              <Building2 size={18} color="#0d9488" />
-              <span>สถานที่จัดเก็บและห้องประจำ</span>
-            </h3>
-            <span style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 600 }}>
-              {locationStats.length} จุดจัดเก็บ
-            </span>
-          </div>
-
-          {locationStats.length === 0 ? (
-            <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "auto 0", textAlign: "center", padding: "20px 0" }}>
-              ยังไม่มีข้อมูลสถานที่ในระบบ
-            </p>
-          ) : (
-            <div className="location-list">
-              {locationStats.slice(0, 4).map((loc) => (
-                <div key={loc.name} className="location-item">
-                  <div className="location-info">
-                    <div className="location-icon">
-                      <MapPin size={16} />
-                    </div>
-                    <span className="location-name">{loc.name}</span>
-                  </div>
-                  <span className="location-badge">
-                    {loc.count} รายการ
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 4. Bottom Section: Operational Panels (Recent Items Table + Readiness Status) */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1.5fr 1fr",
-          gap: "20px",
-        }}
-        className="bottom-operational-grid"
-      >
-        {/* Left: รายการครุภัณฑ์ตรวจรับล่าสุด */}
+      {/* 3. Main 2-Column Content (Left: Recent Table | Right: Categories & Locations) */}
+      <div className="dashboard-main-grid">
+        {/* Left Column: รายการครุภัณฑ์ล่าสุด */}
         <div className="dash-panel" style={{ padding: 0, overflow: "hidden" }}>
           <div
             style={{
-              padding: "16px 20px",
-              borderBottom: "1px solid #e2ece6",
+              padding: "20px 24px",
+              borderBottom: "1px solid #eef2f0",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Sparkles size={17} color="#059669" />
-              <h3 style={{ margin: 0, fontSize: "0.98rem", fontWeight: 700, color: "#0f291e" }}>
-                ครุภัณฑ์ตรวจรับล่าสุด
-              </h3>
-            </div>
+            <h3 className="dash-panel-title">
+              <div className="dash-panel-icon-box">
+                <Sparkles size={16} />
+              </div>
+              <span>รายการครุภัณฑ์ล่าสุด</span>
+            </h3>
             <Link to="/assets" className="dash-panel-link">
-              <span>ดูทะเบียนทั้งหมด</span>
+              <span>ดูทั้งหมด</span>
               <ArrowRight size={14} />
             </Link>
           </div>
@@ -298,10 +249,10 @@ export default function Dashboard() {
             <table className="modern-table">
               <thead>
                 <tr>
-                  <th>เลขครุภัณฑ์</th>
-                  <th>ชื่อรายการ</th>
-                  <th>สถานที่</th>
-                  <th>สถานะ</th>
+                  <th style={{ paddingLeft: 24 }}>ข้อมูลครุภัณฑ์</th>
+                  <th>หมวดหมู่</th>
+                  <th>สถานที่ตั้ง</th>
+                  <th style={{ paddingRight: 24 }}>สถานะ</th>
                 </tr>
               </thead>
               <tbody>
@@ -320,18 +271,34 @@ export default function Dashboard() {
                 ) : (
                   recentAssets.map((asset) => {
                     const code = asset.asset_code || "-";
+                    const categoryName = asset.asset_categories?.category_name || "ทั่วไป";
                     const roomText = asset.rooms?.room_name || "ไม่ระบุห้อง";
 
                     return (
-                      <tr key={asset.asset_code}>
-                        <td style={{ fontWeight: 700, fontFamily: "monospace" }}>
-                          <Link to={`/asset/${encodeURIComponent(code)}`} style={{ color: "#059669" }}>
-                            {code}
-                          </Link>
+                      <tr key={code}>
+                        <td style={{ paddingLeft: 24 }}>
+                          <div className="recent-asset-cell">
+                            <div className="recent-asset-avatar">
+                              <Box size={18} />
+                            </div>
+                            <div className="recent-asset-info">
+                              <Link
+                                to={`/asset/${encodeURIComponent(code)}`}
+                                className="recent-asset-name"
+                              >
+                                {asset.name}
+                              </Link>
+                              <span className="recent-asset-code">{code}</span>
+                            </div>
+                          </div>
                         </td>
-                        <td style={{ fontWeight: 600, color: "#0f291e" }}>{asset.name}</td>
-                        <td style={{ fontSize: "0.82rem", color: "#64748b" }}>{roomText}</td>
                         <td>
+                          <span className="category-pill">{categoryName}</span>
+                        </td>
+                        <td style={{ fontSize: "0.84rem", color: "#475569", fontWeight: 500 }}>
+                          {roomText}
+                        </td>
+                        <td style={{ paddingRight: 24 }}>
                           <StatusBadge status={asset.status || "normal"} />
                         </td>
                       </tr>
@@ -343,63 +310,102 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right: สถานะความพร้อมและทางลัดตรวจสอบด่วน */}
-        <div className="dash-panel">
-          <div className="dash-panel-header">
-            <h3 className="dash-panel-title">
-              <Clock size={18} color="#059669" />
-              <span>ความพร้อมของทรัพย์สิน</span>
-            </h3>
+        {/* Right Column: Stacked Summary Cards (Categories + Locations) */}
+        <div className="dashboard-side-stack">
+          {/* Card A: สัดส่วนตามหมวดหมู่ */}
+          <div className="dash-panel">
+            <div className="dash-panel-header">
+              <h3 className="dash-panel-title">
+                <div className="dash-panel-icon-box">
+                  <Layers size={16} />
+                </div>
+                <span>สัดส่วนตามหมวดหมู่</span>
+              </h3>
+              <Link to="/categories" className="dash-panel-link">
+                <span>จัดการ</span>
+                <ArrowRight size={13} />
+              </Link>
+            </div>
+
+            {categoryStats.length === 0 ? (
+              <p style={{ color: "#94a3b8", fontSize: "0.85rem", textAlign: "center", margin: "16px 0" }}>
+                ยังไม่มีข้อมูลหมวดหมู่
+              </p>
+            ) : (
+              <div className="cat-progress-list">
+                {categoryStats.slice(0, 5).map((cat, idx) => {
+                  const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                  return (
+                    <div key={cat.name} className="cat-progress-item">
+                      <div className="cat-progress-top">
+                        <span className="cat-progress-name">
+                          <span className="cat-dot" style={{ backgroundColor: color }} />
+                          {cat.name}
+                        </span>
+                        <div className="cat-progress-meta">
+                          <span className="cat-progress-count">{cat.count} ชิ้น</span>
+                          <span className="cat-progress-pct">({cat.pct}%)</span>
+                        </div>
+                      </div>
+                      <div className="cat-progress-track">
+                        <div
+                          className="cat-progress-fill"
+                          style={{
+                            width: `${Math.max(6, cat.pct)}%`,
+                            backgroundColor: color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Unified Multi-color Health Meter */}
-          <div className="health-meter-container">
-            <div className="health-meter-header">
-              <span className="health-meter-title">อัตราความพร้อมใช้งาน</span>
-              <span className="health-meter-val">{normalPct}%</span>
+          {/* Card B: สถานที่จัดเก็บหลัก */}
+          <div className="dash-panel">
+            <div className="dash-panel-header">
+              <h3 className="dash-panel-title">
+                <div
+                  className="dash-panel-icon-box"
+                  style={{ background: "#f0fdfa", color: "#0d9488" }}
+                >
+                  <Building2 size={16} />
+                </div>
+                <span>สถานที่จัดเก็บหลัก</span>
+              </h3>
+              <Link
+                to="/locations"
+                className="dash-panel-link"
+                style={{ background: "#f0fdfa", color: "#0d9488" }}
+              >
+                <span>ดูห้องทั้งหมด</span>
+                <ArrowRight size={13} />
+              </Link>
             </div>
-            <div className="health-bar-track">
-              <div
-                className="health-bar-segment ready"
-                style={{ width: `${normalPct}%` }}
-                title={`พร้อมใช้งาน: ${normalCount} รายการ (${normalPct}%)`}
-              />
-              <div
-                className="health-bar-segment borrowed"
-                style={{ width: `${borrowedPct}%` }}
-                title={`ยืมใช้งาน: ${borrowedCount} รายการ (${borrowedPct}%)`}
-              />
-              <div
-                className="health-bar-segment repair"
-                style={{ width: `${repairPct}%` }}
-                title={`ซ่อม/ชำรุด: ${repairCount} รายการ (${repairPct}%)`}
-              />
-            </div>
-          </div>
 
-          {/* Direct Status Navigation Tags */}
-          <div style={{ marginTop: 4 }}>
-            <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#475569", marginBottom: 10 }}>
-              ทางลัดตรวจสอบตามสถานะ
-            </div>
-            <div className="health-status-tags">
-              <Link to="/assets" className="health-tag ready">
-                <span className="health-tag-dot ready" />
-                <span>พร้อมใช้งาน ({normalCount})</span>
-              </Link>
-              <Link to="/transfers" className="health-tag borrowed">
-                <span className="health-tag-dot borrowed" />
-                <span>กำลังถูกยืม ({borrowedCount})</span>
-              </Link>
-              <Link to="/repairs" className="health-tag repair">
-                <span className="health-tag-dot repair" />
-                <span>ส่งซ่อม/ชำรุด ({repairCount})</span>
-              </Link>
-              <Link to="/scan" className="health-tag" style={{ background: "#f1f5f9", color: "#334155" }}>
-                <QrCode size={13} />
-                <span>สแกนตรวจนับ</span>
-              </Link>
-            </div>
+            {locationStats.length === 0 ? (
+              <p style={{ color: "#94a3b8", fontSize: "0.85rem", textAlign: "center", margin: "16px 0" }}>
+                ยังไม่มีข้อมูลสถานที่จัดเก็บ
+              </p>
+            ) : (
+              <div className="location-list">
+                {locationStats.slice(0, 4).map((loc) => (
+                  <div key={loc.name} className="location-item">
+                    <div className="location-info">
+                      <div className="location-icon">
+                        <MapPin size={16} />
+                      </div>
+                      <span className="location-name" title={loc.name}>
+                        {loc.name}
+                      </span>
+                    </div>
+                    <span className="location-badge">{loc.count} รายการ</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
