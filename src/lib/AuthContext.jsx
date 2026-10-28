@@ -257,6 +257,23 @@ export function AuthProvider({ children }) {
               };
             }
 
+            // หาก Supabase ติด Email Rate Limit (ส่งอีเมลยืนยันเกินโควตาต่อชั่วโมงของ Free Tier)
+            if (
+              res.error.message?.includes("rate limit") ||
+              res.error.status === 429
+            ) {
+              saveLocalUser(localRecord);
+              const u = { id: localRecord.id, email: normalizedEmail, user_metadata: metadata };
+              saveActiveUser(u);
+              setActiveUser(u);
+              setSession({ user: u });
+              return {
+                data: { user: u },
+                error: null,
+                warning: "สมัครสมาชิกสำเร็จ! (หากต้องการให้ลงทะเบียนผ่านคลาวด์โดยตรง แนะนำให้ปิด Confirm email บน Supabase Dashboard)",
+              };
+            }
+
             // หากเกิดปัญหาการเชื่อมต่อเซิร์ฟเวอร์ (เช่น Supabase ถูก Pause) ให้บันทึกลงในเครื่องทันที
             const isNetworkError =
               res.error.message?.includes("Failed to fetch") ||
