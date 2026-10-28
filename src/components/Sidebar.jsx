@@ -11,7 +11,6 @@ import {
   QrCode,
   LogOut,
   X,
-  LayoutGrid,
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -26,7 +25,7 @@ export default function Sidebar({ isOpen, onClose }) {
       {isOpen && <div className="sidebar-backdrop" onClick={onClose} />}
       <aside className={`app-sidebar ${isOpen ? "sidebar-open" : ""}`}>
         {/* Header Title without Icon */}
-        <div className="sidebar-header" style={{ padding: "20px 18px 12px" }}>
+        <div className="sidebar-header" style={{ padding: "20px 18px 16px" }}>
           <div className="sidebar-logo-title" style={{ fontSize: "1.05rem", fontWeight: 800, lineHeight: 1.3, letterSpacing: "-0.01em" }}>
             ระบบบริหารจัดการครุภัณฑ์
           </div>
@@ -40,30 +39,6 @@ export default function Sidebar({ isOpen, onClose }) {
               <X size={20} />
             </button>
           )}
-        </div>
-
-        {/* Portal Switcher Button */}
-        <div style={{ padding: "0 14px 12px" }}>
-          <NavLink
-            to="/"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "8px 12px",
-              backgroundColor: "rgba(255, 255, 255, 0.08)",
-              borderRadius: "8px",
-              fontSize: "0.8rem",
-              fontWeight: 600,
-              color: "#a7f3d0",
-              textDecoration: "none",
-              transition: "all 0.15s ease",
-            }}
-            onClick={handleLinkClick}
-          >
-            <LayoutGrid size={15} />
-            <span>กลับหน้าเลือกเมนูรวม</span>
-          </NavLink>
         </div>
 
         {/* Navigation Menu */}
