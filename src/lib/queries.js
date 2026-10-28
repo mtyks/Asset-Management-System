@@ -130,6 +130,9 @@ export async function createAsset(asset) {
 }
 
 export async function updateAsset(assetCode, updates) {
+  const cleanCode = decodeURIComponent(String(assetCode || "")).trim();
+  if (!cleanCode) throw new Error("รหัสครุภัณฑ์ไม่ถูกต้อง");
+
   const payload = { ...updates };
   if (payload.category_id) {
     payload.category_code = payload.category_id;
@@ -142,20 +145,40 @@ export async function updateAsset(assetCode, updates) {
   delete payload.id;
   delete payload.asset_categories;
   delete payload.rooms;
+  delete payload.buildings;
 
-  const { data, error } = await supabase
+  // 1. ลองอัปเดตด้วย cleanCode ตรงๆ
+  let { data, error } = await supabase
     .from("assets")
     .update(payload)
-    .eq("asset_code", assetCode)
+    .eq("asset_code", cleanCode)
     .select()
-    .single();
+    .maybeSingle();
+
+  // 2. หากไม่พบ ลองค้นหาแบบไม่สนตัวพิมพ์เล็กใหญ่ (ilike)
+  if (!data && !error) {
+    const { data: ilikeData, error: ilikeErr } = await supabase
+      .from("assets")
+      .update(payload)
+      .ilike("asset_code", cleanCode)
+      .select()
+      .maybeSingle();
+    data = ilikeData;
+    error = ilikeErr;
+  }
 
   if (error) throw error;
+  if (!data) {
+    throw new Error(
+      `ไม่พบรายการครุภัณฑ์รหัส "${cleanCode}" หรือระบบไม่สามารถบันทึกได้เนื่องจากสิทธิ์การเข้าใช้งาน`
+    );
+  }
   return data;
 }
 
 export async function deleteAsset(assetCode) {
-  const { error } = await supabase.from("assets").delete().eq("asset_code", assetCode);
+  const cleanCode = decodeURIComponent(String(assetCode || "")).trim();
+  const { error } = await supabase.from("assets").delete().eq("asset_code", cleanCode);
   if (error) throw error;
   return true;
 }
@@ -198,10 +221,11 @@ export async function bulkDeleteAssets(assetCodes) {
 }
 
 export async function updateAssetStatus(assetCode, newStatus, note = "") {
+  const cleanCode = decodeURIComponent(String(assetCode || "")).trim();
   const { data: current } = await supabase
     .from("assets")
     .select("status")
-    .eq("asset_code", assetCode)
+    .eq("asset_code", cleanCode)
     .maybeSingle();
 
   const oldStatus = current?.status || null;
@@ -209,15 +233,15 @@ export async function updateAssetStatus(assetCode, newStatus, note = "") {
   const { data, error } = await supabase
     .from("assets")
     .update({ status: newStatus })
-    .eq("asset_code", assetCode)
+    .eq("asset_code", cleanCode)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
 
   try {
     await supabase.from("asset_status_log").insert({
-      asset_code: assetCode,
+      asset_code: cleanCode,
       old_status: oldStatus,
       new_status: newStatus,
       note: note || null,

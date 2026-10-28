@@ -73,7 +73,7 @@ export function AuthProvider({ children }) {
 
     supabase.auth
       .getSession()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (data?.session) {
           setSession(data.session);
           saveActiveUser(data.session.user);
@@ -83,6 +83,34 @@ export function AuthProvider({ children }) {
           const active = getActiveUser();
           setSession(active ? { user: active } : null);
           setActiveUser(active);
+
+          // ถ้ามี local active user แต่ Supabase ยังไม่มี session ให้ auto-sync เข้า Supabase ทันที
+          if (active && active.email) {
+            const localUsers = getLocalUsers();
+            const found = localUsers.find((lu) => lu.email === active.email.toLowerCase());
+            if (found && found.password) {
+              try {
+                let authRes = await supabase.auth.signInWithPassword({
+                  email: found.email,
+                  password: found.password,
+                });
+                if (authRes.error && authRes.error.message?.includes("Invalid login credentials")) {
+                  authRes = await supabase.auth.signUp({
+                    email: found.email,
+                    password: found.password,
+                    options: { data: found.user_metadata || {} },
+                  });
+                }
+                if (authRes.data?.session) {
+                  setSession(authRes.data.session);
+                  saveActiveUser(authRes.data.user);
+                  setActiveUser(authRes.data.user);
+                }
+              } catch (e) {
+                console.warn("Auto session sync error:", e);
+              }
+            }
+          }
         }
       })
       .catch(() => {
@@ -129,6 +157,31 @@ export function AuthProvider({ children }) {
           saveActiveUser(u);
           setActiveUser(u);
           setSession({ user: u });
+
+          // เชื่อมต่อและขอ Session JWT จาก Supabase เพื่อให้มีสิทธิ์แก้ไขข้อมูล (RLS: authenticated)
+          if (isConfigured) {
+            try {
+              let authRes = await supabase.auth.signInWithPassword({
+                email: normalizedEmail,
+                password: pwd,
+              });
+              if (authRes.error && authRes.error.message?.includes("Invalid login credentials")) {
+                authRes = await supabase.auth.signUp({
+                  email: normalizedEmail,
+                  password: pwd,
+                  options: { data: localUser.user_metadata || {} },
+                });
+              }
+              if (authRes.data?.session) {
+                setSession(authRes.data.session);
+                saveActiveUser(authRes.data.user);
+                setActiveUser(authRes.data.user);
+              }
+            } catch (authSyncErr) {
+              console.warn("Supabase auth sync warning:", authSyncErr);
+            }
+          }
+
           return { data: { user: u }, error: null };
         } else {
           return {
@@ -302,6 +355,9 @@ export function AuthProvider({ children }) {
           if (res.data?.user) {
             saveActiveUser(res.data.user);
             setActiveUser(res.data.user);
+            if (res.data?.session) {
+              setSession(res.data.session);
+            }
           }
           return res;
         } catch (err) {

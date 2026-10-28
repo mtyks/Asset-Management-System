@@ -31,7 +31,8 @@ const emptyForm = {
 export default function AssetForm() {
   const navigate = useNavigate();
   const { assetCode, assetId } = useParams();
-  const actualLookupCode = assetCode || assetId;
+  const rawLookupCode = assetCode || assetId;
+  const actualLookupCode = rawLookupCode ? decodeURIComponent(rawLookupCode).trim() : "";
   const isEditMode = Boolean(actualLookupCode);
 
   const [categories, setCategories] = useState([]);
@@ -120,7 +121,7 @@ export default function AssetForm() {
 
       if (isEditMode) {
         await updateAsset(actualLookupCode, payload);
-        navigate(`/asset/${encodeURIComponent(form.asset_code)}`);
+        navigate(`/asset/${encodeURIComponent(form.asset_code.trim())}`);
       } else {
         const created = await createAsset(payload);
         setSavedAsset(created);
