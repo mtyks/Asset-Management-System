@@ -150,34 +150,60 @@ export default function Sidebar({ isOpen, onClose }) {
           </NavLink>
         </nav>
 
-        {/* Footer Profile Section */}
+        {/* Footer Logout Action (ไม่มีการแสดงชื่อผู้ใช้งาน) */}
         <div className="sidebar-footer">
-          <div className="sidebar-user-info">
-            <div className="sidebar-avatar">ผป</div>
-            <div className="sidebar-user-meta">
-              <div className="sidebar-user-name">ผู้ดูแลระบบพัสดุ</div>
-              <div className="sidebar-user-email">
-                {user?.email || "admin@organization.go.th"}
-              </div>
-            </div>
-          </div>
           {user ? (
             <button
               className="sidebar-logout-btn"
               onClick={signOut}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                padding: "9px 14px",
+                borderRadius: "8px",
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                color: "#cbd5e1",
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
               title="ออกจากระบบ"
               aria-label="ออกจากระบบ"
             >
-              <LogOut size={17} />
+              <LogOut size={16} />
+              <span>ออกจากระบบ</span>
             </button>
           ) : (
             <NavLink
               to="/login"
               className="sidebar-logout-btn"
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                padding: "9px 14px",
+                borderRadius: "8px",
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                color: "#a7f3d0",
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                textDecoration: "none",
+                transition: "all 0.15s ease",
+              }}
               title="เข้าสู่ระบบ"
               aria-label="เข้าสู่ระบบ"
+              onClick={handleLinkClick}
             >
-              <LogOut size={17} style={{ transform: "rotate(180deg)" }} />
+              <LogOut size={16} style={{ transform: "rotate(180deg)" }} />
+              <span>เข้าสู่ระบบ</span>
             </NavLink>
           )}
         </div>
