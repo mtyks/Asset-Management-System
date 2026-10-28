@@ -27,7 +27,7 @@ export default function Register() {
   const [activeStep, setActiveStep] = useState("set"); // 'set' | 'confirm'
 
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Keypad definitions like a phone lock screen
@@ -90,7 +90,6 @@ export default function Register() {
   // Allow physical keyboard typing
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Don't intercept if user is typing in email or full name input
       if (
         document.activeElement &&
         (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
@@ -142,20 +141,25 @@ export default function Register() {
 
     setSubmitting(true);
     try {
-      const { data, error: signUpError } = await signUp(email.trim(), passcode, {
+      const res = await signUp(email.trim(), passcode, {
         full_name: fullName.trim() || "ผู้ใช้งานใหม่",
       });
 
-      if (signUpError) {
-        throw signUpError;
+      if (res?.error) {
+        throw res.error;
       }
 
-      setSuccess(true);
+      setSuccessMessage(res?.warning || "สมัครสมาชิกสำเร็จ! กำลังนำท่านเข้าสู่ระบบ...");
       setTimeout(() => {
         navigate("/", { replace: true });
       }, 1800);
     } catch (err) {
-      setError(err.message || "เกิดข้อผิดพลาดในการสมัครสมาชิก กรุณาลองใหม่อีกครั้ง");
+      const msg = err.message || "";
+      if (msg.includes("Failed to fetch") || msg.includes("fetch failed")) {
+        setError("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ (โปรเจกต์ Supabase อาจอยู่ในสถานะ Pause)");
+      } else {
+        setError(msg || "เกิดข้อผิดพลาดในการสมัครสมาชิก กรุณาลองใหม่อีกครั้ง");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -192,7 +196,7 @@ export default function Register() {
           </div>
         )}
 
-        {success && (
+        {successMessage && (
           <div
             style={{
               backgroundColor: "#ecfdf5",
@@ -204,12 +208,12 @@ export default function Register() {
               display: "flex",
               alignItems: "center",
               gap: 10,
-              fontSize: "0.9rem",
+              fontSize: "0.88rem",
               fontWeight: 600,
             }}
           >
-            <CheckCircle2 size={20} color="#059669" />
-            <span>สมัครสมาชิกสำเร็จ! กำลังนำท่านเข้าสู่ระบบ...</span>
+            <CheckCircle2 size={20} color="#059669" style={{ flexShrink: 0 }} />
+            <span>{successMessage}</span>
           </div>
         )}
 
