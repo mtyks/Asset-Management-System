@@ -103,13 +103,13 @@ export default function Login() {
     try {
       const { error: signInError } = await signIn(email.trim(), passcode);
       if (signInError) {
-        setError("อีเมลหรือรหัส Passcode ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
+        setError(signInError.message || "อีเมลหรือรหัส Passcode ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
         setPasscode("");
         return;
       }
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setError("เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง");
+      setError(err.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง");
       setPasscode("");
     } finally {
       setSubmitting(false);
