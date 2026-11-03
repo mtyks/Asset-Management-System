@@ -1152,7 +1152,7 @@ export default function Maintenance() {
             <div>
               <div className="maintenance-brand-title">ระบบแจ้งซ่อมและบำรุงรักษา</div>
               <div className="maintenance-brand-sub">
-                Maintenance &amp; Helpdesk Service System
+                Maintenance &amp; Repair Service System
               </div>
             </div>
           </div>
@@ -1296,25 +1296,101 @@ export default function Maintenance() {
                 </div>
                 <div>
                   <div className="maint-bento-title">ภาพรวมสถานะงานซ่อม</div>
+                  <div className="maint-bento-sub">สัดส่วนและสถานะใบแจ้งซ่อมปัจจุบัน</div>
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <span
+                  style={{
+                    fontSize: "1.45rem",
+                    fontWeight: 800,
+                    color: "#0f172a",
+                    lineHeight: 1,
+                  }}
+                >
+                  {counts.total}
+                </span>
+                <div style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>
+                  ใบงานทั้งหมด
                 </div>
               </div>
             </div>
 
-            {/* Sleek Proportional Progress Bar Box */}
-            <div className="maint-cost-mini-chart">
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  fontSize: "0.71rem",
-                  fontWeight: 700,
-                  color: "#475569",
-                  marginBottom: 6,
-                }}
-              >
-                <span>ใบงานทั้งหมด: <strong style={{ color: "#0f172a" }}>{counts.total} งาน</strong></span>
-                {statusFilter !== "all" ? (
+            {/* Modern Multi-Segment Progress Track */}
+            <div className="maint-modern-progress-wrap">
+              <div className="maint-modern-progress">
+                {counts.completed > 0 && (
+                  <div
+                    className={`maint-modern-seg seg-completed ${
+                      statusFilter === "completed"
+                        ? "active"
+                        : statusFilter !== "all"
+                        ? "dimmed"
+                        : ""
+                    }`}
+                    style={{ flex: counts.completed }}
+                    onClick={() =>
+                      setStatusFilter(statusFilter === "completed" ? "all" : "completed")
+                    }
+                    title={`เสร็จสิ้น: ${counts.completed} งาน`}
+                  />
+                )}
+                {counts.in_progress > 0 && (
+                  <div
+                    className={`maint-modern-seg seg-progress ${
+                      statusFilter === "in_progress_group"
+                        ? "active"
+                        : statusFilter !== "all"
+                        ? "dimmed"
+                        : ""
+                    }`}
+                    style={{ flex: counts.in_progress }}
+                    onClick={() =>
+                      setStatusFilter(
+                        statusFilter === "in_progress_group" ? "all" : "in_progress_group"
+                      )
+                    }
+                    title={`กำลังซ่อม: ${counts.in_progress} งาน`}
+                  />
+                )}
+                {counts.pending > 0 && (
+                  <div
+                    className={`maint-modern-seg seg-pending ${
+                      statusFilter === "pending"
+                        ? "active"
+                        : statusFilter !== "all"
+                        ? "dimmed"
+                        : ""
+                    }`}
+                    style={{ flex: counts.pending }}
+                    onClick={() =>
+                      setStatusFilter(statusFilter === "pending" ? "all" : "pending")
+                    }
+                    title={`รอรับเรื่อง: ${counts.pending} งาน`}
+                  />
+                )}
+                {counts.closedOther > 0 && (
+                  <div
+                    className={`maint-modern-seg seg-failed ${
+                      statusFilter === "closed_other"
+                        ? "active"
+                        : statusFilter !== "all"
+                        ? "dimmed"
+                        : ""
+                    }`}
+                    style={{ flex: counts.closedOther }}
+                    onClick={() =>
+                      setStatusFilter(
+                        statusFilter === "closed_other" ? "all" : "closed_other"
+                      )
+                    }
+                    title={`ไม่สำเร็จ: ${counts.closedOther} งาน`}
+                  />
+                )}
+              </div>
+
+              {statusFilter !== "all" && (
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
                   <button
                     type="button"
                     onClick={() => setStatusFilter("all")}
@@ -1323,76 +1399,19 @@ export default function Maintenance() {
                       background: "#e2e8f0",
                       color: "#0f172a",
                       borderRadius: 999,
-                      padding: "1px 8px",
-                      fontSize: "0.68rem",
+                      padding: "2px 9px",
+                      fontSize: "0.69rem",
                       fontWeight: 700,
                       cursor: "pointer",
                     }}
                   >
-                    ล้างตัวกรอง ✕
+                    แสดงทุกสถานะ ✕
                   </button>
-                ) : (
-                  <span style={{ color: "#64748b", fontWeight: 600 }}>คลิกเลือกสถานะเพื่อกรอง</span>
-                )}
-              </div>
-
-              <div className="maint-modern-progress">
-                {counts.completed > 0 && (
-                  <div
-                    className={`maint-modern-seg seg-completed ${
-                      statusFilter === "completed" ? "active" : ""
-                    }`}
-                    style={{ flex: counts.completed }}
-                    onClick={() =>
-                      setStatusFilter(statusFilter === "completed" ? "all" : "completed")
-                    }
-                    title={`เสร็จสิ้น: ${counts.completed} งาน (${completedPct}%)`}
-                  />
-                )}
-                {counts.in_progress > 0 && (
-                  <div
-                    className={`maint-modern-seg seg-progress ${
-                      statusFilter === "in_progress_group" ? "active" : ""
-                    }`}
-                    style={{ flex: counts.in_progress }}
-                    onClick={() =>
-                      setStatusFilter(
-                        statusFilter === "in_progress_group" ? "all" : "in_progress_group"
-                      )
-                    }
-                    title={`กำลังซ่อม: ${counts.in_progress} งาน (${activePct}%)`}
-                  />
-                )}
-                {counts.pending > 0 && (
-                  <div
-                    className={`maint-modern-seg seg-pending ${
-                      statusFilter === "pending" ? "active" : ""
-                    }`}
-                    style={{ flex: counts.pending }}
-                    onClick={() =>
-                      setStatusFilter(statusFilter === "pending" ? "all" : "pending")
-                    }
-                    title={`รอรับเรื่อง: ${counts.pending} งาน (${pendingPct}%)`}
-                  />
-                )}
-                {counts.closedOther > 0 && (
-                  <div
-                    className={`maint-modern-seg seg-failed ${
-                      statusFilter === "closed_other" ? "active" : ""
-                    }`}
-                    style={{ flex: counts.closedOther }}
-                    onClick={() =>
-                      setStatusFilter(
-                        statusFilter === "closed_other" ? "all" : "closed_other"
-                      )
-                    }
-                    title={`ไม่สำเร็จ: ${counts.closedOther} งาน (${closedOtherPct}%)`}
-                  />
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            {/* 4-Column Interactive Status Breakdown Grid */}
+            {/* 4-Column Interactive Status Breakdown Cards */}
             <div className="maint-status-grid">
               <button
                 type="button"
@@ -1407,7 +1426,10 @@ export default function Maintenance() {
                   <span className="dot" style={{ backgroundColor: "#10b981" }} />
                   เสร็จสิ้น
                 </span>
-                <strong className="maint-channel-val">{counts.completed} งาน</strong>
+                <div className="maint-status-box-num">
+                  <strong>{counts.completed}</strong>
+                  <span>งาน</span>
+                </div>
               </button>
 
               <button
@@ -1425,7 +1447,10 @@ export default function Maintenance() {
                   <span className="dot" style={{ backgroundColor: "#0284c7" }} />
                   กำลังซ่อม
                 </span>
-                <strong className="maint-channel-val">{counts.in_progress} งาน</strong>
+                <div className="maint-status-box-num">
+                  <strong>{counts.in_progress}</strong>
+                  <span>งาน</span>
+                </div>
               </button>
 
               <button
@@ -1441,7 +1466,10 @@ export default function Maintenance() {
                   <span className="dot" style={{ backgroundColor: "#f59e0b" }} />
                   รอรับเรื่อง
                 </span>
-                <strong className="maint-channel-val">{counts.pending} งาน</strong>
+                <div className="maint-status-box-num">
+                  <strong>{counts.pending}</strong>
+                  <span>งาน</span>
+                </div>
               </button>
 
               <button
@@ -1459,7 +1487,10 @@ export default function Maintenance() {
                   <span className="dot" style={{ backgroundColor: "#64748b" }} />
                   ไม่สำเร็จ
                 </span>
-                <strong className="maint-channel-val">{counts.closedOther} งาน</strong>
+                <div className="maint-status-box-num">
+                  <strong>{counts.closedOther}</strong>
+                  <span>งาน</span>
+                </div>
               </button>
             </div>
           </div>
