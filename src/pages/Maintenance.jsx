@@ -444,10 +444,10 @@ function getSlaInfo(ticket) {
 
   if (ticket.status === "cancelled" || ticket.status === "unrepairable") {
     return {
-      type: "normal",
+      type: "failed",
       isOverdue: false,
       days: 0,
-      label: ticket.status === "unrepairable" ? "จำหน่าย/ซ่อมไม่ได้" : "ยกเลิกรายการ",
+      label: ticket.status === "unrepairable" ? "ไม่สำเร็จ (ซ่อมไม่ได้)" : "ไม่สำเร็จ (ยกเลิก)",
     };
   }
 
@@ -1553,10 +1553,12 @@ export default function Maintenance() {
                   <Banknote size={19} />
                 </div>
                 <div>
-                  <div className="maint-bento-title">งบประมาณและสัดส่วนค่าซ่อม</div>
+                  <div className="maint-bento-title" style={{ whiteSpace: "nowrap" }}>
+                    งบและสัดส่วนค่าซ่อม
+                  </div>
                 </div>
               </div>
-              <div style={{ textAlign: "right" }}>
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
                 <span
                   style={{
                     fontSize: "1.45rem",
@@ -2423,12 +2425,29 @@ export default function Maintenance() {
                   t.status === "cancelled"
               )
             );
+            const completedClosedCount = allClosedTickets.filter(
+              (t) => t.status === "completed"
+            ).length;
+            const failedClosedCount = allClosedTickets.filter(
+              (t) => t.status === "unrepairable" || t.status === "cancelled"
+            ).length;
+
             const recentClosedTickets = allClosedTickets.filter((t) => {
+              if (t.status === "unrepairable" || t.status === "cancelled") {
+                return true;
+              }
               const closeTime = new Date(t.completed_at || t.created_at || 0).getTime();
               return closeTime >= referenceLatestTime - SEVEN_DAYS_MS;
             });
 
-            const displayedClosedTickets = showAllCompletedKanban
+            const shouldExpandClosed =
+              showAllCompletedKanban ||
+              statusFilter === "completed" ||
+              statusFilter === "closed_other" ||
+              statusFilter === "unrepairable" ||
+              statusFilter === "cancelled";
+
+            const displayedClosedTickets = shouldExpandClosed
               ? allClosedTickets
               : recentClosedTickets;
             const hiddenClosedCount = Math.max(
@@ -2475,9 +2494,9 @@ export default function Maintenance() {
               {
                 key: "completed",
                 title: "4. ซ่อมเสร็จสิ้น / ปิดงาน",
-                subtitle: showAllCompletedKanban
-                  ? "แสดงงานที่ปิดแล้วทั้งหมด"
-                  : "แสดงเฉพาะงานที่ปิดใน 7 วันล่าสุด",
+                subtitle: shouldExpandClosed
+                  ? "รวมงานซ่อมเสร็จและงานไม่สำเร็จทั้งหมด"
+                  : "งานซ่อมเสร็จ 7 วันล่าสุด + งานไม่สำเร็จ",
                 dotColor: "#059669",
                 borderTop: "#10b981",
                 bgHeader: "#d1fae5",
@@ -2487,6 +2506,8 @@ export default function Maintenance() {
                 totalCount: allClosedTickets.length,
                 recentCount: recentClosedTickets.length,
                 hiddenCount: hiddenClosedCount,
+                completedCount: completedClosedCount,
+                failedCount: failedClosedCount,
               },
             ];
 
@@ -2500,45 +2521,82 @@ export default function Maintenance() {
                   >
                     <div
                       className="kanban-column-header"
-                      style={{ backgroundColor: col.bgHeader }}
+                      style={{ backgroundColor: col.bgHeader, flexDirection: "column", alignItems: "stretch", gap: 8 }}
                     >
-                      <div>
-                        <div className="kanban-column-title">
-                          <span
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                        <div>
+                          <div className="kanban-column-title">
+                            <span
+                              style={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: "50%",
+                                backgroundColor: col.dotColor,
+                                display: "inline-block",
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span>{col.title}</span>
+                          </div>
+                          <div
                             style={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: "50%",
-                              backgroundColor: col.dotColor,
-                              display: "inline-block",
-                              flexShrink: 0,
+                              fontSize: "0.74rem",
+                              color: "#475569",
+                              marginLeft: 18,
+                              fontWeight: 500,
                             }}
-                          />
-                          <span>{col.title}</span>
+                          >
+                            {col.subtitle}
+                          </div>
                         </div>
-                        <div
+                        <span
+                          className="kanban-column-count"
                           style={{
-                            fontSize: "0.75rem",
-                            color: "#475569",
-                            marginLeft: 18,
-                            fontWeight: 500,
+                            backgroundColor: col.badgeBg,
+                            color: col.badgeColor,
+                            borderColor: "transparent",
+                            flexShrink: 0,
                           }}
                         >
-                          {col.subtitle}
-                        </div>
+                          {col.key === "completed" && !shouldExpandClosed && col.hiddenCount > 0
+                            ? `${col.items.length}/${col.totalCount} งาน`
+                            : `${col.items.length} งาน`}
+                        </span>
                       </div>
-                      <span
-                        className="kanban-column-count"
-                        style={{
-                          backgroundColor: col.badgeBg,
-                          color: col.badgeColor,
-                          borderColor: "transparent",
-                        }}
-                      >
-                        {col.key === "completed" && !showAllCompletedKanban && col.hiddenCount > 0
-                          ? `${col.items.length}/${col.totalCount} งาน`
-                          : `${col.items.length} งาน`}
-                      </span>
+
+                      {col.key === "completed" && (
+                        <div className="kanban-col-subbadges">
+                          <button
+                            type="button"
+                            className={`kanban-subbadge success ${
+                              statusFilter === "completed" ? "active" : ""
+                            }`}
+                            onClick={() =>
+                              setStatusFilter(statusFilter === "completed" ? "all" : "completed")
+                            }
+                            title="คลิกเพื่อกรองเฉพาะงานที่ซ่อมเสร็จสิ้น"
+                          >
+                            <span className="dot" style={{ backgroundColor: "#10b981" }} />
+                            <span>เสร็จสิ้น {col.completedCount}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`kanban-subbadge failed ${
+                              statusFilter === "closed_other" ? "active" : ""
+                            }`}
+                            onClick={() =>
+                              setStatusFilter(
+                                statusFilter === "closed_other" ? "all" : "closed_other"
+                              )
+                            }
+                            title="คลิกเพื่อกรองเฉพาะงานที่ไม่สำเร็จ (ซ่อมไม่ได้ / ยกเลิก)"
+                          >
+                            <span className="dot" style={{ backgroundColor: "#dc2626" }} />
+                            <span>ไม่สำเร็จ {col.failedCount}</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="kanban-card-list">
@@ -2686,9 +2744,9 @@ export default function Maintenance() {
                                 </div>
                               </div>
 
-                              {/* Row 3: Problem Description Box */}
+                              {/* Row 3: Problem Description Box (Separated outer padding from inner 2-line clamp) */}
                               <div className="kanban-card-problem" title={t.problem}>
-                                {t.problem}
+                                <div className="kanban-card-problem-text">{t.problem}</div>
                               </div>
 
                               {/* Row 4: Legible Meta Info Box (Location, Repair Channel, Technician & Cost) */}
