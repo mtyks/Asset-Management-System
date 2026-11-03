@@ -10,14 +10,11 @@ import QRCodeDisplay from "../components/QRCodeDisplay";
 import {
   ArrowLeft,
   Printer,
-  Package,
-  MapPin,
-  User,
-  Calendar,
   Image as ImageIcon,
   ExternalLink,
   ShieldCheck,
   Info,
+  Wrench,
 } from "lucide-react";
 
 export default function AssetDetail() {
@@ -32,9 +29,10 @@ export default function AssetDetail() {
     try {
       const a = await getAssetByCode(assetCode);
       setAsset(a);
+      const codeKey = a.asset_code || a.code || assetCode;
       const [h, b] = await Promise.all([
-        getAssetHistory(a.id),
-        getActiveBorrowRecord(a.id),
+        getAssetHistory(codeKey),
+        getActiveBorrowRecord(codeKey),
       ]);
       setHistory(h || []);
       setActiveBorrow(b || null);
@@ -80,9 +78,12 @@ export default function AssetDetail() {
     ? `${asset.rooms.floors?.buildings?.name || ""} ชั้น ${asset.rooms.floors?.floor_number || ""} ห้อง ${asset.rooms.room_name}`
     : "ห้องธุรการและสารบรรณ";
 
+  const codeStr = asset.asset_code || asset.code || "";
+  const repairUrl = `/maintenance?asset_code=${encodeURIComponent(codeStr)}&asset_name=${encodeURIComponent(asset.name || "")}&location=${encodeURIComponent(locationText)}&action=new`;
+
   return (
     <div className="page-container" style={{ maxWidth: 1080 }}>
-      {/* Header (Read-Only Mode) */}
+      {/* Header (Read-Only Mode + 1-Click QR Repair) */}
       <div className="page-heading-row">
         <div className="page-title-group">
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -90,11 +91,19 @@ export default function AssetDetail() {
             <StatusBadge status={asset.status || "normal"} />
           </div>
           <p className="page-subtitle">
-            รหัสครุภัณฑ์: <strong style={{ color: "#0f172a" }}>{asset.asset_code || asset.code}</strong>
+            รหัสครุภัณฑ์: <strong style={{ color: "#0f172a" }}>{codeStr}</strong>
           </p>
         </div>
 
         <div className="page-actions-group">
+          <Link
+            to={repairUrl}
+            className="btn btn-primary"
+            style={{ backgroundColor: "#0284c7", borderColor: "#0284c7" }}
+          >
+            <Wrench size={16} />
+            <span>แจ้งซ่อมครุภัณฑ์นี้</span>
+          </Link>
           <Link to="/assets" className="btn btn-outline-white">
             <ArrowLeft size={16} />
             <span>ย้อนกลับ</span>
@@ -187,7 +196,7 @@ export default function AssetDetail() {
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.88rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>
                 <span style={{ color: "#64748b" }}>เลขครุภัณฑ์:</span>
-                <strong style={{ fontFamily: "monospace", fontSize: "0.95rem" }}>{asset.asset_code || asset.code}</strong>
+                <strong style={{ fontFamily: "monospace", fontSize: "0.95rem" }}>{codeStr}</strong>
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>
@@ -239,7 +248,7 @@ export default function AssetDetail() {
                 }}
               >
                 <div style={{ fontWeight: 600, color: "#1e40af", marginBottom: 2 }}>
-                  📌 กำลังถูกยืมใช้งานโดย: {activeBorrow.borrower_name}
+                  กำลังถูกยืมใช้งานโดย: {activeBorrow.borrower_name}
                 </div>
                 <div style={{ color: "#3b82f6" }}>
                   ติดต่อ: {activeBorrow.borrower_contact || "-"} | กำหนดคืน: {activeBorrow.due_date || "ไม่ระบุ"}
@@ -257,21 +266,29 @@ export default function AssetDetail() {
               ป้ายทะเบียน QR Code
             </h3>
             <p style={{ fontSize: "0.82rem", color: "#64748b", margin: "0 0 16px" }}>
-              สแกนด้วยกล้องมือถือเพื่อเข้าถึงหน้ารายละเอียดนี้ได้ทันที
+              สแกนด้วยกล้องมือถือเพื่อเข้าถึงหน้ารายละเอียดหรือแจ้งซ่อมได้ทันที
             </p>
 
             <div style={{ display: "inline-block", margin: "0 auto 16px" }}>
               <QRCodeDisplay
-                value={asset.asset_code || asset.code}
+                value={codeStr}
                 caption={asset.name}
               />
             </div>
 
-            <div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
               <button className="btn btn-outline-white" onClick={() => window.print()}>
                 <Printer size={16} />
                 <span>พิมพ์สติ๊กเกอร์ QR</span>
               </button>
+              <Link
+                to={repairUrl}
+                className="btn btn-outline-white"
+                style={{ color: "#0284c7", borderColor: "#bae6fd" }}
+              >
+                <Wrench size={16} />
+                <span>แจ้งซ่อมด่วน</span>
+              </Link>
             </div>
           </div>
 
@@ -284,7 +301,7 @@ export default function AssetDetail() {
               </h3>
             </div>
             <p style={{ fontSize: "0.84rem", color: "#64748b", margin: 0, lineHeight: 1.6 }}>
-              ข้อมูลนี้ได้รับการรับรองจากระบบบริหารจัดการพัสดุและครุภัณฑ์ หากพบว่าข้อมูลไม่ถูกต้องหรือครุภัณฑ์ชำรุดเสียหาย โปรดติดต่อเจ้าหน้าที่ผู้ดูแลพัสดุ
+              ข้อมูลนี้ได้รับการรับรองจากระบบบริหารจัดการพัสดุและครุภัณฑ์ หากพบว่าครุภัณฑ์ชำรุดเสียหาย สามารถกดปุ่ม <strong>แจ้งซ่อมครุภัณฑ์นี้</strong> ด้านบนเพื่อส่งคำขอให้ทีมช่างเข้าตรวจสอบได้ทันที
             </p>
           </div>
         </div>

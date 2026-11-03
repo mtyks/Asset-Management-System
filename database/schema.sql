@@ -95,6 +95,37 @@ create table if not exists borrow_records (
 create index if not exists idx_borrow_asset on borrow_records(asset_code);
 
 -- ----------------------------------------------------------------------------
+-- 5.5 MAINTENANCE TICKETS (ระบบแจ้งซ่อมและบำรุงรักษา)
+-- ----------------------------------------------------------------------------
+
+create table if not exists maintenance_tickets (
+  id                text primary key,
+  repair_no         text not null unique,
+  asset_code        text,
+  asset_name        text not null,
+  problem           text not null,
+  urgency           text not null default 'normal',
+  location          text,
+  reporter_name     text not null,
+  reporter_contact  text,
+  status            text not null default 'pending',
+  repair_type       text not null default 'internal',
+  technician_name   text,
+  vendor_name       text,
+  expected_date     date,
+  repair_cost       numeric default 0,
+  parts_used        text,
+  technician_note   text,
+  before_image_url  text,
+  after_image_url   text,
+  created_at        timestamptz not null default now(),
+  completed_at      timestamptz
+);
+
+create index if not exists idx_maintenance_asset on maintenance_tickets(asset_code);
+create index if not exists idx_maintenance_status on maintenance_tickets(status);
+
+-- ----------------------------------------------------------------------------
 -- 6. STAFF PROFILES
 -- ----------------------------------------------------------------------------
 
@@ -171,6 +202,7 @@ alter table asset_categories   enable row level security;
 alter table assets             enable row level security;
 alter table asset_status_log   enable row level security;
 alter table borrow_records     enable row level security;
+alter table maintenance_tickets enable row level security;
 alter table profiles           enable row level security;
 
 create policy "public read buildings"   on buildings          for select using (true);
@@ -178,12 +210,14 @@ create policy "public read rooms"       on rooms              for select using (
 create policy "public read categories"  on asset_categories   for select using (true);
 create policy "public read assets"      on assets             for select using (true);
 create policy "public read status log"  on asset_status_log   for select using (true);
+create policy "public read maintenance" on maintenance_tickets for select using (true);
 
 create policy "staff write buildings"  on buildings          for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "staff write rooms"      on rooms              for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "staff write categories" on asset_categories   for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "staff write assets"     on assets             for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "staff write borrow"     on borrow_records     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "staff write maintenance" on maintenance_tickets for all using (true) with check (true);
 
 create policy "staff read own profile" on profiles for select using (auth.uid() = id);
 create policy "staff update own profile" on profiles for update using (auth.uid() = id);

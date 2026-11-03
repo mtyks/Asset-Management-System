@@ -583,3 +583,126 @@ export async function importAssetsBatch(rawItems, onProgress) {
 
   return { total: payloadRows.length, success: successCount };
 }
+
+// ---------------------------------------------------------------------------
+// Maintenance & Helpdesk Tickets (Supabase Cloud + LocalStorage Hybrid Sync)
+// ---------------------------------------------------------------------------
+const MAINTENANCE_STORAGE_KEY = "asset_maintenance_tickets";
+
+export function compressImageToDataUrl(file, maxWidth = 900, quality = 0.78) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function uploadRepairPhoto(file, prefix = "ticket") {
+  if (!file) return null;
+  try {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const fileName = `repairs/${prefix}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("asset-images")
+      .upload(fileName, file, { upsert: true });
+
+    if (!uploadError) {
+      const { data: publicData } = supabase.storage
+        .from("asset-images")
+        .getPublicUrl(fileName);
+      if (publicData?.publicUrl) return publicData.publicUrl;
+    }
+  } catch {
+    // Fallback to compressed base64 data URL
+  }
+  return await compressImageToDataUrl(file);
+}
+
+export async function fetchMaintenanceTickets(defaultTickets = []) {
+  let localTickets = [];
+  try {
+    const saved = localStorage.getItem(MAINTENANCE_STORAGE_KEY);
+    if (saved) {
+      localTickets = JSON.parse(saved);
+    } else {
+      localTickets = defaultTickets;
+      localStorage.setItem(MAINTENANCE_STORAGE_KEY, JSON.stringify(defaultTickets));
+    }
+  } catch {
+    localTickets = defaultTickets;
+  }
+
+  if (isConfigured) {
+    try {
+      const { data, error } = await supabase
+        .from("maintenance_tickets")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!error && Array.isArray(data)) {
+        if (data.length > 0) {
+          try {
+            localStorage.setItem(MAINTENANCE_STORAGE_KEY, JSON.stringify(data));
+          } catch {}
+          return { tickets: data, isCloudSynced: true };
+        } else if (localTickets.length > 0) {
+          // Seed existing local tickets to Supabase table
+          await supabase.from("maintenance_tickets").upsert(localTickets, { onConflict: "id" });
+          return { tickets: localTickets, isCloudSynced: true };
+        }
+        return { tickets: [], isCloudSynced: true };
+      }
+    } catch {
+      // Table may not be created yet; use local storage seamlessly
+    }
+  }
+
+  return { tickets: localTickets, isCloudSynced: false };
+}
+
+export async function saveMaintenanceTicketToCloud(ticket, fullList) {
+  try {
+    localStorage.setItem(MAINTENANCE_STORAGE_KEY, JSON.stringify(fullList));
+  } catch (e) {
+    console.warn("Local storage save warning:", e);
+  }
+
+  if (isConfigured && ticket) {
+    try {
+      await supabase.from("maintenance_tickets").upsert(ticket, { onConflict: "id" });
+    } catch {
+      // Ignore if table not created yet
+    }
+  }
+}
+
+export async function deleteMaintenanceTicketFromCloud(ticketId, updatedList) {
+  try {
+    localStorage.setItem(MAINTENANCE_STORAGE_KEY, JSON.stringify(updatedList));
+  } catch {}
+
+  if (isConfigured && ticketId) {
+    try {
+      await supabase.from("maintenance_tickets").delete().eq("id", ticketId);
+    } catch {}
+  }
+}
