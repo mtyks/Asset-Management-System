@@ -546,6 +546,7 @@ export default function Maintenance() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [logbookAssetCode, setLogbookAssetCode] = useState(null);
   const [expandedTicketIds, setExpandedTicketIds] = useState({});
+  const [showAllCompletedKanban, setShowAllCompletedKanban] = useState(false);
 
   // Inline QR Scanner inside Add Modal
   const [qrScanActive, setQrScanActive] = useState(false);
@@ -2183,8 +2184,54 @@ export default function Maintenance() {
           </div>
         ) : (
           /* 4B. Kanban Board View (4 Status Columns - Redesigned for Easy Scanning) */
-          <div className="kanban-board-grid">
-            {[
+          (() => {
+            const URGENCY_WEIGHT = { critical: 3, urgent: 2, normal: 1 };
+            const sortKanbanItems = (list) =>
+              [...list].sort((a, b) => {
+                // 1. Overdue tickets always at the top
+                const overdueA = getSlaInfo(a).isOverdue ? 1 : 0;
+                const overdueB = getSlaInfo(b).isOverdue ? 1 : 0;
+                if (overdueB !== overdueA) return overdueB - overdueA;
+
+                // 2. Urgency priority: critical > urgent > normal
+                const urgA = URGENCY_WEIGHT[a.urgency || "normal"] || 1;
+                const urgB = URGENCY_WEIGHT[b.urgency || "normal"] || 1;
+                if (urgB !== urgA) return urgB - urgA;
+
+                // 3. Most recent timestamp
+                const timeA = new Date(a.completed_at || a.created_at || 0).getTime();
+                const timeB = new Date(b.completed_at || b.created_at || 0).getTime();
+                return timeB - timeA;
+              });
+
+            const referenceLatestTime = Math.max(
+              Date.now(),
+              ...tickets.map((t) => new Date(t.completed_at || t.created_at || 0).getTime())
+            );
+            const SEVEN_DAYS_MS = 7 * 86400000;
+
+            const allClosedTickets = sortKanbanItems(
+              filteredTickets.filter(
+                (t) =>
+                  t.status === "completed" ||
+                  t.status === "unrepairable" ||
+                  t.status === "cancelled"
+              )
+            );
+            const recentClosedTickets = allClosedTickets.filter((t) => {
+              const closeTime = new Date(t.completed_at || t.created_at || 0).getTime();
+              return closeTime >= referenceLatestTime - SEVEN_DAYS_MS;
+            });
+
+            const displayedClosedTickets = showAllCompletedKanban
+              ? allClosedTickets
+              : recentClosedTickets;
+            const hiddenClosedCount = Math.max(
+              0,
+              allClosedTickets.length - recentClosedTickets.length
+            );
+
+            const columns = [
               {
                 key: "pending",
                 title: "1. รอดำเนินการ",
@@ -2192,7 +2239,9 @@ export default function Maintenance() {
                 dotColor: "#d97706",
                 borderTop: "#f59e0b",
                 bgHeader: "#fffbeb",
-                items: filteredTickets.filter((t) => t.status === "pending"),
+                badgeBg: "#fef3c7",
+                badgeColor: "#92400e",
+                items: sortKanbanItems(filteredTickets.filter((t) => t.status === "pending")),
               },
               {
                 key: "in_progress",
@@ -2200,332 +2249,416 @@ export default function Maintenance() {
                 subtitle: "ช่างกำลังตรวจเช็คและแก้ไข",
                 dotColor: "#0284c7",
                 borderTop: "#0284c7",
-                bgHeader: "#f0f9ff",
-                items: filteredTickets.filter((t) => t.status === "in_progress"),
+                bgHeader: "#e0f2fe",
+                badgeBg: "#bae6fd",
+                badgeColor: "#075985",
+                items: sortKanbanItems(filteredTickets.filter((t) => t.status === "in_progress")),
               },
               {
                 key: "waiting_parts",
                 title: "3. รออะไหล่ / ส่งศูนย์",
                 subtitle: "รอเบิกอะไหล่หรือส่งเคลม",
-                dotColor: "#2563eb",
-                borderTop: "#3b82f6",
-                bgHeader: "#eff6ff",
-                items: filteredTickets.filter((t) => t.status === "waiting_parts"),
+                dotColor: "#7c3aed",
+                borderTop: "#8b5cf6",
+                bgHeader: "#f3e8ff",
+                badgeBg: "#e9d5ff",
+                badgeColor: "#5b21b6",
+                items: sortKanbanItems(
+                  filteredTickets.filter((t) => t.status === "waiting_parts")
+                ),
               },
               {
                 key: "completed",
                 title: "4. ซ่อมเสร็จสิ้น / ปิดงาน",
-                subtitle: "คืนสภาพปกติ / จำหน่าย / ยกเลิก",
-                dotColor: "#10b981",
+                subtitle: showAllCompletedKanban
+                  ? "แสดงงานที่ปิดแล้วทั้งหมด"
+                  : "แสดงเฉพาะงานที่ปิดใน 7 วันล่าสุด",
+                dotColor: "#059669",
                 borderTop: "#10b981",
-                bgHeader: "#ecfdf5",
-                items: filteredTickets.filter(
-                  (t) =>
-                    t.status === "completed" ||
-                    t.status === "unrepairable" ||
-                    t.status === "cancelled"
-                ),
+                bgHeader: "#d1fae5",
+                badgeBg: "#a7f3d0",
+                badgeColor: "#065f46",
+                items: displayedClosedTickets,
+                totalCount: allClosedTickets.length,
+                recentCount: recentClosedTickets.length,
+                hiddenCount: hiddenClosedCount,
               },
-            ].map((col) => (
-              <div
-                key={col.key}
-                className="kanban-column"
-                style={{ borderTop: `4px solid ${col.borderTop}` }}
-              >
-                <div
-                  className="kanban-column-header"
-                  style={{ backgroundColor: col.bgHeader }}
-                >
-                  <div>
-                    <div className="kanban-column-title">
+            ];
+
+            return (
+              <div className="kanban-board-grid">
+                {columns.map((col) => (
+                  <div
+                    key={col.key}
+                    className="kanban-column"
+                    style={{ borderTop: `4px solid ${col.borderTop}` }}
+                  >
+                    <div
+                      className="kanban-column-header"
+                      style={{ backgroundColor: col.bgHeader }}
+                    >
+                      <div>
+                        <div className="kanban-column-title">
+                          <span
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              backgroundColor: col.dotColor,
+                              display: "inline-block",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span>{col.title}</span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#475569",
+                            marginLeft: 18,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {col.subtitle}
+                        </div>
+                      </div>
                       <span
+                        className="kanban-column-count"
                         style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          backgroundColor: col.dotColor,
-                          display: "inline-block",
+                          backgroundColor: col.badgeBg,
+                          color: col.badgeColor,
+                          borderColor: "transparent",
                         }}
-                      />
-                      <span>{col.title}</span>
+                      >
+                        {col.key === "completed" && !showAllCompletedKanban && col.hiddenCount > 0
+                          ? `${col.items.length}/${col.totalCount} งาน`
+                          : `${col.items.length} งาน`}
+                      </span>
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "#64748b", marginLeft: 18 }}>
-                      {col.subtitle}
+
+                    <div className="kanban-card-list">
+                      {col.items.length === 0 ? (
+                        <div
+                          style={{
+                            textAlign: "center",
+                            padding: "36px 12px",
+                            color: "#94a3b8",
+                            fontSize: "0.84rem",
+                            border: "1px dashed #e2e8f0",
+                            borderRadius: 10,
+                            backgroundColor: "#ffffff",
+                          }}
+                        >
+                          ไม่มีรายการในขั้นตอนนี้
+                        </div>
+                      ) : (
+                        col.items.map((t) => {
+                          const sla = getSlaInfo(t);
+                          const repeatCount = assetRepairCountMap[t.asset_code] || 0;
+                          const cumulativeAssetCost = assetRepairCostMap[t.asset_code] || 0;
+                          const isLemonWarning =
+                            repeatCount >= 3 ||
+                            cumulativeAssetCost >= 5000 ||
+                            t.status === "unrepairable";
+                          const urgencyClass = `urgency-${t.urgency || "normal"}`;
+                          const urgencyLabel =
+                            t.urgency === "critical"
+                              ? "🔥 ด่วนที่สุด"
+                              : t.urgency === "urgent"
+                              ? "⚡ ด่วน"
+                              : "ปกติ";
+
+                          const hasCost = Number(t.repair_cost) > 0;
+                          const isWarrantyFree =
+                            !hasCost &&
+                            t.repair_type === "warranty" &&
+                            t.status !== "pending";
+
+                          return (
+                            <div key={t.id} className={`kanban-card ${urgencyClass}`}>
+                              {/* Row 1: Ticket Number + Urgency + SLA Badge */}
+                              <div className="kanban-card-top">
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  <span className="kanban-card-no">{t.repair_no}</span>
+                                  <span
+                                    style={{
+                                      fontSize: "0.75rem",
+                                      fontWeight: 700,
+                                      padding: "2px 8px",
+                                      borderRadius: 999,
+                                      backgroundColor:
+                                        t.urgency === "critical"
+                                          ? "#fef2f2"
+                                          : t.urgency === "urgent"
+                                          ? "#fffbeb"
+                                          : "#f1f5f9",
+                                      color:
+                                        t.urgency === "critical"
+                                          ? "#dc2626"
+                                          : t.urgency === "urgent"
+                                          ? "#d97706"
+                                          : "#475569",
+                                    }}
+                                  >
+                                    {urgencyLabel}
+                                  </span>
+                                </div>
+
+                                <span
+                                  className={`sla-badge ${sla.type}`}
+                                  style={{ fontSize: "0.74rem", padding: "3px 8px" }}
+                                >
+                                  <Timer size={12} />
+                                  <span>{sla.label}</span>
+                                </span>
+                              </div>
+
+                              {/* Row 2: Asset Name & Code + Repeat Logbook Pill */}
+                              <div>
+                                <div
+                                  className="kanban-card-asset"
+                                  title={`${t.asset_name} (${t.location})`}
+                                >
+                                  {t.asset_name}
+                                </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 6,
+                                    flexWrap: "wrap",
+                                    marginTop: 5,
+                                  }}
+                                >
+                                  {t.asset_code && t.asset_code !== "-" ? (
+                                    <Link
+                                      to={`/asset/${encodeURIComponent(t.asset_code)}`}
+                                      style={{
+                                        fontSize: "0.8rem",
+                                        fontFamily: "monospace",
+                                        color: "#059669",
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      {t.asset_code}
+                                    </Link>
+                                  ) : (
+                                    <span style={{ fontSize: "0.78rem", color: "#94a3b8" }}>
+                                      ไม่ระบุรหัส
+                                    </span>
+                                  )}
+
+                                  {t.asset_code && t.asset_code !== "-" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setLogbookAssetCode(t.asset_code)}
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 4,
+                                        fontSize: "0.73rem",
+                                        padding: "2px 8px",
+                                        borderRadius: 999,
+                                        border: `1px solid ${
+                                          isLemonWarning ? "#fecaca" : "#cbd5e1"
+                                        }`,
+                                        backgroundColor: isLemonWarning ? "#fef2f2" : "#f8fafc",
+                                        color: isLemonWarning ? "#dc2626" : "#334155",
+                                        cursor: "pointer",
+                                        fontWeight: 700,
+                                      }}
+                                      title="คลิกดูสมุดประวัติการซ่อมของเครื่องนี้"
+                                    >
+                                      <BookOpen size={11} />
+                                      <span>
+                                        {isLemonWarning
+                                          ? `⚠️ ซ่อม ${repeatCount} ครั้ง`
+                                          : `ประวัติ (${repeatCount})`}
+                                      </span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Row 3: Problem Description Box */}
+                              <div className="kanban-card-problem" title={t.problem}>
+                                {t.problem}
+                              </div>
+
+                              {/* Row 4: Legible Meta Info Box (Location, Repair Channel, Technician & Cost) */}
+                              <div className="kanban-card-meta">
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                      maxWidth: "100%",
+                                      fontWeight: 500,
+                                    }}
+                                    title={t.location}
+                                  >
+                                    📍 {t.location}
+                                  </span>
+                                  <span
+                                    className={`repair-type-tag ${t.repair_type || "internal"}`}
+                                    style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                                  >
+                                    {REPAIR_TYPE_LABELS[t.repair_type || "internal"]}
+                                  </span>
+                                </div>
+
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <span>
+                                    👷{" "}
+                                    {t.technician_name ? (
+                                      <strong style={{ color: "#1e293b", fontWeight: 700 }}>
+                                        {t.technician_name}
+                                      </strong>
+                                    ) : (
+                                      <span style={{ color: "#94a3b8", fontWeight: 500 }}>
+                                        ช่าง: - (รอมอบหมาย)
+                                      </span>
+                                    )}
+                                  </span>
+
+                                  {hasCost ? (
+                                    <strong
+                                      style={{
+                                        color: "#6d28d9",
+                                        backgroundColor: "#f3e8ff",
+                                        padding: "2px 9px",
+                                        borderRadius: 6,
+                                        fontSize: "0.8rem",
+                                        fontWeight: 800,
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {Number(t.repair_cost).toLocaleString()} ฿
+                                    </strong>
+                                  ) : isWarrantyFree ? (
+                                    <span
+                                      style={{
+                                        color: "#059669",
+                                        backgroundColor: "#ecfdf5",
+                                        padding: "2px 8px",
+                                        borderRadius: 6,
+                                        fontSize: "0.75rem",
+                                        fontWeight: 700,
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      เคลมฟรี
+                                    </span>
+                                  ) : (
+                                    <span
+                                      style={{
+                                        color: "#94a3b8",
+                                        fontSize: "0.78rem",
+                                        fontWeight: 600,
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      ค่าซ่อม: -
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Row 5: Responsive Non-Clipping Action Footer */}
+                              <div className="kanban-card-footer">
+                                <select
+                                  className="kanban-quick-select"
+                                  value={t.status}
+                                  title="เปลี่ยนสถานะใบงานด่วน"
+                                  onChange={async (e) => {
+                                    const newStatus = e.target.value;
+                                    const updatedTicket = {
+                                      ...t,
+                                      status: newStatus,
+                                      completed_at:
+                                        newStatus === "completed"
+                                          ? new Date().toISOString()
+                                          : t.completed_at,
+                                    };
+                                    const updatedList = tickets.map((item) =>
+                                      item.id === t.id ? updatedTicket : item
+                                    );
+                                    setTickets(updatedList);
+                                    await saveMaintenanceTicketToCloud(updatedTicket, updatedList);
+                                  }}
+                                >
+                                  <option value="pending">⏳ รอดำเนินการ</option>
+                                  <option value="in_progress">🔧 กำลังซ่อม</option>
+                                  <option value="waiting_parts">📦 รออะไหล่/ส่งศูนย์</option>
+                                  <option value="completed">✅ ซ่อมเสร็จสิ้น</option>
+                                  <option value="unrepairable">❌ ซ่อมไม่ได้</option>
+                                  <option value="cancelled">🚫 ยกเลิก</option>
+                                </select>
+
+                                <div className="kanban-footer-btns">
+                                  <button
+                                    type="button"
+                                    className="action-btn-link kanban-btn-item"
+                                    style={{
+                                      backgroundColor: "#f8fafc",
+                                      border: "1px solid #cbd5e1",
+                                      color: "#334155",
+                                    }}
+                                    onClick={() => handleOpenPrint(t)}
+                                  >
+                                    <Printer size={13} />
+                                    <span>ใบงาน</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="action-btn-link kanban-btn-item"
+                                    onClick={() => handleOpenUpdate(t)}
+                                  >
+                                    <span>อัปเดตงาน</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+
+                      {/* Show All / Collapse Toggle Button for Column 4 (Completed/Closed) */}
+                      {col.key === "completed" && col.totalCount > col.recentCount && (
+                        <button
+                          type="button"
+                          className="kanban-show-more-btn"
+                          onClick={() => setShowAllCompletedKanban((prev) => !prev)}
+                        >
+                          {showAllCompletedKanban
+                            ? `🔼 ย่อแสดงเฉพาะ 7 วันล่าสุด (${col.recentCount} งาน)`
+                            : `📂 ดูทั้งหมด (${col.totalCount} งาน — มีงานเก่าอีก ${col.hiddenCount} งาน)`}
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <span className="kanban-column-count">{col.items.length} งาน</span>
-                </div>
-
-                <div className="kanban-card-list">
-                  {col.items.length === 0 ? (
-                    <div
-                      style={{
-                        textAlign: "center",
-                        padding: "36px 12px",
-                        color: "#94a3b8",
-                        fontSize: "0.82rem",
-                        border: "1px dashed #e2e8f0",
-                        borderRadius: 10,
-                        backgroundColor: "#ffffff",
-                      }}
-                    >
-                      ไม่มีรายการในขั้นตอนนี้
-                    </div>
-                  ) : (
-                    col.items.map((t) => {
-                      const sla = getSlaInfo(t);
-                      const repeatCount = assetRepairCountMap[t.asset_code] || 0;
-                      const cumulativeAssetCost = assetRepairCostMap[t.asset_code] || 0;
-                      const isLemonWarning =
-                        repeatCount >= 3 ||
-                        cumulativeAssetCost >= 5000 ||
-                        t.status === "unrepairable";
-                      const urgencyClass = `urgency-${t.urgency || "normal"}`;
-                      const urgencyLabel =
-                        t.urgency === "critical"
-                          ? "🔥 ด่วนที่สุด"
-                          : t.urgency === "urgent"
-                          ? "⚡ ด่วน"
-                          : "ปกติ";
-
-                      return (
-                        <div key={t.id} className={`kanban-card ${urgencyClass}`}>
-                          {/* Row 1: Ticket Number + Urgency + SLA Badge */}
-                          <div className="kanban-card-top">
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span className="kanban-card-no">{t.repair_no}</span>
-                              <span
-                                style={{
-                                  fontSize: "0.7rem",
-                                  fontWeight: 700,
-                                  padding: "2px 7px",
-                                  borderRadius: 999,
-                                  backgroundColor:
-                                    t.urgency === "critical"
-                                      ? "#fef2f2"
-                                      : t.urgency === "urgent"
-                                      ? "#fffbeb"
-                                      : "#f1f5f9",
-                                  color:
-                                    t.urgency === "critical"
-                                      ? "#dc2626"
-                                      : t.urgency === "urgent"
-                                      ? "#d97706"
-                                      : "#475569",
-                                }}
-                              >
-                                {urgencyLabel}
-                              </span>
-                            </div>
-
-                            <span className={`sla-badge ${sla.type}`}>
-                              <Timer size={11} />
-                              <span>{sla.label}</span>
-                            </span>
-                          </div>
-
-                          {/* Row 2: Asset Name & Code + Repeat Logbook Pill */}
-                          <div>
-                            <div className="kanban-card-asset">{t.asset_name}</div>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                gap: 6,
-                                flexWrap: "wrap",
-                                marginTop: 4,
-                              }}
-                            >
-                              {t.asset_code && t.asset_code !== "-" ? (
-                                <Link
-                                  to={`/asset/${encodeURIComponent(t.asset_code)}`}
-                                  style={{
-                                    fontSize: "0.75rem",
-                                    fontFamily: "monospace",
-                                    color: "#059669",
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  {t.asset_code}
-                                </Link>
-                              ) : (
-                                <span style={{ fontSize: "0.74rem", color: "#94a3b8" }}>
-                                  ไม่ระบุรหัส
-                                </span>
-                              )}
-
-                              {t.asset_code && t.asset_code !== "-" && (
-                                <button
-                                  type="button"
-                                  onClick={() => setLogbookAssetCode(t.asset_code)}
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    fontSize: "0.68rem",
-                                    padding: "2px 7px",
-                                    borderRadius: 999,
-                                    border: `1px solid ${
-                                      isLemonWarning ? "#fecaca" : "#cbd5e1"
-                                    }`,
-                                    backgroundColor: isLemonWarning ? "#fef2f2" : "#f8fafc",
-                                    color: isLemonWarning ? "#dc2626" : "#334155",
-                                    cursor: "pointer",
-                                    fontWeight: 700,
-                                  }}
-                                  title="คลิกดูสมุดประวัติการซ่อมของเครื่องนี้"
-                                >
-                                  <BookOpen size={10} />
-                                  <span>
-                                    {isLemonWarning
-                                      ? `⚠️ ซ่อม ${repeatCount} ครั้ง`
-                                      : `ประวัติ (${repeatCount})`}
-                                  </span>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Row 3: Problem Description Box */}
-                          <div className="kanban-card-problem" title={t.problem}>
-                            {t.problem}
-                          </div>
-
-                          {/* Row 4: Clean Meta Info (Location, Technician, Cost) */}
-                          <div className="kanban-card-meta">
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                gap: 6,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                📍 {t.location}
-                              </span>
-                              <span
-                                className={`repair-type-tag ${t.repair_type || "internal"}`}
-                                style={{ fontSize: "0.67rem", padding: "1px 6px" }}
-                              >
-                                {REPAIR_TYPE_LABELS[t.repair_type || "internal"]}
-                              </span>
-                            </div>
-
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                gap: 6,
-                              }}
-                            >
-                              <span>
-                                👷{" "}
-                                <strong style={{ color: "#1e293b", fontWeight: 600 }}>
-                                  {t.technician_name || "ยังไม่ระบุช่าง"}
-                                </strong>
-                              </span>
-                              {Number(t.repair_cost) > 0 ? (
-                                <strong
-                                  style={{
-                                    color: "#7c3aed",
-                                    backgroundColor: "#f3e8ff",
-                                    padding: "1px 7px",
-                                    borderRadius: 6,
-                                    fontSize: "0.74rem",
-                                  }}
-                                >
-                                  {Number(t.repair_cost).toLocaleString()} ฿
-                                </strong>
-                              ) : (
-                                <span style={{ color: "#94a3b8", fontSize: "0.72rem" }}>
-                                  0 ฿
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Row 5: Action Footer (Quick Status Change + Single-Line Buttons) */}
-                          <div className="kanban-card-footer">
-                            <select
-                              className="kanban-quick-select"
-                              value={t.status}
-                              title="เปลี่ยนสถานะใบงานด่วน"
-                              onChange={async (e) => {
-                                const newStatus = e.target.value;
-                                const updatedTicket = {
-                                  ...t,
-                                  status: newStatus,
-                                  completed_at:
-                                    newStatus === "completed"
-                                      ? new Date().toISOString()
-                                      : t.completed_at,
-                                };
-                                const updatedList = tickets.map((item) =>
-                                  item.id === t.id ? updatedTicket : item
-                                );
-                                setTickets(updatedList);
-                                await saveMaintenanceTicketToCloud(updatedTicket, updatedList);
-                              }}
-                            >
-                              <option value="pending">⏳ รอดำเนินการ</option>
-                              <option value="in_progress">🔧 กำลังซ่อม</option>
-                              <option value="waiting_parts">📦 รออะไหล่/ส่งศูนย์</option>
-                              <option value="completed">✅ ซ่อมเสร็จสิ้น</option>
-                              <option value="unrepairable">❌ ซ่อมไม่ได้</option>
-                              <option value="cancelled">🚫 ยกเลิก</option>
-                            </select>
-
-                            <div style={{ display: "flex", gap: 5, flexWrap: "nowrap" }}>
-                              <button
-                                type="button"
-                                className="action-btn-link"
-                                style={{
-                                  padding: "4px 8px",
-                                  fontSize: "0.74rem",
-                                  backgroundColor: "#f8fafc",
-                                  border: "1px solid #e2e8f0",
-                                  color: "#334155",
-                                  whiteSpace: "nowrap",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                }}
-                                onClick={() => handleOpenPrint(t)}
-                              >
-                                <Printer size={12} />
-                                <span>ใบงาน</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="action-btn-link"
-                                style={{
-                                  padding: "4px 9px",
-                                  fontSize: "0.74rem",
-                                  whiteSpace: "nowrap",
-                                }}
-                                onClick={() => handleOpenUpdate(t)}
-                              >
-                                อัปเดตงาน
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()
         )}
       </div>
 

@@ -2648,11 +2648,11 @@ input, select, textarea {
   border: 1px solid #e2e8f0;
   border-left: 4px solid #cbd5e1;
   border-radius: 12px;
-  padding: 14px;
+  padding: 15px;
   box-shadow: 0 2px 5px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   transition: all 0.18s ease;
 }
 
@@ -2684,28 +2684,29 @@ input, select, textarea {
 
 .kanban-card-no {
   font-family: monospace;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 800;
   color: #0f172a;
   background: #f1f5f9;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 6px;
+  white-space: nowrap;
 }
 
 .kanban-card-asset {
-  font-size: 0.93rem;
+  font-size: 0.98rem;
   font-weight: 800;
   color: #0f291e;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .kanban-card-problem {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: #334155;
   background: #f8fafc;
   border: 1px solid #f1f5f9;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 9px 11px;
   line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -2716,16 +2717,19 @@ input, select, textarea {
 .kanban-card-meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 0.76rem;
+  gap: 7px;
+  font-size: 0.82rem;
   color: #475569;
-  padding-top: 2px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  padding: 8px 10px;
 }
 
 .kanban-card-footer {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
   padding-top: 10px;
   margin-top: 2px;
@@ -2733,15 +2737,51 @@ input, select, textarea {
 }
 
 .kanban-quick-select {
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 7px;
+  padding: 6px 10px;
+  border-radius: 8px;
   border: 1px solid #cbd5e1;
   background: #f8fafc;
   color: #1e293b;
   cursor: pointer;
-  max-width: 128px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.kanban-footer-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+
+.kanban-btn-item {
+  width: 100%;
+  justify-content: center;
+  padding: 6px 8px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+}
+
+.kanban-show-more-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1.5px dashed #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.kanban-show-more-btn:hover {
+  background: #d1fae5;
+  border-color: #059669;
 }
 
 /* Asset Logbook & Lemon Alert */
