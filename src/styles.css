@@ -2847,6 +2847,40 @@ input, select, textarea {
   transition: width 0.4s ease;
 }
 
+/* Labeled 1-to-1 Mapped Progress Bar */
+.maint-labeled-bar {
+  height: 24px;
+  width: 100%;
+  background: #f1f5f9;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  gap: 2px;
+}
+
+.maint-bar-seg {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 0 6px;
+  transition: width 0.4s ease;
+}
+
+/* Mini Cost Chart inside Budget Panel */
+.maint-cost-mini-chart {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+
 .maint-mini-chips {
   display: flex;
   flex-wrap: wrap;
@@ -2859,7 +2893,7 @@ input, select, textarea {
   gap: 6px;
   padding: 5px 10px;
   border-radius: 999px;
-  font-size: 0.74rem;
+  font-size: 0.73rem;
   font-weight: 600;
   color: #334155;
   background: #f8fafc;
@@ -2870,6 +2904,7 @@ input, select, textarea {
 
 .maint-chip-btn:hover {
   background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .maint-chip-btn.active {
@@ -2894,34 +2929,36 @@ input, select, textarea {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 9px 10px;
+  padding: 8px 8px;
   text-align: center;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   transition: all 0.15s ease;
 }
 
 .maint-channel-box:hover {
-  border-color: #cbd5e1;
+  border-color: #a855f7;
   background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(124, 58, 237, 0.08);
 }
 
 .maint-channel-box.active {
   background: #f3e8ff;
-  border-color: #a855f7;
+  border-color: #9333ea;
 }
 
 .maint-channel-label {
-  font-size: 0.72rem;
+  font-size: 0.71rem;
   color: #475569;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .maint-channel-val {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 800;
   color: #0f172a;
 }
@@ -2937,18 +2974,24 @@ input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border-radius: 10px;
   border: 1px solid transparent;
   cursor: pointer;
   text-align: left;
-  transition: all 0.15s ease;
+  transition: all 0.16s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.maint-alert-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 12px rgba(220, 38, 38, 0.12);
 }
 
 .maint-alert-pill.overdue {
   background: #fef2f2;
   color: #b91c1c;
-  border-color: #fecaca;
+  border-color: #fca5a5;
 }
 
 .maint-alert-pill.overdue.active {
@@ -2959,7 +3002,7 @@ input, select, textarea {
 .maint-alert-pill.critical {
   background: #fffbeb;
   color: #b45309;
-  border-color: #fde68a;
+  border-color: #fcd34d;
 }
 
 .maint-alert-pill.critical.active {
@@ -2968,13 +3011,45 @@ input, select, textarea {
 }
 
 .maint-alert-count {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 800;
 }
 
 .maint-lemon-strip {
   background: #fff5f5;
-  border: 1px dashed #fca5a5;
+  border: 1px solid #fecaca;
   border-radius: 10px;
   padding: 8px 10px;
+}
+
+.maint-lemon-item-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  font-size: 0.73rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.maint-lemon-item-btn:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+  transform: translateX(2px);
+}
+
+.maint-lemon-reason {
+  font-size: 0.69rem;
+  font-weight: 800;
+  color: #dc2626;
+  background: #fef2f2;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
