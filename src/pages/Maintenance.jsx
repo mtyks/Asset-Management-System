@@ -1917,6 +1917,23 @@ export default function Maintenance() {
                       </div>
                     </th>
                     <th
+                      className={`sortable-th ${sortConfig.key === "status" ? "sorted" : ""}`}
+                      style={{ minWidth: "120px" }}
+                      onClick={() => handleSort("status")}
+                      title="คลิกเพื่อเรียงตามสถานะและ SLA"
+                    >
+                      <div className="sortable-th-inner">
+                        <span>สถานะ / SLA</span>
+                        <span className="sort-indicator">
+                          {sortConfig.key === "status"
+                            ? sortConfig.direction === "desc"
+                              ? "↓"
+                              : "↑"
+                            : "⇅"}
+                        </span>
+                      </div>
+                    </th>
+                    <th
                       className={`sortable-th ${
                         sortConfig.key === "reporter_name" ? "sorted" : ""
                       }`}
@@ -1928,23 +1945,6 @@ export default function Maintenance() {
                         <span>ผู้แจ้ง</span>
                         <span className="sort-indicator">
                           {sortConfig.key === "reporter_name"
-                            ? sortConfig.direction === "desc"
-                              ? "↓"
-                              : "↑"
-                            : "⇅"}
-                        </span>
-                      </div>
-                    </th>
-                    <th
-                      className={`sortable-th ${sortConfig.key === "status" ? "sorted" : ""}`}
-                      style={{ minWidth: "120px" }}
-                      onClick={() => handleSort("status")}
-                      title="คลิกเพื่อเรียงตามสถานะและ SLA"
-                    >
-                      <div className="sortable-th-inner">
-                        <span>สถานะ / SLA</span>
-                        <span className="sort-indicator">
-                          {sortConfig.key === "status"
                             ? sortConfig.direction === "desc"
                               ? "↓"
                               : "↑"
@@ -2295,7 +2295,18 @@ export default function Maintenance() {
                             )}
                           </td>
 
-                          {/* 6. Reporter */}
+                          {/* 6. Status + SLA Duration / Overdue Badge */}
+                          <td>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-start" }}>
+                              {statusBadge}
+                              <span className={`sla-badge ${sla.type}`}>
+                                <Timer size={11} />
+                                <span>{sla.label}</span>
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 7. Reporter */}
                           <td style={{ maxWidth: 120 }}>
                             <div
                               style={{
@@ -2321,17 +2332,6 @@ export default function Maintenance() {
                               title={t.reporter_contact}
                             >
                               {t.reporter_contact}
-                            </div>
-                          </td>
-
-                          {/* 7. Status + SLA Duration / Overdue Badge */}
-                          <td>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-start" }}>
-                              {statusBadge}
-                              <span className={`sla-badge ${sla.type}`}>
-                                <Timer size={11} />
-                                <span>{sla.label}</span>
-                              </span>
                             </div>
                           </td>
 
