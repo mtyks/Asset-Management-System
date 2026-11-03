@@ -1313,7 +1313,7 @@ export default function Maintenance() {
                   marginBottom: 6,
                 }}
               >
-                <span>📋 ใบงานทั้งหมด: <strong style={{ color: "#0f172a" }}>{counts.total} งาน</strong></span>
+                <span>ใบงานทั้งหมด: <strong style={{ color: "#0f172a" }}>{counts.total} งาน</strong></span>
                 {statusFilter !== "all" ? (
                   <button
                     type="button"
@@ -1507,8 +1507,8 @@ export default function Maintenance() {
                   marginBottom: 4,
                 }}
               >
-                <span>🔧 ซ่อมเอง: {counts.internalCost.toLocaleString()} ฿ ({internalCostPct}%)</span>
-                <span>🏢 ร้านนอก: {counts.externalCost.toLocaleString()} ฿ ({externalCostPct}%)</span>
+                <span>ซ่อมเอง: {counts.internalCost.toLocaleString()} ฿ ({internalCostPct}%)</span>
+                <span>ร้านนอก: {counts.externalCost.toLocaleString()} ฿ ({externalCostPct}%)</span>
               </div>
               <div className="dash-segmented-bar" style={{ height: 8 }}>
                 <div
@@ -1537,7 +1537,7 @@ export default function Maintenance() {
                   setRepairTypeFilter(repairTypeFilter === "internal" ? "all" : "internal")
                 }
               >
-                <span className="maint-channel-label">🔧 ซ่อมเองภายใน</span>
+                <span className="maint-channel-label">ซ่อมเองภายใน</span>
                 <strong className="maint-channel-val">{counts.internalCount} งาน</strong>
                 <span style={{ fontSize: "0.69rem", color: "#0284c7", fontWeight: 700 }}>
                   {counts.internalCost.toLocaleString()} ฿
@@ -1553,7 +1553,7 @@ export default function Maintenance() {
                   setRepairTypeFilter(repairTypeFilter === "warranty" ? "all" : "warranty")
                 }
               >
-                <span className="maint-channel-label">🛡️ เคลมประกันศูนย์</span>
+                <span className="maint-channel-label">เคลมประกันศูนย์</span>
                 <strong className="maint-channel-val">{counts.warrantyCount} งาน</strong>
                 <span style={{ fontSize: "0.69rem", color: "#059669", fontWeight: 700 }}>
                   {counts.warrantyCost > 0 ? `${counts.warrantyCost.toLocaleString()} ฿` : "ฟรีในประกัน"}
@@ -1569,7 +1569,7 @@ export default function Maintenance() {
                   setRepairTypeFilter(repairTypeFilter === "external" ? "all" : "external")
                 }
               >
-                <span className="maint-channel-label">🏢 ส่งร้านภายนอก</span>
+                <span className="maint-channel-label">ส่งร้านภายนอก</span>
                 <strong className="maint-channel-val">{counts.externalCount} งาน</strong>
                 <span style={{ fontSize: "0.69rem", color: "#7c3aed", fontWeight: 700 }}>
                   {counts.externalCost.toLocaleString()} ฿
@@ -1606,7 +1606,7 @@ export default function Maintenance() {
                 }
               >
                 <div>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 800 }}>⚠️ งานเกินกำหนด</div>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 800 }}>งานเกินกำหนด</div>
                   <div
                     style={{
                       fontSize: "0.68rem",
@@ -1634,7 +1634,7 @@ export default function Maintenance() {
                 }
               >
                 <div>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 800 }}>🔥 ด่วนที่สุด</div>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 800 }}>ด่วนที่สุด</div>
                   <div
                     style={{
                       fontSize: "0.68rem",
@@ -1665,7 +1665,7 @@ export default function Maintenance() {
                   marginBottom: 5,
                 }}
               >
-                🚨 ครุภัณฑ์เข้าเกณฑ์ซ่อมไม่คุ้ม ({lemonAssetsDetails.length} เครื่อง):
+                ครุภัณฑ์เข้าเกณฑ์ซ่อมไม่คุ้ม ({lemonAssetsDetails.length} เครื่อง):
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {lemonAssetsDetails.length === 0 ? (
@@ -1729,7 +1729,7 @@ export default function Maintenance() {
             <option value="pending">รอดำเนินการ (Pending)</option>
             <option value="in_progress">กำลังดำเนินการซ่อม</option>
             <option value="waiting_parts">รออะไหล่ / ส่งศูนย์</option>
-            <option value="overdue">⚠️ เกินกำหนดส่งคืน (Overdue)</option>
+            <option value="overdue">เกินกำหนดส่งคืน (Overdue)</option>
             <option value="completed">ซ่อมเสร็จสิ้นแล้ว</option>
             <option value="unrepairable">ซ่อมไม่ได้ / แทงจำหน่าย</option>
             <option value="cancelled">ยกเลิกคำขอ</option>
@@ -1944,14 +1944,14 @@ export default function Maintenance() {
                                   <BookOpen size={11} />
                                   <span>
                                     {isLemonWarning
-                                      ? `⚠️ ซ่อม ${repeatCount} ครั้ง`
+                                      ? `ซ่อมสะสม ${repeatCount} ครั้ง`
                                       : `ประวัติซ่อม (${repeatCount})`}
                                   </span>
                                 </button>
                               </div>
                             )}
                             <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 3 }}>
-                              📍 {t.location}
+                              สถานที่: {t.location}
                             </div>
                           </td>
 
@@ -2363,9 +2363,9 @@ export default function Maintenance() {
                           const urgencyClass = `urgency-${t.urgency || "normal"}`;
                           const urgencyLabel =
                             t.urgency === "critical"
-                              ? "🔥 ด่วนที่สุด"
+                              ? "ด่วนที่สุด"
                               : t.urgency === "urgent"
-                              ? "⚡ ด่วน"
+                              ? "ด่วน"
                               : "ปกติ";
 
                           const hasCost = Number(t.repair_cost) > 0;
@@ -2473,7 +2473,7 @@ export default function Maintenance() {
                                       <BookOpen size={11} />
                                       <span>
                                         {isLemonWarning
-                                          ? `⚠️ ซ่อม ${repeatCount} ครั้ง`
+                                          ? `ซ่อมสะสม ${repeatCount} ครั้ง`
                                           : `ประวัติ (${repeatCount})`}
                                       </span>
                                     </button>
@@ -2507,7 +2507,7 @@ export default function Maintenance() {
                                     }}
                                     title={t.location}
                                   >
-                                    📍 {t.location}
+                                    สถานที่: {t.location}
                                   </span>
                                   <span
                                     className={`repair-type-tag ${t.repair_type || "internal"}`}
@@ -2527,14 +2527,14 @@ export default function Maintenance() {
                                   }}
                                 >
                                   <span>
-                                    👷{" "}
+                                    ช่าง:{" "}
                                     {t.technician_name ? (
                                       <strong style={{ color: "#1e293b", fontWeight: 700 }}>
                                         {t.technician_name}
                                       </strong>
                                     ) : (
                                       <span style={{ color: "#94a3b8", fontWeight: 500 }}>
-                                        ช่าง: - (รอมอบหมาย)
+                                        - (รอมอบหมาย)
                                       </span>
                                     )}
                                   </span>
@@ -2605,12 +2605,12 @@ export default function Maintenance() {
                                     await saveMaintenanceTicketToCloud(updatedTicket, updatedList);
                                   }}
                                 >
-                                  <option value="pending">⏳ รอดำเนินการ</option>
-                                  <option value="in_progress">🔧 กำลังซ่อม</option>
-                                  <option value="waiting_parts">📦 รออะไหล่/ส่งศูนย์</option>
-                                  <option value="completed">✅ ซ่อมเสร็จสิ้น</option>
-                                  <option value="unrepairable">❌ ซ่อมไม่ได้</option>
-                                  <option value="cancelled">🚫 ยกเลิก</option>
+                                  <option value="pending">สถานะ: รอดำเนินการ</option>
+                                  <option value="in_progress">สถานะ: กำลังซ่อม</option>
+                                  <option value="waiting_parts">สถานะ: รออะไหล่/ส่งศูนย์</option>
+                                  <option value="completed">สถานะ: ซ่อมเสร็จสิ้น</option>
+                                  <option value="unrepairable">สถานะ: ซ่อมไม่ได้</option>
+                                  <option value="cancelled">สถานะ: ยกเลิก</option>
                                 </select>
 
                                 <div className="kanban-footer-btns">
@@ -2649,8 +2649,8 @@ export default function Maintenance() {
                           onClick={() => setShowAllCompletedKanban((prev) => !prev)}
                         >
                           {showAllCompletedKanban
-                            ? `🔼 ย่อแสดงเฉพาะ 7 วันล่าสุด (${col.recentCount} งาน)`
-                            : `📂 ดูทั้งหมด (${col.totalCount} งาน — มีงานเก่าอีก ${col.hiddenCount} งาน)`}
+                            ? `ย่อแสดงเฉพาะ 7 วันล่าสุด (${col.recentCount} งาน)`
+                            : `ดูทั้งหมด (${col.totalCount} งาน — มีงานเก่าอีก ${col.hiddenCount} งาน)`}
                         </button>
                       )}
                     </div>
@@ -2911,7 +2911,7 @@ export default function Maintenance() {
                       <div style={{ color: "#0284c7", fontWeight: 600, fontSize: "0.84rem" }}>
                         {uploadingBeforeImg
                           ? "กำลังประมวลผลรูปภาพ..."
-                          : "📷 คลิกเพื่อเลือกรูปถ่ายอาการเสีย หรือถ่ายภาพจากมือถือ"}
+                          : "คลิกเพื่อเลือกรูปถ่ายอาการเสีย หรือถ่ายภาพจากมือถือ"}
                       </div>
                       <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 2 }}>
                         ช่วยให้ช่างประเมินอาการและเตรียมอะไหล่ได้แม่นยำขึ้น
@@ -3234,7 +3234,7 @@ export default function Maintenance() {
                       <div style={{ color: "#059669", fontWeight: 600, fontSize: "0.84rem" }}>
                         {uploadingAfterImg
                           ? "กำลังประมวลผลรูปภาพ..."
-                          : "📸 คลิกเพื่ออัปโหลดรูปหลังซ่อมเสร็จ หรือใบเสร็จค่าซ่อม"}
+                          : "คลิกเพื่ออัปโหลดรูปหลังซ่อมเสร็จ หรือใบเสร็จค่าซ่อม"}
                       </div>
                       <input
                         type="file"
@@ -3679,7 +3679,7 @@ export default function Maintenance() {
                       marginTop: 6,
                     }}
                   >
-                    {isLemonAsset ? "⚠️ ซ่อมบ่อย / ค่าซ่อมสูง" : "✅ อยู่ในเกณฑ์ปกติ"}
+                    {isLemonAsset ? "ซ่อมบ่อย / ค่าซ่อมสูง" : "อยู่ในเกณฑ์ปกติ"}
                   </div>
                 </div>
               </div>
