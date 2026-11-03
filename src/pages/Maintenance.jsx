@@ -32,6 +32,12 @@ import {
   Calendar,
   Eye,
   Cloud,
+  Download,
+  BookOpen,
+  AlertTriangle,
+  Columns,
+  Table as TableIcon,
+  Timer,
 } from "lucide-react";
 
 const QR_MODAL_SCANNER_ID = "maintenance-qr-reader";
@@ -121,6 +127,101 @@ const REPAIR_TYPE_LABELS = {
   external: "ส่งร้านซ่อมภายนอก",
 };
 
+// Calculate SLA duration & overdue status for a ticket
+function getSlaInfo(ticket) {
+  const now = Date.now();
+  const createdMs = ticket.created_at ? new Date(ticket.created_at).getTime() : now;
+
+  if (ticket.status === "completed") {
+    const completedMs = ticket.completed_at ? new Date(ticket.completed_at).getTime() : now;
+    const days = Math.max(1, Math.round((completedMs - createdMs) / 86400000));
+    return {
+      type: "completed",
+      isOverdue: false,
+      days,
+      label: `ซ่อมเสร็จใน ${days} วัน`,
+    };
+  }
+
+  if (ticket.status === "cancelled" || ticket.status === "unrepairable") {
+    return {
+      type: "normal",
+      isOverdue: false,
+      days: 0,
+      label: ticket.status === "unrepairable" ? "จำหน่าย/ซ่อมไม่ได้" : "ยกเลิกรายการ",
+    };
+  }
+
+  // Active ticket: check expected_date for overdue
+  if (ticket.expected_date) {
+    const expEndMs = new Date(`${ticket.expected_date}T23:59:59`).getTime();
+    if (!Number.isNaN(expEndMs) && now > expEndMs) {
+      const overdueDays = Math.max(1, Math.ceil((now - expEndMs) / 86400000));
+      return {
+        type: "overdue",
+        isOverdue: true,
+        days: overdueDays,
+        label: `เกินกำหนด ${overdueDays} วัน`,
+      };
+    }
+  }
+
+  const openDays = Math.max(1, Math.ceil((now - createdMs) / 86400000));
+  return {
+    type: "normal",
+    isOverdue: false,
+    days: openDays,
+    label: `เปิดงาน ${openDays} วัน`,
+  };
+}
+
+// Visual 4-Step Progress Timeline Component
+function RepairStepTimeline({ status }) {
+  const steps = [
+    { key: "pending", label: "1. รับเรื่องแจ้งซ่อม" },
+    { key: "in_progress", label: "2. กำลังดำเนินการซ่อม" },
+    { key: "waiting_parts", label: "3. รออะไหล่ / ส่งศูนย์" },
+    { key: "completed", label: "4. ซ่อมเสร็จสิ้น" },
+  ];
+
+  const getStepState = (stepKey) => {
+    if (status === "completed") return "done";
+    if (status === "cancelled" || status === "unrepairable") {
+      return stepKey === "pending" ? "done" : "";
+    }
+    if (status === "pending") {
+      return stepKey === "pending" ? "active" : "";
+    }
+    if (status === "in_progress") {
+      if (stepKey === "pending") return "done";
+      if (stepKey === "in_progress") return "active";
+      return "";
+    }
+    if (status === "waiting_parts") {
+      if (stepKey === "pending" || stepKey === "in_progress") return "done";
+      if (stepKey === "waiting_parts") return "active";
+      return "";
+    }
+    return "";
+  };
+
+  return (
+    <div className="repair-step-timeline">
+      {steps.map((st, idx) => {
+        const state = getStepState(st.key);
+        return (
+          <div key={st.key} className={`repair-step-node ${state}`}>
+            <div className="repair-step-circle">
+              {state === "done" ? "✓" : idx + 1}
+            </div>
+            <div className="repair-step-label">{st.label}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Maintenance() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -128,6 +229,9 @@ export default function Maintenance() {
   const [assetsList, setAssetsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isCloudSynced, setIsCloudSynced] = useState(false);
+
+  // View Mode ("table" | "kanban")
+  const [viewMode, setViewMode] = useState("table");
 
   // Filter States
   const [search, setSearch] = useState("");
@@ -141,6 +245,7 @@ export default function Maintenance() {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [logbookAssetCode, setLogbookAssetCode] = useState(null);
 
   // Inline QR Scanner inside Add Modal
   const [qrScanActive, setQrScanActive] = useState(false);
@@ -506,11 +611,14 @@ export default function Maintenance() {
     await deleteMaintenanceTicketFromCloud(ticket.id, filtered);
   };
 
-  // Count how many times each asset_code has been repaired
+  // Count how many times each asset_code has been repaired & cumulative cost
   const assetRepairCountMap = {};
+  const assetRepairCostMap = {};
   for (const t of tickets) {
     if (t.asset_code && t.asset_code !== "-") {
       assetRepairCountMap[t.asset_code] = (assetRepairCountMap[t.asset_code] || 0) + 1;
+      assetRepairCostMap[t.asset_code] =
+        (assetRepairCostMap[t.asset_code] || 0) + (Number(t.repair_cost) || 0);
     }
   }
 
@@ -526,13 +634,107 @@ export default function Maintenance() {
       (t.reporter_name || "").toLowerCase().includes(q) ||
       (t.technician_name || "").toLowerCase().includes(q);
 
-    const matchStatus = statusFilter === "all" || t.status === statusFilter;
+    const sla = getSlaInfo(t);
+    const matchStatus =
+      statusFilter === "all"
+        ? true
+        : statusFilter === "overdue"
+        ? sla.isOverdue
+        : t.status === statusFilter;
     const matchUrgency = urgencyFilter === "all" || t.urgency === urgencyFilter;
     const matchRepairType =
       repairTypeFilter === "all" || (t.repair_type || "internal") === repairTypeFilter;
 
     return matchSearch && matchStatus && matchUrgency && matchRepairType;
   });
+
+  // Export filtered tickets to Excel-compatible UTF-8 BOM CSV
+  const handleExportCSV = () => {
+    if (filteredTickets.length === 0) {
+      alert("ไม่มีข้อมูลรายการแจ้งซ่อมสำหรับส่งออก");
+      return;
+    }
+
+    const statusTextMap = {
+      pending: "รอดำเนินการ",
+      in_progress: "กำลังซ่อม",
+      waiting_parts: "รออะไหล่/ส่งศูนย์",
+      completed: "ซ่อมเสร็จสิ้น",
+      unrepairable: "ซ่อมไม่ได้/จำหน่าย",
+      cancelled: "ยกเลิก",
+    };
+
+    const urgencyTextMap = {
+      normal: "ปกติ",
+      urgent: "ด่วน",
+      critical: "ด่วนที่สุด",
+    };
+
+    const headers = [
+      "เลขที่แจ้งซ่อม",
+      "วันที่แจ้ง",
+      "กำหนดเสร็จ",
+      "วันที่ซ่อมเสร็จ",
+      "ระยะเวลา/SLA",
+      "รหัสครุภัณฑ์",
+      "ชื่อครุภัณฑ์",
+      "สถานที่ตั้ง",
+      "อาการชำรุด",
+      "ความเร่งด่วน",
+      "สถานะ",
+      "รูปแบบการซ่อม",
+      "ช่างผู้รับผิดชอบ",
+      "ศูนย์บริการ/ร้านซ่อม",
+      "อะไหล่ที่ใช้",
+      "ค่าใช้จ่ายซ่อม (บาท)",
+      "บันทึกผลการซ่อม",
+      "ชื่อผู้แจ้ง",
+      "เบอร์ติดต่อ",
+    ];
+
+    const escapeCsvCell = (val) => {
+      const str = val == null ? "" : String(val);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const rows = filteredTickets.map((t) => {
+      const sla = getSlaInfo(t);
+      return [
+        t.repair_no || "",
+        t.created_at ? new Date(t.created_at).toLocaleDateString("th-TH") : "",
+        t.expected_date ? new Date(t.expected_date).toLocaleDateString("th-TH") : "-",
+        t.completed_at ? new Date(t.completed_at).toLocaleDateString("th-TH") : "-",
+        sla.label,
+        t.asset_code || "-",
+        t.asset_name || "",
+        t.location || "",
+        t.problem || "",
+        urgencyTextMap[t.urgency] || "ปกติ",
+        statusTextMap[t.status] || t.status,
+        REPAIR_TYPE_LABELS[t.repair_type || "internal"] || "ซ่อมเองภายใน",
+        t.technician_name || "-",
+        t.vendor_name || "-",
+        t.parts_used || "-",
+        Number(t.repair_cost) || 0,
+        t.technician_note || "-",
+        t.reporter_name || "",
+        t.reporter_contact || "-",
+      ]
+        .map(escapeCsvCell)
+        .join(",");
+    });
+
+    const csvContent = "\uFEFF" + [headers.map(escapeCsvCell).join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `รายงานแจ้งซ่อม_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Calculate Summary Metrics
   const counts = {
@@ -542,6 +744,7 @@ export default function Maintenance() {
       (t) => t.status === "in_progress" || t.status === "waiting_parts"
     ).length,
     completed: tickets.filter((t) => t.status === "completed").length,
+    overdue: tickets.filter((t) => getSlaInfo(t).isOverdue).length,
     totalCost: tickets.reduce((sum, t) => sum + (Number(t.repair_cost) || 0), 0),
   };
 
@@ -593,8 +796,17 @@ export default function Maintenance() {
         className="page-container no-print"
         style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 20px", width: "100%" }}
       >
-        {/* 1. Header Row */}
-        <div className="page-heading-row">
+        {/* 1. Header Row with Export CSV & View Mode Switcher */}
+        <div
+          className="page-heading-row"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            gap: 14,
+          }}
+        >
           <div className="page-title-group">
             <div
               style={{
@@ -636,8 +848,48 @@ export default function Maintenance() {
               </span>
             </div>
             <p className="page-subtitle">
-              แจ้งซ่อมด่วนด้วย QR Code แนบรูปถ่ายก่อน-หลังซ่อม มอบหมายช่าง บันทึกค่าอะไหล่ และพิมพ์ใบส่งซ่อม
+              ติดตามไทม์ไลน์สถานะ SLA สมุดประวัติการซ่อมรายเครื่อง กระดาน Kanban และส่งออกรายงาน Excel
             </p>
+          </div>
+
+          {/* Right Toolbar Actions: View Toggle + Export CSV */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div className="view-toggle-group">
+              <button
+                type="button"
+                className={`view-toggle-btn ${viewMode === "table" ? "active" : ""}`}
+                onClick={() => setViewMode("table")}
+              >
+                <TableIcon size={15} />
+                <span>มุมมองตาราง</span>
+              </button>
+              <button
+                type="button"
+                className={`view-toggle-btn ${viewMode === "kanban" ? "active" : ""}`}
+                onClick={() => setViewMode("kanban")}
+              >
+                <Columns size={15} />
+                <span>กระดานสถานะ (Kanban)</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-outline-white"
+              onClick={handleExportCSV}
+              style={{
+                fontSize: "0.82rem",
+                padding: "8px 14px",
+                borderColor: "#cbd5e1",
+                color: "#0f291e",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+              title="ดาวน์โหลดรายงานสรุปการซ่อมเป็นไฟล์ Excel (.CSV)"
+            >
+              <Download size={15} color="#059669" />
+              <span>Export Excel (.CSV)</span>
+            </button>
           </div>
         </div>
 
@@ -751,6 +1003,7 @@ export default function Maintenance() {
             <option value="pending">รอดำเนินการ (Pending)</option>
             <option value="in_progress">กำลังดำเนินการซ่อม</option>
             <option value="waiting_parts">รออะไหล่ / ส่งศูนย์</option>
+            <option value="overdue">⚠️ เกินกำหนดส่งคืน (Overdue)</option>
             <option value="completed">ซ่อมเสร็จสิ้นแล้ว</option>
             <option value="unrepairable">ซ่อมไม่ได้ / แทงจำหน่าย</option>
             <option value="cancelled">ยกเลิกคำขอ</option>
@@ -779,337 +1032,560 @@ export default function Maintenance() {
           </select>
         </div>
 
-        {/* 4. Table of Repair Tickets */}
-        <div className="table-card">
-          <div className="table-responsive">
-            <table className="modern-table">
-              <thead>
-                <tr>
-                  <th style={{ minWidth: "115px" }}>เลขที่แจ้ง</th>
-                  <th style={{ minWidth: "175px" }}>ครุภัณฑ์ / สถานที่</th>
-                  <th style={{ minWidth: "230px" }}>อาการเสีย &amp; บันทึกการซ่อม</th>
-                  <th style={{ minWidth: "155px" }}>ช่าง / รูปแบบซ่อม</th>
-                  <th style={{ minWidth: "110px" }}>ค่าซ่อม / อะไหล่</th>
-                  <th style={{ minWidth: "120px" }}>ผู้แจ้ง</th>
-                  <th style={{ minWidth: "120px" }}>สถานะ</th>
-                  <th style={{ minWidth: "220px", textAlign: "right", whiteSpace: "nowrap" }}>จัดการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
+        {/* 4A. Table View of Repair Tickets */}
+        {viewMode === "table" ? (
+          <div className="table-card">
+            <div className="table-responsive">
+              <table className="modern-table">
+                <thead>
                   <tr>
-                    <td colSpan={8} className="table-empty-row">
-                      กำลังโหลดข้อมูลรายการแจ้งซ่อม...
-                    </td>
+                    <th style={{ minWidth: "115px" }}>เลขที่แจ้ง</th>
+                    <th style={{ minWidth: "195px" }}>ครุภัณฑ์ / สถานที่</th>
+                    <th style={{ minWidth: "230px" }}>อาการเสีย &amp; บันทึกการซ่อม</th>
+                    <th style={{ minWidth: "155px" }}>ช่าง / รูปแบบซ่อม</th>
+                    <th style={{ minWidth: "110px" }}>ค่าซ่อม / อะไหล่</th>
+                    <th style={{ minWidth: "120px" }}>ผู้แจ้ง</th>
+                    <th style={{ minWidth: "135px" }}>สถานะ / SLA</th>
+                    <th style={{ minWidth: "220px", textAlign: "right", whiteSpace: "nowrap" }}>
+                      จัดการ
+                    </th>
                   </tr>
-                ) : filteredTickets.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="table-empty-row">
-                      ไม่พบรายการแจ้งซ่อมตามเงื่อนไขที่เลือก
-                    </td>
-                  </tr>
-                ) : (
-                  filteredTickets.map((t) => {
-                    const urgencyBadge =
-                      t.urgency === "critical" ? (
-                        <span
-                          className="status-pill status-damaged"
-                          style={{ fontSize: "0.72rem", padding: "2px 7px" }}
-                        >
-                          ด่วนที่สุด
-                        </span>
-                      ) : t.urgency === "urgent" ? (
-                        <span
-                          className="status-pill status-repair"
-                          style={{ fontSize: "0.72rem", padding: "2px 7px" }}
-                        >
-                          ด่วน
-                        </span>
-                      ) : (
-                        <span
-                          className="status-pill"
-                          style={{
-                            fontSize: "0.72rem",
-                            padding: "2px 7px",
-                            backgroundColor: "#f1f5f9",
-                            color: "#475569",
-                          }}
-                        >
-                          ปกติ
-                        </span>
-                      );
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} className="table-empty-row">
+                        กำลังโหลดข้อมูลรายการแจ้งซ่อม...
+                      </td>
+                    </tr>
+                  ) : filteredTickets.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="table-empty-row">
+                        ไม่พบรายการแจ้งซ่อมตามเงื่อนไขที่เลือก
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredTickets.map((t) => {
+                      const urgencyBadge =
+                        t.urgency === "critical" ? (
+                          <span
+                            className="status-pill status-damaged"
+                            style={{ fontSize: "0.72rem", padding: "2px 7px" }}
+                          >
+                            ด่วนที่สุด
+                          </span>
+                        ) : t.urgency === "urgent" ? (
+                          <span
+                            className="status-pill status-repair"
+                            style={{ fontSize: "0.72rem", padding: "2px 7px" }}
+                          >
+                            ด่วน
+                          </span>
+                        ) : (
+                          <span
+                            className="status-pill"
+                            style={{
+                              fontSize: "0.72rem",
+                              padding: "2px 7px",
+                              backgroundColor: "#f1f5f9",
+                              color: "#475569",
+                            }}
+                          >
+                            ปกติ
+                          </span>
+                        );
 
-                    const statusBadge =
-                      t.status === "completed" ? (
-                        <span className="status-pill status-normal">
-                          <span className="status-dot" />
-                          ซ่อมเสร็จสิ้น
-                        </span>
-                      ) : t.status === "in_progress" ? (
-                        <span className="status-pill status-borrowed">
-                          <span className="status-dot" />
-                          กำลังซ่อม
-                        </span>
-                      ) : t.status === "waiting_parts" ? (
-                        <span
-                          className="status-pill"
-                          style={{ backgroundColor: "#eff6ff", color: "#1d4ed8" }}
-                        >
-                          <span className="status-dot" style={{ backgroundColor: "#2563eb" }} />
-                          รออะไหล่/ส่งศูนย์
-                        </span>
-                      ) : t.status === "unrepairable" ? (
-                        <span className="status-pill status-damaged">
-                          <span className="status-dot" />
-                          ซ่อมไม่ได้
-                        </span>
-                      ) : t.status === "cancelled" ? (
-                        <span
-                          className="status-pill"
-                          style={{ backgroundColor: "#f1f5f9", color: "#64748b" }}
-                        >
-                          ยกเลิกแล้ว
-                        </span>
-                      ) : (
-                        <span className="status-pill status-repair">
-                          <span className="status-dot" />
-                          รอดำเนินการ
-                        </span>
-                      );
+                      const statusBadge =
+                        t.status === "completed" ? (
+                          <span className="status-pill status-normal">
+                            <span className="status-dot" />
+                            ซ่อมเสร็จสิ้น
+                          </span>
+                        ) : t.status === "in_progress" ? (
+                          <span className="status-pill status-borrowed">
+                            <span className="status-dot" />
+                            กำลังซ่อม
+                          </span>
+                        ) : t.status === "waiting_parts" ? (
+                          <span
+                            className="status-pill"
+                            style={{ backgroundColor: "#eff6ff", color: "#1d4ed8" }}
+                          >
+                            <span className="status-dot" style={{ backgroundColor: "#2563eb" }} />
+                            รออะไหล่/ส่งศูนย์
+                          </span>
+                        ) : t.status === "unrepairable" ? (
+                          <span className="status-pill status-damaged">
+                            <span className="status-dot" />
+                            ซ่อมไม่ได้
+                          </span>
+                        ) : t.status === "cancelled" ? (
+                          <span
+                            className="status-pill"
+                            style={{ backgroundColor: "#f1f5f9", color: "#64748b" }}
+                          >
+                            ยกเลิกแล้ว
+                          </span>
+                        ) : (
+                          <span className="status-pill status-repair">
+                            <span className="status-dot" />
+                            รอดำเนินการ
+                          </span>
+                        );
 
-                    const rType = t.repair_type || "internal";
-                    const repeatCount = assetRepairCountMap[t.asset_code] || 0;
+                      const rType = t.repair_type || "internal";
+                      const repeatCount = assetRepairCountMap[t.asset_code] || 0;
+                      const cumulativeAssetCost = assetRepairCostMap[t.asset_code] || 0;
+                      const isLemonWarning =
+                        repeatCount >= 3 || cumulativeAssetCost >= 5000 || t.status === "unrepairable";
+                      const sla = getSlaInfo(t);
 
-                    return (
-                      <tr key={t.id}>
-                        {/* 1. Repair No + Urgency */}
-                        <td>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <span
-                              style={{
-                                fontWeight: 700,
-                                fontFamily: "monospace",
-                                color: "#064e3b",
-                              }}
-                            >
-                              {t.repair_no}
-                            </span>
-                            <div style={{ fontSize: "0.73rem", color: "#94a3b8" }}>
-                              {new Date(t.created_at).toLocaleDateString("th-TH")}
-                            </div>
-                            <div>{urgencyBadge}</div>
-                          </div>
-                        </td>
-
-                        {/* 2. Asset & Location */}
-                        <td>
-                          <div style={{ fontWeight: 700, color: "#0f291e" }}>{t.asset_name}</div>
-                          {t.asset_code && t.asset_code !== "-" && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-                              <Link
-                                to={`/asset/${encodeURIComponent(t.asset_code)}`}
+                      return (
+                        <tr key={t.id}>
+                          {/* 1. Repair No + Urgency */}
+                          <td>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              <span
                                 style={{
-                                  fontSize: "0.76rem",
+                                  fontWeight: 700,
                                   fontFamily: "monospace",
-                                  color: "#059669",
-                                  fontWeight: 600,
+                                  color: "#064e3b",
                                 }}
                               >
-                                {t.asset_code}
-                              </Link>
-                              {repeatCount > 1 && (
-                                <span
+                                {t.repair_no}
+                              </span>
+                              <div style={{ fontSize: "0.73rem", color: "#94a3b8" }}>
+                                {new Date(t.created_at).toLocaleDateString("th-TH")}
+                              </div>
+                              <div>{urgencyBadge}</div>
+                            </div>
+                          </td>
+
+                          {/* 2. Asset & Location + Clickable Repair Logbook */}
+                          <td>
+                            <div style={{ fontWeight: 700, color: "#0f291e" }}>{t.asset_name}</div>
+                            {t.asset_code && t.asset_code !== "-" && (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  flexWrap: "wrap",
+                                  marginTop: 3,
+                                }}
+                              >
+                                <Link
+                                  to={`/asset/${encodeURIComponent(t.asset_code)}`}
                                   style={{
-                                    fontSize: "0.68rem",
-                                    backgroundColor: "#fef2f2",
-                                    color: "#dc2626",
-                                    padding: "1px 6px",
+                                    fontSize: "0.76rem",
+                                    fontFamily: "monospace",
+                                    color: "#059669",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {t.asset_code}
+                                </Link>
+                                <button
+                                  type="button"
+                                  onClick={() => setLogbookAssetCode(t.asset_code)}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    fontSize: "0.69rem",
+                                    backgroundColor: isLemonWarning ? "#fef2f2" : "#f1f5f9",
+                                    color: isLemonWarning ? "#dc2626" : "#334155",
+                                    border: `1px solid ${isLemonWarning ? "#fecaca" : "#e2e8f0"}`,
+                                    padding: "2px 7px",
                                     borderRadius: 999,
                                     fontWeight: 700,
+                                    cursor: "pointer",
+                                    whiteSpace: "nowrap",
                                   }}
-                                  title="ครุภัณฑ์รายการนี้มีประวัติแจ้งซ่อมหลายครั้ง"
+                                  title="คลิกเพื่อเปิดสมุดประวัติการซ่อมสะสมของครุภัณฑ์เครื่องนี้"
                                 >
-                                  ซ่อม {repeatCount} ครั้ง
-                                </span>
+                                  <BookOpen size={11} />
+                                  <span>
+                                    {isLemonWarning
+                                      ? `⚠️ ซ่อม ${repeatCount} ครั้ง`
+                                      : `ประวัติซ่อม (${repeatCount})`}
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                            <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 3 }}>
+                              📍 {t.location}
+                            </div>
+                          </td>
+
+                          {/* 3. Problem + Technician Note + Before/After Photos */}
+                          <td>
+                            <div style={{ fontSize: "0.85rem", color: "#334155", lineHeight: 1.4 }}>
+                              {t.problem}
+                            </div>
+                            {t.technician_note && (
+                              <div
+                                style={{
+                                  marginTop: 5,
+                                  fontSize: "0.76rem",
+                                  color: "#0369a1",
+                                  backgroundColor: "#f0f9ff",
+                                  padding: "4px 8px",
+                                  borderRadius: "6px",
+                                  borderLeft: "3px solid #0284c7",
+                                }}
+                              >
+                                <strong>บันทึกช่าง:</strong> {t.technician_note}
+                              </div>
+                            )}
+
+                            {/* Photo Thumbnail Buttons */}
+                            {(t.before_image_url || t.after_image_url) && (
+                              <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                                {t.before_image_url && (
+                                  <button
+                                    type="button"
+                                    className="photo-thumb-pill"
+                                    onClick={() =>
+                                      setLightboxImage({
+                                        url: t.before_image_url,
+                                        title: `รูปก่อนซ่อม (${t.repair_no} - ${t.asset_name})`,
+                                      })
+                                    }
+                                  >
+                                    <ImageIcon size={12} color="#d97706" />
+                                    <span>รูปก่อนซ่อม</span>
+                                  </button>
+                                )}
+                                {t.after_image_url && (
+                                  <button
+                                    type="button"
+                                    className="photo-thumb-pill"
+                                    onClick={() =>
+                                      setLightboxImage({
+                                        url: t.after_image_url,
+                                        title: `รูปหลังซ่อมเสร็จ (${t.repair_no} - ${t.asset_name})`,
+                                      })
+                                    }
+                                  >
+                                    <ImageIcon size={12} color="#059669" />
+                                    <span>รูปหลังซ่อม</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* 4. Technician & Repair Type */}
+                          <td>
+                            <div style={{ marginBottom: 4 }}>
+                              <span className={`repair-type-tag ${rType}`}>
+                                {REPAIR_TYPE_LABELS[rType] || "ซ่อมเองภายใน"}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#1e293b" }}>
+                              {t.technician_name || (
+                                <span style={{ color: "#94a3b8", fontWeight: 400 }}>ยังไม่ระบุช่าง</span>
                               )}
                             </div>
-                          )}
-                          <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 3 }}>
-                            📍 {t.location}
-                          </div>
-                        </td>
+                            {t.vendor_name && (
+                              <div style={{ fontSize: "0.73rem", color: "#64748b" }}>
+                                ศูนย์/ร้าน: {t.vendor_name}
+                              </div>
+                            )}
+                            {t.expected_date && t.status !== "completed" && (
+                              <div style={{ fontSize: "0.72rem", color: "#0284c7", marginTop: 2 }}>
+                                กำหนดเสร็จ: {new Date(t.expected_date).toLocaleDateString("th-TH")}
+                              </div>
+                            )}
+                          </td>
 
-                        {/* 3. Problem + Technician Note + Before/After Photos */}
-                        <td>
-                          <div style={{ fontSize: "0.85rem", color: "#334155", lineHeight: 1.4 }}>
-                            {t.problem}
-                          </div>
-                          {t.technician_note && (
+                          {/* 5. Repair Cost & Parts */}
+                          <td>
+                            <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.86rem" }}>
+                              {Number(t.repair_cost) > 0
+                                ? `${Number(t.repair_cost).toLocaleString()} ฿`
+                                : "-"}
+                            </div>
+                            {t.parts_used && (
+                              <div
+                                style={{
+                                  fontSize: "0.73rem",
+                                  color: "#64748b",
+                                  maxWidth: 140,
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                                title={t.parts_used}
+                              >
+                                อะไหล่: {t.parts_used}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* 6. Reporter */}
+                          <td>
+                            <div style={{ fontSize: "0.84rem", fontWeight: 600, color: "#1e293b" }}>
+                              {t.reporter_name}
+                            </div>
+                            <div style={{ fontSize: "0.74rem", color: "#64748b" }}>
+                              {t.reporter_contact}
+                            </div>
+                          </td>
+
+                          {/* 7. Status + SLA Duration / Overdue Badge */}
+                          <td>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-start" }}>
+                              {statusBadge}
+                              <span className={`sla-badge ${sla.type}`}>
+                                <Timer size={11} />
+                                <span>{sla.label}</span>
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 8. Actions (Single line guaranteed) */}
+                          <td style={{ whiteSpace: "nowrap" }}>
                             <div
-                              style={{
-                                marginTop: 5,
-                                fontSize: "0.76rem",
-                                color: "#0369a1",
-                                backgroundColor: "#f0f9ff",
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                                borderLeft: "3px solid #0284c7",
-                              }}
+                              className="table-actions"
+                              style={{ justifyContent: "flex-end", gap: 6, flexWrap: "nowrap" }}
                             >
-                              <strong>บันทึกช่าง:</strong> {t.technician_note}
+                              <button
+                                type="button"
+                                className="action-btn-link"
+                                onClick={() => handleOpenPrint(t)}
+                                title="ดูและพิมพ์ใบแจ้งซ่อม"
+                                style={{
+                                  backgroundColor: "#f8fafc",
+                                  color: "#334155",
+                                  border: "1px solid #e2e8f0",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 5,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                <Printer size={13} />
+                                <span>ใบงาน</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="action-btn-link"
+                                onClick={() => handleOpenUpdate(t)}
+                                title="อัปเดตสถานะ / บันทึกช่าง / ค่าซ่อม"
+                                style={{ whiteSpace: "nowrap" }}
+                              >
+                                อัปเดตงาน
+                              </button>
+                              <button
+                                type="button"
+                                className="action-btn-link danger"
+                                onClick={() => handleDeleteTicket(t)}
+                                title="ลบคำขอแจ้งซ่อม"
+                                style={{ whiteSpace: "nowrap" }}
+                              >
+                                ลบ
+                              </button>
                             </div>
-                          )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          /* 4B. Kanban Board View (4 Status Columns) */
+          <div className="kanban-board-grid">
+            {[
+              {
+                key: "pending",
+                title: "รอดำเนินการ (Pending)",
+                dotColor: "#d97706",
+                bgHeader: "#fffbeb",
+                items: filteredTickets.filter((t) => t.status === "pending"),
+              },
+              {
+                key: "in_progress",
+                title: "กำลังดำเนินการซ่อม",
+                dotColor: "#0284c7",
+                bgHeader: "#f0f9ff",
+                items: filteredTickets.filter((t) => t.status === "in_progress"),
+              },
+              {
+                key: "waiting_parts",
+                title: "รออะไหล่ / ส่งศูนย์",
+                dotColor: "#2563eb",
+                bgHeader: "#eff6ff",
+                items: filteredTickets.filter((t) => t.status === "waiting_parts"),
+              },
+              {
+                key: "completed",
+                title: "ซ่อมเสร็จสิ้น / ปิดงาน",
+                dotColor: "#10b981",
+                bgHeader: "#ecfdf5",
+                items: filteredTickets.filter(
+                  (t) =>
+                    t.status === "completed" ||
+                    t.status === "unrepairable" ||
+                    t.status === "cancelled"
+                ),
+              },
+            ].map((col) => (
+              <div key={col.key} className="kanban-column">
+                <div
+                  className="kanban-column-header"
+                  style={{ backgroundColor: col.bgHeader }}
+                >
+                  <div className="kanban-column-title">
+                    <span
+                      style={{
+                        width: 9,
+                        height: 9,
+                        borderRadius: "50%",
+                        backgroundColor: col.dotColor,
+                        display: "inline-block",
+                      }}
+                    />
+                    <span>{col.title}</span>
+                  </div>
+                  <span className="kanban-column-count">{col.items.length}</span>
+                </div>
 
-                          {/* Photo Thumbnail Buttons */}
-                          {(t.before_image_url || t.after_image_url) && (
-                            <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                              {t.before_image_url && (
-                                <button
-                                  type="button"
-                                  className="photo-thumb-pill"
-                                  onClick={() =>
-                                    setLightboxImage({
-                                      url: t.before_image_url,
-                                      title: `รูปก่อนซ่อม (${t.repair_no} - ${t.asset_name})`,
-                                    })
-                                  }
-                                >
-                                  <ImageIcon size={12} color="#d97706" />
-                                  <span>รูปก่อนซ่อม</span>
-                                </button>
-                              )}
-                              {t.after_image_url && (
-                                <button
-                                  type="button"
-                                  className="photo-thumb-pill"
-                                  onClick={() =>
-                                    setLightboxImage({
-                                      url: t.after_image_url,
-                                      title: `รูปหลังซ่อมเสร็จ (${t.repair_no} - ${t.asset_name})`,
-                                    })
-                                  }
-                                >
-                                  <ImageIcon size={12} color="#059669" />
-                                  <span>รูปหลังซ่อม</span>
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </td>
-
-                        {/* 4. Technician & Repair Type */}
-                        <td>
-                          <div style={{ marginBottom: 4 }}>
-                            <span className={`repair-type-tag ${rType}`}>
-                              {REPAIR_TYPE_LABELS[rType] || "ซ่อมเองภายใน"}
+                <div className="kanban-card-list">
+                  {col.items.length === 0 ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "28px 12px",
+                        color: "#94a3b8",
+                        fontSize: "0.8rem",
+                      }}
+                    >
+                      ไม่มีรายการในสถานะนี้
+                    </div>
+                  ) : (
+                    col.items.map((t) => {
+                      const sla = getSlaInfo(t);
+                      const repeatCount = assetRepairCountMap[t.asset_code] || 0;
+                      return (
+                        <div key={t.id} className="kanban-card">
+                          <div className="kanban-card-top">
+                            <span className="kanban-card-no">{t.repair_no}</span>
+                            <span className={`sla-badge ${sla.type}`}>
+                              <Timer size={11} />
+                              <span>{sla.label}</span>
                             </span>
                           </div>
-                          <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#1e293b" }}>
-                            {t.technician_name || (
-                              <span style={{ color: "#94a3b8", fontWeight: 400 }}>ยังไม่ระบุช่าง</span>
+
+                          <div className="kanban-card-asset">{t.asset_name}</div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              flexWrap: "wrap",
+                              marginBottom: 6,
+                            }}
+                          >
+                            {t.asset_code && t.asset_code !== "-" && (
+                              <>
+                                <span
+                                  style={{
+                                    fontSize: "0.73rem",
+                                    fontFamily: "monospace",
+                                    color: "#059669",
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {t.asset_code}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setLogbookAssetCode(t.asset_code)}
+                                  style={{
+                                    fontSize: "0.68rem",
+                                    padding: "1px 6px",
+                                    borderRadius: 999,
+                                    border: "1px solid #cbd5e1",
+                                    backgroundColor: "#f8fafc",
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  ประวัติซ่อม ({repeatCount})
+                                </button>
+                              </>
                             )}
                           </div>
-                          {t.vendor_name && (
-                            <div style={{ fontSize: "0.73rem", color: "#64748b" }}>
-                              ศูนย์/ร้าน: {t.vendor_name}
-                            </div>
-                          )}
-                          {t.expected_date && t.status !== "completed" && (
-                            <div style={{ fontSize: "0.72rem", color: "#0284c7", marginTop: 2 }}>
-                              กำหนดเสร็จ: {new Date(t.expected_date).toLocaleDateString("th-TH")}
-                            </div>
-                          )}
-                        </td>
 
-                        {/* 5. Repair Cost & Parts */}
-                        <td>
-                          <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.86rem" }}>
-                            {Number(t.repair_cost) > 0
-                              ? `${Number(t.repair_cost).toLocaleString()} ฿`
-                              : "-"}
-                          </div>
-                          {t.parts_used && (
-                            <div
-                              style={{
-                                fontSize: "0.73rem",
-                                color: "#64748b",
-                                maxWidth: 140,
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                              title={t.parts_used}
-                            >
-                              อะไหล่: {t.parts_used}
-                            </div>
-                          )}
-                        </td>
+                          <div className="kanban-card-problem">{t.problem}</div>
 
-                        {/* 6. Reporter */}
-                        <td>
-                          <div style={{ fontSize: "0.84rem", fontWeight: 600, color: "#1e293b" }}>
-                            {t.reporter_name}
-                          </div>
-                          <div style={{ fontSize: "0.74rem", color: "#64748b" }}>
-                            {t.reporter_contact}
-                          </div>
-                        </td>
-
-                        {/* 7. Status */}
-                        <td>{statusBadge}</td>
-
-                        {/* 8. Actions */}
-                        <td style={{ whiteSpace: "nowrap" }}>
                           <div
-                            className="table-actions"
-                            style={{ justifyContent: "flex-end", gap: 6, flexWrap: "nowrap" }}
+                            style={{
+                              fontSize: "0.74rem",
+                              color: "#475569",
+                              marginTop: 6,
+                              display: "flex",
+                              justifyContent: "space-between",
+                            }}
                           >
-                            <button
-                              type="button"
-                              className="action-btn-link"
-                              onClick={() => handleOpenPrint(t)}
-                              title="ดูและพิมพ์ใบแจ้งซ่อม"
-                              style={{
-                                backgroundColor: "#f8fafc",
-                                color: "#334155",
-                                border: "1px solid #e2e8f0",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 5,
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              <Printer size={13} />
-                              <span>ใบงาน</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="action-btn-link"
-                              onClick={() => handleOpenUpdate(t)}
-                              title="อัปเดตสถานะ / บันทึกช่าง / ค่าซ่อม"
-                              style={{ whiteSpace: "nowrap" }}
-                            >
-                              อัปเดตงาน
-                            </button>
-                            <button
-                              type="button"
-                              className="action-btn-link danger"
-                              onClick={() => handleDeleteTicket(t)}
-                              title="ลบคำขอแจ้งซ่อม"
-                              style={{ whiteSpace: "nowrap" }}
-                            >
-                              ลบ
-                            </button>
+                            <span>👷 {t.technician_name || "ยังไม่ระบุช่าง"}</span>
+                            {Number(t.repair_cost) > 0 && (
+                              <strong style={{ color: "#7c3aed" }}>
+                                {Number(t.repair_cost).toLocaleString()} ฿
+                              </strong>
+                            )}
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+
+                          <div className="kanban-card-footer">
+                            <span style={{ fontSize: "0.72rem", color: "#64748b" }}>
+                              📍 {t.location}
+                            </span>
+                            <div style={{ display: "flex", gap: 5, flexWrap: "nowrap" }}>
+                              <button
+                                type="button"
+                                className="action-btn-link"
+                                style={{
+                                  padding: "4px 8px",
+                                  fontSize: "0.74rem",
+                                  backgroundColor: "#f8fafc",
+                                  border: "1px solid #e2e8f0",
+                                  color: "#334155",
+                                  whiteSpace: "nowrap",
+                                }}
+                                onClick={() => handleOpenPrint(t)}
+                              >
+                                ใบงาน
+                              </button>
+                              <button
+                                type="button"
+                                className="action-btn-link"
+                                style={{
+                                  padding: "4px 8px",
+                                  fontSize: "0.74rem",
+                                  whiteSpace: "nowrap",
+                                }}
+                                onClick={() => handleOpenUpdate(t)}
+                              >
+                                อัปเดตงาน
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
       </div>
 
       {/* ===================================================================== */}
@@ -1496,6 +1972,9 @@ export default function Maintenance() {
               </button>
             </div>
 
+            {/* Visual 4-Step Status Progress Timeline */}
+            <RepairStepTimeline status={updateForm.status} />
+
             <form onSubmit={handleSaveUpdate}>
               {/* Row 1: Status & Repair Type */}
               <div className="form-grid" style={{ marginBottom: 14 }}>
@@ -1788,6 +2267,9 @@ export default function Maintenance() {
                 </div>
               </div>
 
+              {/* Visual Progress Timeline inside Job Sheet */}
+              <RepairStepTimeline status={selectedTicket.status} />
+
               {/* Section 1: Asset & Reporter Info */}
               <div
                 style={{
@@ -2026,6 +2508,217 @@ export default function Maintenance() {
           </div>
         </div>
       )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 5: สมุดประวัติการซ่อมประจำครุภัณฑ์ (Asset Repair Logbook)       */}
+      {/* ===================================================================== */}
+      {logbookAssetCode && (() => {
+        const assetTickets = tickets.filter((t) => t.asset_code === logbookAssetCode);
+        const matchedAsset = assetsList.find((a) => a.asset_code === logbookAssetCode);
+        const assetName =
+          matchedAsset?.name || assetTickets[0]?.asset_name || "ครุภัณฑ์ในระบบ";
+        const assetLocation =
+          matchedAsset?.rooms?.room_name || assetTickets[0]?.location || "ไม่ระบุสถานที่";
+        const totalRepairs = assetTickets.length;
+        const totalAssetCost = assetTickets.reduce(
+          (sum, t) => sum + (Number(t.repair_cost) || 0),
+          0
+        );
+        const hasUnrepairable = assetTickets.some((t) => t.status === "unrepairable");
+        const isLemonAsset = totalRepairs >= 3 || totalAssetCost >= 5000 || hasUnrepairable;
+
+        return (
+          <div
+            className="modal-overlay no-print"
+            onClick={() => setLogbookAssetCode(null)}
+          >
+            <div
+              className="modal-content"
+              style={{ maxWidth: 680, maxHeight: "92vh", overflowY: "auto" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 10,
+                      backgroundColor: isLemonAsset ? "#fef2f2" : "#e0f2fe",
+                      color: isLemonAsset ? "#dc2626" : "#0284c7",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <BookOpen size={20} />
+                  </div>
+                  <div>
+                    <h3 className="modal-title" style={{ margin: 0 }}>
+                      สมุดประวัติการซ่อมประจำครุภัณฑ์ (Asset Repair Logbook)
+                    </h3>
+                    <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                      รหัส:{" "}
+                      <strong style={{ fontFamily: "monospace", color: "#059669" }}>
+                        {logbookAssetCode}
+                      </strong>{" "}
+                      — {assetName} ({assetLocation})
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="action-btn-link"
+                  onClick={() => setLogbookAssetCode(null)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Summary KPI Boxes for this Asset */}
+              <div className="logbook-summary-grid">
+                <div className="logbook-stat-box">
+                  <div className="logbook-stat-label">จำนวนครั้งที่ส่งซ่อมสะสม</div>
+                  <div
+                    className="logbook-stat-val"
+                    style={{ color: totalRepairs >= 3 ? "#dc2626" : "#0f172a" }}
+                  >
+                    {totalRepairs} ครั้ง
+                  </div>
+                </div>
+                <div className="logbook-stat-box">
+                  <div className="logbook-stat-label">ค่าใช้จ่ายซ่อมสะสมรวม</div>
+                  <div
+                    className="logbook-stat-val"
+                    style={{ color: totalAssetCost >= 5000 ? "#dc2626" : "#7c3aed" }}
+                  >
+                    {totalAssetCost.toLocaleString()} บาท
+                  </div>
+                </div>
+                <div className="logbook-stat-box">
+                  <div className="logbook-stat-label">การประเมินความคุ้มค่า</div>
+                  <div
+                    className="logbook-stat-val"
+                    style={{
+                      fontSize: "0.95rem",
+                      color: isLemonAsset ? "#dc2626" : "#059669",
+                      marginTop: 6,
+                    }}
+                  >
+                    {isLemonAsset ? "⚠️ ซ่อมบ่อย / ค่าซ่อมสูง" : "✅ อยู่ในเกณฑ์ปกติ"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Replacement / Lemon Alert Banner */}
+              {isLemonAsset && (
+                <div className="lemon-alert-banner">
+                  <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                      แจ้งเตือนวิเคราะห์ความคุ้มค่า: ครุภัณฑ์รายการนี้อาจไม่คุ้มค่าในการซ่อมบำรุงต่อ
+                    </div>
+                    <div style={{ fontSize: "0.78rem", lineHeight: 1.45 }}>
+                      เนื่องจากมีประวัติส่งซ่อมสะสม {totalRepairs} ครั้ง หรือมีค่าใช้จ่ายซ่อมสะสมรวม{" "}
+                      {totalAssetCost.toLocaleString()} บาท ขอแนะนำให้เจ้าหน้าที่พัสดุพิจารณา{" "}
+                      <strong>ตั้งงบประมาณจัดซื้อทดแทน หรือดำเนินการแทงจำหน่าย</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Chronological Ticket History for this Asset */}
+              <div style={{ fontWeight: 700, fontSize: "0.88rem", marginBottom: 10, color: "#0f291e" }}>
+                รายการประวัติการซ่อมทั้งหมด ({assetTickets.length} รายการ)
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {assetTickets.map((item) => {
+                  const sla = getSlaInfo(item);
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 10,
+                        padding: "12px 14px",
+                        backgroundColor: "#f8fafc",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: 8,
+                          marginBottom: 6,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span
+                            style={{
+                              fontFamily: "monospace",
+                              fontWeight: 800,
+                              color: "#0284c7",
+                              fontSize: "0.86rem",
+                            }}
+                          >
+                            {item.repair_no}
+                          </span>
+                          <span style={{ fontSize: "0.76rem", color: "#64748b" }}>
+                            วันที่แจ้ง: {new Date(item.created_at).toLocaleDateString("th-TH")}
+                          </span>
+                          <span className={`sla-badge ${sla.type}`}>{sla.label}</span>
+                        </div>
+                        <div style={{ fontWeight: 700, color: "#7c3aed", fontSize: "0.84rem" }}>
+                          {Number(item.repair_cost) > 0
+                            ? `${Number(item.repair_cost).toLocaleString()} บาท`
+                            : "ไม่มีค่าใช้จ่าย"}
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: "0.84rem", color: "#1e293b", marginBottom: 4 }}>
+                        <strong>อาการเสีย:</strong> {item.problem}
+                      </div>
+
+                      {item.parts_used && (
+                        <div style={{ fontSize: "0.78rem", color: "#475569", marginBottom: 2 }}>
+                          <strong>อะไหล่ที่เปลี่ยน:</strong> {item.parts_used}
+                        </div>
+                      )}
+
+                      {item.technician_note && (
+                        <div style={{ fontSize: "0.78rem", color: "#0369a1" }}>
+                          <strong>บันทึกช่าง ({item.technician_name || "ช่าง"}):</strong>{" "}
+                          {item.technician_note}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="form-actions" style={{ marginTop: 18 }}>
+                <Link
+                  to={`/asset/${encodeURIComponent(logbookAssetCode)}`}
+                  className="btn btn-outline-white"
+                  style={{ borderColor: "#cbd5e1", color: "#0f291e" }}
+                >
+                  ดูข้อมูลทะเบียนครุภัณฑ์นี้
+                </Link>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setLogbookAssetCode(null)}
+                >
+                  ปิดหน้าต่าง
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
