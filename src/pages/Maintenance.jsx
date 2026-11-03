@@ -1283,7 +1283,7 @@ export default function Maintenance() {
 
         {/* 2. Maintenance Executive Overview (3 Non-Repetitive Analytical Panels - Refined) */}
         <div className="maint-overview-bento">
-          {/* Panel 1: อัตราการซ่อมสำเร็จ & สัดส่วนสถานะใบงาน (1-to-1 Mapped Labeled Progress Bar) */}
+          {/* Panel 1: ภาพรวมสถานะงานซ่อม */}
           <div className="maint-bento-card">
             <div className="maint-bento-header">
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1294,22 +1294,7 @@ export default function Maintenance() {
                   <CheckCircle2 size={19} />
                 </div>
                 <div>
-                  <div className="maint-bento-title">อัตราการซ่อมสำเร็จและสถานะใบงาน</div>
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <span
-                  style={{
-                    fontSize: "1.5rem",
-                    fontWeight: 800,
-                    color: "#059669",
-                    lineHeight: 1,
-                  }}
-                >
-                  {completionRate}%
-                </span>
-                <div style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>
-                  ซ่อมสำเร็จแล้ว
+                  <div className="maint-bento-title">ภาพรวมสถานะงานซ่อม</div>
                 </div>
               </div>
             </div>
@@ -1422,9 +1407,6 @@ export default function Maintenance() {
                   เสร็จสิ้น
                 </span>
                 <strong className="maint-channel-val">{counts.completed} งาน</strong>
-                <span style={{ fontSize: "0.69rem", color: "#059669", fontWeight: 700 }}>
-                  {completedPct}%
-                </span>
               </button>
 
               <button
@@ -1443,9 +1425,6 @@ export default function Maintenance() {
                   กำลังซ่อม
                 </span>
                 <strong className="maint-channel-val">{counts.in_progress} งาน</strong>
-                <span style={{ fontSize: "0.69rem", color: "#0284c7", fontWeight: 700 }}>
-                  {activePct}%
-                </span>
               </button>
 
               <button
@@ -1462,9 +1441,6 @@ export default function Maintenance() {
                   รอรับเรื่อง
                 </span>
                 <strong className="maint-channel-val">{counts.pending} งาน</strong>
-                <span style={{ fontSize: "0.69rem", color: "#d97706", fontWeight: 700 }}>
-                  {pendingPct}%
-                </span>
               </button>
 
               <button
@@ -1483,9 +1459,6 @@ export default function Maintenance() {
                   ไม่สำเร็จ
                 </span>
                 <strong className="maint-channel-val">{counts.closedOther} งาน</strong>
-                <span style={{ fontSize: "0.69rem", color: "#64748b", fontWeight: 700 }}>
-                  {closedOtherPct}%
-                </span>
               </button>
             </div>
           </div>
