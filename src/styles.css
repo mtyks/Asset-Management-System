@@ -3207,3 +3207,68 @@ input, select, textarea {
   flex-shrink: 0;
   margin-left: auto;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Maintenance Table Sorting, Compact Padding & Sticky Action Column          */
+/* -------------------------------------------------------------------------- */
+.maint-compact-table th,
+.maint-compact-table td {
+  padding: 11px 12px;
+}
+
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sortable-th:hover {
+  background-color: #e2f2ea !important;
+  color: #064e3b !important;
+}
+
+.sortable-th.sorted {
+  background-color: #dcfce7 !important;
+  color: #065f46 !important;
+}
+
+.sortable-th-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #64748b;
+  min-width: 14px;
+}
+
+.sortable-th.sorted .sort-indicator {
+  color: #059669;
+  background: #ffffff;
+  border-radius: 4px;
+  padding: 0 4px;
+  box-shadow: 0 1px 2px rgba(5, 150, 105, 0.15);
+}
+
+.sticky-action-col {
+  position: sticky;
+  right: 0;
+  background-color: #ffffff;
+  z-index: 2;
+  box-shadow: -3px 0 8px rgba(15, 23, 42, 0.04);
+}
+
+.modern-table thead th.sticky-action-col {
+  background-color: #f0f7f3;
+  z-index: 3;
+}
+
+.modern-table tbody tr:hover td.sticky-action-col {
+  background-color: #f6faf8;
+}

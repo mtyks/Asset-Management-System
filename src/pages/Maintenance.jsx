@@ -532,11 +532,20 @@ export default function Maintenance() {
   // View Mode ("table" | "kanban")
   const [viewMode, setViewMode] = useState("table");
 
-  // Filter States
+  // Filter & Sort States
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [repairTypeFilter, setRepairTypeFilter] = useState("all");
+  const [sortConfig, setSortConfig] = useState({ key: "created_at", direction: "desc" });
+
+  const handleSort = (key) => {
+    setSortConfig((prev) =>
+      prev.key === key
+        ? { key, direction: prev.direction === "desc" ? "asc" : "desc" }
+        : { key, direction: key === "asset_name" || key === "reporter_name" ? "asc" : "desc" }
+    );
+  };
 
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -951,6 +960,44 @@ export default function Maintenance() {
       repairTypeFilter === "all" || (t.repair_type || "internal") === repairTypeFilter;
 
     return matchSearch && matchStatus && matchUrgency && matchRepairType;
+  }).sort((a, b) => {
+    const dir = sortConfig.direction === "asc" ? 1 : -1;
+    switch (sortConfig.key) {
+      case "created_at": {
+        const tA = new Date(a.created_at || 0).getTime();
+        const tB = new Date(b.created_at || 0).getTime();
+        if (tA !== tB) return (tA - tB) * dir;
+        return (a.repair_no || "").localeCompare(b.repair_no || "") * dir;
+      }
+      case "repair_cost": {
+        const cA = Number(a.repair_cost) || 0;
+        const cB = Number(b.repair_cost) || 0;
+        return (cA - cB) * dir;
+      }
+      case "asset_name":
+        return (a.asset_name || "").localeCompare(b.asset_name || "", "th") * dir;
+      case "technician_name":
+        return (a.technician_name || "zzz").localeCompare(b.technician_name || "zzz", "th") * dir;
+      case "reporter_name":
+        return (a.reporter_name || "").localeCompare(b.reporter_name || "", "th") * dir;
+      case "status": {
+        const slaA = getSlaInfo(a).isOverdue ? 10 : 0;
+        const slaB = getSlaInfo(b).isOverdue ? 10 : 0;
+        const order = {
+          pending: 5,
+          in_progress: 4,
+          waiting_parts: 3,
+          completed: 2,
+          unrepairable: 1,
+          cancelled: 0,
+        };
+        const valA = slaA + (order[a.status] ?? 0);
+        const valB = slaB + (order[b.status] ?? 0);
+        return (valA - valB) * dir;
+      }
+      default:
+        return 0;
+    }
   });
 
   // Export filtered tickets to Excel-compatible UTF-8 BOM CSV
@@ -1793,19 +1840,122 @@ export default function Maintenance() {
         {viewMode === "table" ? (
           <div className="table-card">
             <div className="table-responsive">
-              <table className="modern-table">
+              <table className="modern-table maint-compact-table">
                 <thead>
                   <tr>
-                    <th style={{ minWidth: "130px", whiteSpace: "nowrap" }}>เลขที่แจ้ง</th>
-                    <th style={{ minWidth: "200px" }}>ครุภัณฑ์ / สถานที่</th>
-                    <th style={{ minWidth: "240px", maxWidth: "310px" }}>
+                    <th
+                      className={`sortable-th ${sortConfig.key === "created_at" ? "sorted" : ""}`}
+                      style={{ minWidth: "112px", whiteSpace: "nowrap" }}
+                      onClick={() => handleSort("created_at")}
+                      title="คลิกเพื่อเรียงตามวันที่แจ้ง / เลขที่ใบงาน"
+                    >
+                      <div className="sortable-th-inner">
+                        <span>เลขที่แจ้ง / วันที่</span>
+                        <span className="sort-indicator">
+                          {sortConfig.key === "created_at"
+                            ? sortConfig.direction === "desc"
+                              ? "↓"
+                              : "↑"
+                            : "⇅"}
+                        </span>
+                      </div>
+                    </th>
+                    <th
+                      className={`sortable-th ${sortConfig.key === "asset_name" ? "sorted" : ""}`}
+                      style={{ minWidth: "170px", maxWidth: "215px" }}
+                      onClick={() => handleSort("asset_name")}
+                      title="คลิกเพื่อเรียงตามชื่อครุภัณฑ์"
+                    >
+                      <div className="sortable-th-inner">
+                        <span>ครุภัณฑ์ / สถานที่</span>
+                        <span className="sort-indicator">
+                          {sortConfig.key === "asset_name"
+                            ? sortConfig.direction === "desc"
+                              ? "↓"
+                              : "↑"
+                            : "⇅"}
+                        </span>
+                      </div>
+                    </th>
+                    <th style={{ minWidth: "210px", maxWidth: "275px" }}>
                       อาการเสีย &amp; บันทึกการซ่อม
                     </th>
-                    <th style={{ minWidth: "155px" }}>ช่าง / รูปแบบซ่อม</th>
-                    <th style={{ minWidth: "110px" }}>ค่าซ่อม / อะไหล่</th>
-                    <th style={{ minWidth: "120px" }}>ผู้แจ้ง</th>
-                    <th style={{ minWidth: "135px" }}>สถานะ / SLA</th>
-                    <th style={{ minWidth: "220px", textAlign: "right", whiteSpace: "nowrap" }}>
+                    <th
+                      className={`sortable-th ${
+                        sortConfig.key === "technician_name" ? "sorted" : ""
+                      }`}
+                      style={{ minWidth: "135px" }}
+                      onClick={() => handleSort("technician_name")}
+                      title="คลิกเพื่อเรียงตามช่างผู้รับผิดชอบ"
+                    >
+                      <div className="sortable-th-inner">
+                        <span>ช่าง / รูปแบบซ่อม</span>
+                        <span className="sort-indicator">
+                          {sortConfig.key === "technician_name"
+                            ? sortConfig.direction === "desc"
+                              ? "↓"
+                              : "↑"
+                            : "⇅"}
+                        </span>
+                      </div>
+                    </th>
+                    <th
+                      className={`sortable-th ${sortConfig.key === "repair_cost" ? "sorted" : ""}`}
+                      style={{ minWidth: "100px" }}
+                      onClick={() => handleSort("repair_cost")}
+                      title="คลิกเพื่อเรียงตามค่าซ่อม"
+                    >
+                      <div className="sortable-th-inner">
+                        <span>ค่าซ่อม / อะไหล่</span>
+                        <span className="sort-indicator">
+                          {sortConfig.key === "repair_cost"
+                            ? sortConfig.direction === "desc"
+                              ? "↓"
+                              : "↑"
+                            : "⇅"}
+                        </span>
+                      </div>
+                    </th>
+                    <th
+                      className={`sortable-th ${
+                        sortConfig.key === "reporter_name" ? "sorted" : ""
+                      }`}
+                      style={{ minWidth: "100px", maxWidth: "120px" }}
+                      onClick={() => handleSort("reporter_name")}
+                      title="คลิกเพื่อเรียงตามชื่อผู้แจ้ง"
+                    >
+                      <div className="sortable-th-inner">
+                        <span>ผู้แจ้ง</span>
+                        <span className="sort-indicator">
+                          {sortConfig.key === "reporter_name"
+                            ? sortConfig.direction === "desc"
+                              ? "↓"
+                              : "↑"
+                            : "⇅"}
+                        </span>
+                      </div>
+                    </th>
+                    <th
+                      className={`sortable-th ${sortConfig.key === "status" ? "sorted" : ""}`}
+                      style={{ minWidth: "120px" }}
+                      onClick={() => handleSort("status")}
+                      title="คลิกเพื่อเรียงตามสถานะและ SLA"
+                    >
+                      <div className="sortable-th-inner">
+                        <span>สถานะ / SLA</span>
+                        <span className="sort-indicator">
+                          {sortConfig.key === "status"
+                            ? sortConfig.direction === "desc"
+                              ? "↓"
+                              : "↑"
+                            : "⇅"}
+                        </span>
+                      </div>
+                    </th>
+                    <th
+                      className="sticky-action-col"
+                      style={{ minWidth: "185px", textAlign: "right", whiteSpace: "nowrap" }}
+                    >
                       จัดการ
                     </th>
                   </tr>
@@ -1987,10 +2137,10 @@ export default function Maintenance() {
                           </td>
 
                           {/* 3. Problem + Technician Note (Compact Clamped with Tooltip & Expand Toggle) */}
-                          <td style={{ maxWidth: 310 }}>
+                          <td style={{ maxWidth: 275 }}>
                             <div
                               style={{
-                                fontSize: "0.84rem",
+                                fontSize: "0.83rem",
                                 color: "#334155",
                                 lineHeight: 1.4,
                                 ...(isExpanded
@@ -2010,24 +2160,29 @@ export default function Maintenance() {
                               <div
                                 style={{
                                   marginTop: 5,
-                                  fontSize: "0.75rem",
-                                  color: "#0369a1",
                                   backgroundColor: "#f0f9ff",
-                                  padding: "4px 8px",
+                                  padding: "5px 8px",
                                   borderRadius: "6px",
                                   borderLeft: "3px solid #0284c7",
-                                  ...(isExpanded
-                                    ? {}
-                                    : {
-                                        display: "-webkit-box",
-                                        WebkitLineClamp: 1,
-                                        WebkitBoxOrient: "vertical",
-                                        overflow: "hidden",
-                                      }),
                                 }}
                                 title={`บันทึกช่าง: ${t.technician_note}`}
                               >
-                                <strong>บันทึกช่าง:</strong> {t.technician_note}
+                                <div
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    color: "#0369a1",
+                                    lineHeight: 1.4,
+                                    ...(isExpanded
+                                      ? {}
+                                      : {
+                                          whiteSpace: "nowrap",
+                                          overflow: "hidden",
+                                          textOverflow: "ellipsis",
+                                        }),
+                                  }}
+                                >
+                                  <strong>บันทึกช่าง:</strong> {t.technician_note}
+                                </div>
                               </div>
                             )}
 
@@ -2141,11 +2296,30 @@ export default function Maintenance() {
                           </td>
 
                           {/* 6. Reporter */}
-                          <td>
-                            <div style={{ fontSize: "0.84rem", fontWeight: 600, color: "#1e293b" }}>
+                          <td style={{ maxWidth: 120 }}>
+                            <div
+                              style={{
+                                fontSize: "0.82rem",
+                                fontWeight: 600,
+                                color: "#1e293b",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                              title={t.reporter_name}
+                            >
                               {t.reporter_name}
                             </div>
-                            <div style={{ fontSize: "0.74rem", color: "#64748b" }}>
+                            <div
+                              style={{
+                                fontSize: "0.72rem",
+                                color: "#64748b",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                              title={t.reporter_contact}
+                            >
                               {t.reporter_contact}
                             </div>
                           </td>
@@ -2161,8 +2335,8 @@ export default function Maintenance() {
                             </div>
                           </td>
 
-                          {/* 8. Actions (Single line guaranteed) */}
-                          <td style={{ whiteSpace: "nowrap" }}>
+                          {/* 8. Actions (Single line & Sticky Right guaranteed) */}
+                          <td className="sticky-action-col" style={{ whiteSpace: "nowrap" }}>
                             <div
                               className="table-actions"
                               style={{ justifyContent: "flex-end", gap: 6, flexWrap: "nowrap" }}
