@@ -32,7 +32,21 @@ import {
   CheckSquare,
 } from "lucide-react";
 
+const ASSETS_FILTER_STORAGE_KEY = "ams_assets_list_filters_v1";
+
+function loadSavedAssetFilters() {
+  try {
+    const raw = sessionStorage.getItem(ASSETS_FILTER_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 export default function AssetsList() {
+  const savedState = loadSavedAssetFilters();
+
   const [assets, setAssets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -43,12 +57,12 @@ export default function AssetsList() {
     repair: 0,
   });
 
-  const [filters, setFilters] = useState({
-    search: "",
-    categoryId: "",
-    roomId: "",
-    status: "",
-  });
+  const [filters, setFilters] = useState(() => ({
+    search: savedState?.filters?.search || "",
+    categoryId: savedState?.filters?.categoryId || "",
+    roomId: savedState?.filters?.roomId || "",
+    status: savedState?.filters?.status || "",
+  }));
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -62,9 +76,21 @@ export default function AssetsList() {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  // Pagination States
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  // Pagination States (Locked across Edit navigation)
+  const [currentPage, setCurrentPage] = useState(() => Number(savedState?.currentPage) || 1);
+  const [pageSize, setPageSize] = useState(() => Number(savedState?.pageSize) || 10);
+
+  // บันทึกสถานะตัวกรองและหน้าปัจจุบันไว้ใน sessionStorage เพื่อล็อคค่าเดิมเมื่อกลับมาจากหน้าแก้ไข
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        ASSETS_FILTER_STORAGE_KEY,
+        JSON.stringify({ filters, currentPage, pageSize })
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [filters, currentPage, pageSize]);
 
   // โหลด Categories, Rooms และ Counts
   useEffect(() => {
@@ -89,7 +115,6 @@ export default function AssetsList() {
 
   useEffect(() => {
     fetchAssets();
-    setCurrentPage(1); // รีเซ็ตไปหน้า 1 เมื่อ Filter เปลี่ยน
   }, [filters]);
 
   // คำนวณ Pagination
@@ -361,18 +386,20 @@ export default function AssetsList() {
             className="search-input-field"
             placeholder="ค้นหาเลขครุภัณฑ์, ชื่อ, ยี่ห้อ, รุ่น, ผู้รับ..."
             value={filters.search}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, search: e.target.value }))
-            }
+            onChange={(e) => {
+              setFilters((prev) => ({ ...prev, search: e.target.value }));
+              setCurrentPage(1);
+            }}
           />
         </div>
 
         <select
           className="filter-select"
           value={filters.categoryId}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, categoryId: e.target.value }))
-          }
+          onChange={(e) => {
+            setFilters((prev) => ({ ...prev, categoryId: e.target.value }));
+            setCurrentPage(1);
+          }}
         >
           <option value="">ทุกหมวดหมู่ครุภัณฑ์</option>
           {categories.map((c) => (
@@ -385,9 +412,10 @@ export default function AssetsList() {
         <select
           className="filter-select"
           value={filters.roomId}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, roomId: e.target.value }))
-          }
+          onChange={(e) => {
+            setFilters((prev) => ({ ...prev, roomId: e.target.value }));
+            setCurrentPage(1);
+          }}
         >
           <option value="">ทุกสถานที่ / ห้อง</option>
           {rooms.map((r) => (
@@ -400,9 +428,10 @@ export default function AssetsList() {
         <select
           className="filter-select"
           value={filters.status}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, status: e.target.value }))
-          }
+          onChange={(e) => {
+            setFilters((prev) => ({ ...prev, status: e.target.value }));
+            setCurrentPage(1);
+          }}
         >
           <option value="">ทุกสถานะ</option>
           <option value="normal">ใช้งานปกติ</option>

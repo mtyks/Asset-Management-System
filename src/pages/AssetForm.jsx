@@ -64,9 +64,10 @@ export default function AssetForm() {
         setForm({
           asset_code: asset.asset_code || "",
           name: asset.name || "",
-          category_code: asset.category_code || "",
+          category_code:
+            asset.category_code || asset.asset_categories?.category_code || "",
           color: asset.color || "",
-          room_code: asset.room_code || "",
+          room_code: asset.room_code || asset.rooms?.room_code || "",
           received_date: asset.received_date || "",
           responsible_person: asset.responsible_person || "",
           image_url: asset.image_url || "",
@@ -121,7 +122,7 @@ export default function AssetForm() {
 
       if (isEditMode) {
         await updateAsset(actualLookupCode, payload);
-        navigate(`/asset/${encodeURIComponent(form.asset_code.trim())}`);
+        navigate("/assets");
       } else {
         const created = await createAsset(payload);
         setSavedAsset(created);
