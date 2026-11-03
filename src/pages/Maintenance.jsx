@@ -545,6 +545,7 @@ export default function Maintenance() {
   const [lightboxImage, setLightboxImage] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [logbookAssetCode, setLogbookAssetCode] = useState(null);
+  const [expandedTicketIds, setExpandedTicketIds] = useState({});
 
   // Inline QR Scanner inside Add Modal
   const [qrScanActive, setQrScanActive] = useState(false);
@@ -1090,7 +1091,17 @@ export default function Maintenance() {
   const externalCostPct =
     counts.totalCost > 0 ? Math.round((counts.externalCost / counts.totalCost) * 100) : 0;
 
-  // Identify unique assets that trigger the Lemon / Replacement alert, enriched with Name & Location
+  // Average SLA resolution days for completed tickets
+  const completedTicketsList = tickets.filter((t) => t.status === "completed");
+  const avgRepairDays =
+    completedTicketsList.length > 0
+      ? (
+          completedTicketsList.reduce((sum, t) => sum + getSlaInfo(t).days, 0) /
+          completedTicketsList.length
+        ).toFixed(1)
+      : "0.0";
+
+  // Identify unique assets that trigger the Lemon / Replacement alert, enriched with Full Name & Location
   const lemonAssetsDetails = Object.keys(assetRepairCountMap)
     .filter((code) => {
       const repCount = assetRepairCountMap[code] || 0;
@@ -1104,7 +1115,6 @@ export default function Maintenance() {
       const sampleTicket = tickets.find((t) => t.asset_code === code);
       const matchedAsset = assetsList.find((a) => a.asset_code === code);
       const fullName = matchedAsset?.name || sampleTicket?.asset_name || code;
-      const shortName = fullName.length > 26 ? `${fullName.slice(0, 26)}…` : fullName;
       const room =
         matchedAsset?.rooms?.room_name || sampleTicket?.location || "";
       const repCount = assetRepairCountMap[code] || 0;
@@ -1120,7 +1130,7 @@ export default function Maintenance() {
 
       return {
         code,
-        shortName,
+        fullName,
         room,
         reasonTag,
       };
@@ -1308,8 +1318,24 @@ export default function Maintenance() {
               </div>
             </div>
 
-            {/* Labeled Segmented Progress Bar (4 segments mapped 1-to-1 with the 4 badges below) */}
-            <div style={{ marginBottom: 12 }}>
+            {/* Mini SLA Speed & Queue Summary Box (Eliminates vertical empty gap) */}
+            <div className="maint-cost-mini-chart" style={{ marginBottom: 10 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  color: "#475569",
+                  marginBottom: 6,
+                }}
+              >
+                <span>⏱️ เวลาซ่อมเฉลี่ย: <strong style={{ color: "#059669" }}>{avgRepairDays} วัน/งาน</strong></span>
+                <span>🔧 อยู่ระหว่างซ่อม: <strong style={{ color: "#0284c7" }}>{counts.in_progress + counts.pending} งาน</strong></span>
+              </div>
+
+              {/* Labeled Segmented Progress Bar (4 segments mapped 1-to-1 with the 4 badges below) */}
               <div className="maint-labeled-bar">
                 {counts.completed > 0 && (
                   <div
@@ -1351,12 +1377,12 @@ export default function Maintenance() {
                   <div
                     className="maint-bar-seg"
                     style={{
-                      width: `${Math.max(14, closedOtherPct)}%`,
+                      width: `${Math.max(15, closedOtherPct)}%`,
                       backgroundColor: "#64748b",
                     }}
-                    title={`ซ่อมไม่ได้/ยกเลิก: ${counts.closedOther} งาน (${closedOtherPct}%)`}
+                    title={`ไม่สำเร็จ (ซ่อมไม่ได้/ยกเลิก): ${counts.closedOther} งาน (${closedOtherPct}%)`}
                   >
-                    <span>ปิดอื่นๆ {counts.closedOther}</span>
+                    <span>ไม่สำเร็จ {counts.closedOther}</span>
                   </div>
                 )}
               </div>
@@ -1395,7 +1421,7 @@ export default function Maintenance() {
                 }
               >
                 <span className="dot" style={{ backgroundColor: "#0284c7" }} />
-                <span>กำลังซ่อม/รออะไหล่</span>
+                <span>กำลังซ่อม</span>
                 <strong>{counts.in_progress}</strong>
               </button>
               <button
@@ -1422,7 +1448,7 @@ export default function Maintenance() {
                   }
                 >
                   <span className="dot" style={{ backgroundColor: "#64748b" }} />
-                  <span>ซ่อมไม่ได้/ยกเลิก</span>
+                  <span>ไม่สำเร็จ</span>
                   <strong>{counts.closedOther}</strong>
                 </button>
               )}
@@ -1648,11 +1674,20 @@ export default function Maintenance() {
                       type="button"
                       className="maint-lemon-item-btn"
                       onClick={() => setLogbookAssetCode(item.code)}
-                      title="คลิกเปิดสมุดประวัติการซ่อมของครุภัณฑ์นี้"
+                      title={`${item.code} - ${item.fullName} (${item.room}) — คลิกเปิดสมุดประวัติการซ่อม`}
                     >
-                      <div style={{ minWidth: 0, textAlign: "left" }}>
+                      <div
+                        style={{
+                          minWidth: 0,
+                          flex: 1,
+                          textAlign: "left",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         <span style={{ fontWeight: 700, color: "#0f172a" }}>
-                          {item.shortName}
+                          {item.fullName}
                         </span>{" "}
                         <span style={{ color: "#64748b", fontSize: "0.68rem" }}>
                           ({item.room})
@@ -1725,9 +1760,11 @@ export default function Maintenance() {
               <table className="modern-table">
                 <thead>
                   <tr>
-                    <th style={{ minWidth: "115px" }}>เลขที่แจ้ง</th>
-                    <th style={{ minWidth: "195px" }}>ครุภัณฑ์ / สถานที่</th>
-                    <th style={{ minWidth: "230px" }}>อาการเสีย &amp; บันทึกการซ่อม</th>
+                    <th style={{ minWidth: "130px", whiteSpace: "nowrap" }}>เลขที่แจ้ง</th>
+                    <th style={{ minWidth: "200px" }}>ครุภัณฑ์ / สถานที่</th>
+                    <th style={{ minWidth: "240px", maxWidth: "310px" }}>
+                      อาการเสีย &amp; บันทึกการซ่อม
+                    </th>
                     <th style={{ minWidth: "155px" }}>ช่าง / รูปแบบซ่อม</th>
                     <th style={{ minWidth: "110px" }}>ค่าซ่อม / อะไหล่</th>
                     <th style={{ minWidth: "120px" }}>ผู้แจ้ง</th>
@@ -1825,17 +1862,21 @@ export default function Maintenance() {
                       const isLemonWarning =
                         repeatCount >= 3 || cumulativeAssetCost >= 5000 || t.status === "unrepairable";
                       const sla = getSlaInfo(t);
+                      const isExpanded = Boolean(expandedTicketIds[t.id]);
+                      const hasLongText =
+                        (t.problem || "").length > 65 || (t.technician_note || "").length > 55;
 
                       return (
                         <tr key={t.id}>
-                          {/* 1. Repair No + Urgency */}
-                          <td>
+                          {/* 1. Repair No + Urgency (Single-line repair_no guaranteed) */}
+                          <td style={{ whiteSpace: "nowrap" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                               <span
                                 style={{
                                   fontWeight: 700,
                                   fontFamily: "monospace",
                                   color: "#064e3b",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
                                 {t.repair_no}
@@ -1847,9 +1888,14 @@ export default function Maintenance() {
                             </div>
                           </td>
 
-                          {/* 2. Asset & Location + Clickable Repair Logbook */}
+                          {/* 2. Asset & Location + Clickable Repair Logbook + Full Name Tooltip */}
                           <td>
-                            <div style={{ fontWeight: 700, color: "#0f291e" }}>{t.asset_name}</div>
+                            <div
+                              style={{ fontWeight: 700, color: "#0f291e" }}
+                              title={`${t.asset_name} (${t.location})`}
+                            >
+                              {t.asset_name}
+                            </div>
                             {t.asset_code && t.asset_code !== "-" && (
                               <div
                                 style={{
@@ -1904,25 +1950,73 @@ export default function Maintenance() {
                             </div>
                           </td>
 
-                          {/* 3. Problem + Technician Note + Before/After Photos */}
-                          <td>
-                            <div style={{ fontSize: "0.85rem", color: "#334155", lineHeight: 1.4 }}>
+                          {/* 3. Problem + Technician Note (Compact Clamped with Tooltip & Expand Toggle) */}
+                          <td style={{ maxWidth: 310 }}>
+                            <div
+                              style={{
+                                fontSize: "0.84rem",
+                                color: "#334155",
+                                lineHeight: 1.4,
+                                ...(isExpanded
+                                  ? {}
+                                  : {
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: "vertical",
+                                      overflow: "hidden",
+                                    }),
+                              }}
+                              title={t.problem}
+                            >
                               {t.problem}
                             </div>
                             {t.technician_note && (
                               <div
                                 style={{
                                   marginTop: 5,
-                                  fontSize: "0.76rem",
+                                  fontSize: "0.75rem",
                                   color: "#0369a1",
                                   backgroundColor: "#f0f9ff",
                                   padding: "4px 8px",
                                   borderRadius: "6px",
                                   borderLeft: "3px solid #0284c7",
+                                  ...(isExpanded
+                                    ? {}
+                                    : {
+                                        display: "-webkit-box",
+                                        WebkitLineClamp: 1,
+                                        WebkitBoxOrient: "vertical",
+                                        overflow: "hidden",
+                                      }),
                                 }}
+                                title={`บันทึกช่าง: ${t.technician_note}`}
                               >
                                 <strong>บันทึกช่าง:</strong> {t.technician_note}
                               </div>
+                            )}
+
+                            {hasLongText && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedTicketIds((prev) => ({
+                                    ...prev,
+                                    [t.id]: !prev[t.id],
+                                  }))
+                                }
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  padding: 0,
+                                  marginTop: 4,
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                  color: "#0284c7",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                {isExpanded ? "▲ ย่อข้อความ" : "▼ ดูรายละเอียดเต็ม"}
+                              </button>
                             )}
 
                             {/* Photo Thumbnail Buttons */}
