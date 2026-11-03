@@ -255,22 +255,28 @@ export async function updateAssetStatus(assetCode, newStatus, note = "") {
 }
 
 // ---------------------------------------------------------------------------
-// Image Upload to Supabase Storage
+// Image Upload to Supabase Storage (with automatic compressed Data URL fallback)
 // ---------------------------------------------------------------------------
 export async function uploadAssetImage(file, assetCode) {
-  const ext = file.name.split(".").pop();
-  const fileName = `${assetCode}-${Date.now()}.${ext}`;
-  const { error: uploadError } = await supabase.storage
-    .from("asset-images")
-    .upload(fileName, file, { upsert: true });
+  if (!file) return null;
+  try {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const safeCode = String(assetCode || "asset").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const fileName = `${safeCode}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("asset-images")
+      .upload(fileName, file, { upsert: true });
 
-  if (uploadError) throw uploadError;
-
-  const { data: publicData } = supabase.storage
-    .from("asset-images")
-    .getPublicUrl(fileName);
-
-  return publicData.publicUrl;
+    if (!uploadError) {
+      const { data: publicData } = supabase.storage
+        .from("asset-images")
+        .getPublicUrl(fileName);
+      if (publicData?.publicUrl) return publicData.publicUrl;
+    }
+  } catch {
+    // Fallback to compressed base64 data URL if bucket "asset-images" is not created yet
+  }
+  return await compressImageToDataUrl(file);
 }
 
 // ---------------------------------------------------------------------------

@@ -24,6 +24,7 @@ export default function AssetDetail() {
   const [history, setHistory] = useState([]);
   const [activeBorrow, setActiveBorrow] = useState(null);
   const [error, setError] = useState(null);
+  const [showFullImage, setShowFullImage] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -134,18 +135,19 @@ export default function AssetDetail() {
                 <img
                   src={asset.image_url}
                   alt={asset.name}
+                  onClick={() => setShowFullImage(true)}
                   style={{
                     width: "100%",
                     maxHeight: "360px",
                     objectFit: "contain",
                     display: "block",
                     backgroundColor: "#f8fafc",
+                    cursor: "zoom-in",
                   }}
                 />
-                <a
-                  href={asset.image_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setShowFullImage(true)}
                   style={{
                     position: "absolute",
                     top: 10,
@@ -159,11 +161,13 @@ export default function AssetDetail() {
                     alignItems: "center",
                     gap: 4,
                     backdropFilter: "blur(4px)",
+                    border: "none",
+                    cursor: "pointer",
                   }}
                 >
                   <ExternalLink size={12} />
                   <span>ดูภาพขนาดเต็ม</span>
-                </a>
+                </button>
               </div>
             ) : (
               <div
@@ -336,6 +340,62 @@ export default function AssetDetail() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      {/* Full Image Lightbox Modal */}
+      {showFullImage && asset.image_url && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowFullImage(false)}
+          style={{ zIndex: 100 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "relative",
+              maxWidth: "90vw",
+              maxHeight: "90vh",
+              background: "#0f172a",
+              borderRadius: 16,
+              padding: 12,
+              boxShadow: "0 20px 50px rgba(0,0,0,0.45)",
+            }}
+          >
+            <img
+              src={asset.image_url}
+              alt={asset.name}
+              style={{
+                maxWidth: "86vw",
+                maxHeight: "82vh",
+                objectFit: "contain",
+                display: "block",
+                borderRadius: 10,
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: 10,
+                color: "#ffffff",
+                fontSize: "0.85rem",
+                padding: "0 4px",
+              }}
+            >
+              <span>
+                {asset.name} ({codeStr})
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowFullImage(false)}
+                style={{ padding: "4px 12px", fontSize: "0.8rem" }}
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
           </div>
         </div>
       )}
