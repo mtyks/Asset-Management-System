@@ -1253,18 +1253,6 @@ export default function Maintenance() {
                 marginBottom: 4,
               }}
             >
-              <span
-                style={{
-                  backgroundColor: "#e0f2fe",
-                  color: "#0284c7",
-                  fontSize: "0.76rem",
-                  fontWeight: 700,
-                  padding: "3px 8px",
-                  borderRadius: "6px",
-                }}
-              >
-                SERVICE HELPDESK
-              </span>
               <h1 style={{ margin: 0 }}>รายการแจ้งซ่อมและบำรุงรักษา</h1>
               <span
                 style={{
