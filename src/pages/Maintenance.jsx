@@ -1295,10 +1295,6 @@ export default function Maintenance() {
                 </div>
                 <div>
                   <div className="maint-bento-title">อัตราการซ่อมสำเร็จและสถานะใบงาน</div>
-                  <div className="maint-bento-sub">
-                    ซ่อมเสร็จแล้ว <strong>{counts.completed}</strong> จากทั้งหมด{" "}
-                    <strong>{counts.total}</strong> ใบงาน
-                  </div>
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
@@ -1318,24 +1314,8 @@ export default function Maintenance() {
               </div>
             </div>
 
-            {/* Mini SLA Speed & Queue Summary Box (Eliminates vertical empty gap) */}
+            {/* Labeled Segmented Progress Bar (4 segments mapped 1-to-1 with the 4 badges below) */}
             <div className="maint-cost-mini-chart" style={{ marginBottom: 10 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  fontSize: "0.72rem",
-                  fontWeight: 700,
-                  color: "#475569",
-                  marginBottom: 6,
-                }}
-              >
-                <span>⏱️ เวลาซ่อมเฉลี่ย: <strong style={{ color: "#059669" }}>{avgRepairDays} วัน/งาน</strong></span>
-                <span>🔧 อยู่ระหว่างซ่อม: <strong style={{ color: "#0284c7" }}>{counts.in_progress + counts.pending} งาน</strong></span>
-              </div>
-
-              {/* Labeled Segmented Progress Bar (4 segments mapped 1-to-1 with the 4 badges below) */}
               <div className="maint-labeled-bar">
                 {counts.completed > 0 && (
                   <div
@@ -1365,7 +1345,7 @@ export default function Maintenance() {
                   <div
                     className="maint-bar-seg"
                     style={{
-                      width: `${Math.max(14, pendingPct)}%`,
+                      width: `${Math.max(13, pendingPct)}%`,
                       backgroundColor: "#f59e0b",
                     }}
                     title={`รอรับเรื่อง: ${counts.pending} งาน (${pendingPct}%)`}
@@ -1377,7 +1357,7 @@ export default function Maintenance() {
                   <div
                     className="maint-bar-seg"
                     style={{
-                      width: `${Math.max(15, closedOtherPct)}%`,
+                      width: `${Math.max(20, closedOtherPct)}%`,
                       backgroundColor: "#64748b",
                     }}
                     title={`ไม่สำเร็จ (ซ่อมไม่ได้/ยกเลิก): ${counts.closedOther} งาน (${closedOtherPct}%)`}
@@ -1467,10 +1447,6 @@ export default function Maintenance() {
                 </div>
                 <div>
                   <div className="maint-bento-title">งบประมาณและสัดส่วนค่าซ่อม</div>
-                  <div className="maint-bento-sub">
-                    เฉลี่ย <strong>{avgRepairCost.toLocaleString()} ฿/งาน</strong> (จาก{" "}
-                    <strong>{paidTicketsCount} งาน</strong>ที่มีค่าใช้จ่าย)
-                  </div>
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
