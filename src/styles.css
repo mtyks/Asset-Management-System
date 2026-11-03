@@ -2383,6 +2383,23 @@ input, select, textarea {
 .repair-type-tag.warranty { background: #eff6ff; color: #1d4ed8; }
 .repair-type-tag.external { background: #fef3c7; color: #b45309; }
 
+.table-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.action-btn-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* Printable Job Sheet */
 .job-sheet-paper {
   background: #ffffff;

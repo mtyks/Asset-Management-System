@@ -792,7 +792,7 @@ export default function Maintenance() {
                   <th style={{ minWidth: "110px" }}>ค่าซ่อม / อะไหล่</th>
                   <th style={{ minWidth: "120px" }}>ผู้แจ้ง</th>
                   <th style={{ minWidth: "120px" }}>สถานะ</th>
-                  <th style={{ minWidth: "165px", textAlign: "right" }}>จัดการ</th>
+                  <th style={{ minWidth: "220px", textAlign: "right", whiteSpace: "nowrap" }}>จัดการ</th>
                 </tr>
               </thead>
               <tbody>
@@ -1059,10 +1059,10 @@ export default function Maintenance() {
                         <td>{statusBadge}</td>
 
                         {/* 8. Actions */}
-                        <td>
+                        <td style={{ whiteSpace: "nowrap" }}>
                           <div
                             className="table-actions"
-                            style={{ justifyContent: "flex-end", gap: 6 }}
+                            style={{ justifyContent: "flex-end", gap: 6, flexWrap: "nowrap" }}
                           >
                             <button
                               type="button"
@@ -1075,7 +1075,8 @@ export default function Maintenance() {
                                 border: "1px solid #e2e8f0",
                                 display: "inline-flex",
                                 alignItems: "center",
-                                gap: 4,
+                                gap: 5,
+                                whiteSpace: "nowrap",
                               }}
                             >
                               <Printer size={13} />
@@ -1086,6 +1087,7 @@ export default function Maintenance() {
                               className="action-btn-link"
                               onClick={() => handleOpenUpdate(t)}
                               title="อัปเดตสถานะ / บันทึกช่าง / ค่าซ่อม"
+                              style={{ whiteSpace: "nowrap" }}
                             >
                               อัปเดตงาน
                             </button>
@@ -1094,6 +1096,7 @@ export default function Maintenance() {
                               className="action-btn-link danger"
                               onClick={() => handleDeleteTicket(t)}
                               title="ลบคำขอแจ้งซ่อม"
+                              style={{ whiteSpace: "nowrap" }}
                             >
                               ลบ
                             </button>
