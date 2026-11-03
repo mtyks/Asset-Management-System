@@ -3135,3 +3135,15 @@ input, select, textarea {
   white-space: nowrap;
   flex-shrink: 0;
 }
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-header > .action-btn-link {
+  flex-shrink: 0;
+  margin-left: auto;
+}
