@@ -1035,7 +1035,7 @@ export default function Maintenance() {
     URL.revokeObjectURL(url);
   };
 
-  // Calculate Summary Metrics
+  // Calculate Summary Metrics & Non-Repetitive Analytical Insights
   const counts = {
     total: tickets.length,
     pending: tickets.filter((t) => t.status === "pending").length,
@@ -1043,9 +1043,42 @@ export default function Maintenance() {
       (t) => t.status === "in_progress" || t.status === "waiting_parts"
     ).length,
     completed: tickets.filter((t) => t.status === "completed").length,
+    closedOther: tickets.filter(
+      (t) => t.status === "unrepairable" || t.status === "cancelled"
+    ).length,
     overdue: tickets.filter((t) => getSlaInfo(t).isOverdue).length,
+    criticalActive: tickets.filter(
+      (t) =>
+        t.urgency === "critical" &&
+        t.status !== "completed" &&
+        t.status !== "cancelled"
+    ).length,
     totalCost: tickets.reduce((sum, t) => sum + (Number(t.repair_cost) || 0), 0),
+    internalCount: tickets.filter((t) => (t.repair_type || "internal") === "internal").length,
+    warrantyCount: tickets.filter((t) => t.repair_type === "warranty").length,
+    externalCount: tickets.filter((t) => t.repair_type === "external").length,
   };
+
+  const paidTicketsCount = tickets.filter((t) => Number(t.repair_cost) > 0).length;
+  const avgRepairCost =
+    paidTicketsCount > 0 ? Math.round(counts.totalCost / paidTicketsCount) : 0;
+
+  const completionRate =
+    counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+  const pendingPct = counts.total > 0 ? Math.round((counts.pending / counts.total) * 100) : 0;
+  const activePct = counts.total > 0 ? Math.round((counts.in_progress / counts.total) * 100) : 0;
+  const completedPct =
+    counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+
+  // Identify unique assets that trigger the Lemon / Replacement alert
+  const lemonAssetsList = Object.keys(assetRepairCountMap).filter((code) => {
+    const repCount = assetRepairCountMap[code] || 0;
+    const repCost = assetRepairCostMap[code] || 0;
+    const hasUnrep = tickets.some(
+      (t) => t.asset_code === code && t.status === "unrepairable"
+    );
+    return repCount >= 3 || repCost >= 5000 || hasUnrep;
+  });
 
   return (
     <div className="maintenance-layout">
@@ -1192,89 +1225,285 @@ export default function Maintenance() {
           </div>
         </div>
 
-        {/* 2. Stat Summary Cards Grid (5 cards including Total Repair Cost) */}
-        <div className="maintenance-kpi-grid">
-          {/* Total */}
-          <div className="stat-box">
-            <div className="stat-box-icon total">
-              <Wrench size={22} />
-            </div>
-            <div className="stat-box-body">
-              <div className="stat-box-label">คำขอแจ้งซ่อมทั้งหมด</div>
-              <div className="stat-box-val-row">
-                <span className="stat-box-number">{counts.total}</span>
-                <span className="stat-box-unit">รายการ</span>
+        {/* 2. Maintenance Executive Overview (3 Non-Repetitive Analytical Panels) */}
+        <div className="maint-overview-bento">
+          {/* Panel 1: ภาพรวมความคืบหน้า & อัตราปิดงานซ่อม (Progress & Segmented Bar) */}
+          <div className="maint-bento-card">
+            <div className="maint-bento-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  className="maint-bento-icon"
+                  style={{ backgroundColor: "#e0f2fe", color: "#0284c7" }}
+                >
+                  <Wrench size={19} />
+                </div>
+                <div>
+                  <div className="maint-bento-title">ความคืบหน้าการซ่อมบำรุง</div>
+                  <div className="maint-bento-sub">
+                    ทั้งหมด <strong>{counts.total}</strong> ใบงานในระบบ
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* Pending */}
-          <div className="stat-box">
-            <div
-              className="stat-box-icon"
-              style={{ backgroundColor: "#fef3c7", color: "#d97706" }}
-            >
-              <Clock size={22} />
-            </div>
-            <div className="stat-box-body">
-              <div className="stat-box-label">รอดำเนินการ (Pending)</div>
-              <div className="stat-box-val-row">
-                <span className="stat-box-number" style={{ color: "#d97706" }}>
-                  {counts.pending}
+              <div style={{ textAlign: "right" }}>
+                <span
+                  style={{
+                    fontSize: "1.45rem",
+                    fontWeight: 800,
+                    color: "#059669",
+                    lineHeight: 1,
+                  }}
+                >
+                  {completionRate}%
                 </span>
-                <span className="stat-box-unit">รายการ</span>
+                <div style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>
+                  อัตราปิดงานสำเร็จ
+                </div>
               </div>
+            </div>
+
+            {/* Segmented Progress Bar */}
+            <div className="dash-segmented-bar" style={{ height: 10, marginBottom: 12 }}>
+              <div
+                style={{
+                  width: `${Math.max(counts.completed > 0 ? 8 : 0, completedPct)}%`,
+                  backgroundColor: "#10b981",
+                }}
+                title={`ซ่อมเสร็จสิ้น: ${counts.completed} รายการ`}
+              />
+              <div
+                style={{
+                  width: `${Math.max(counts.in_progress > 0 ? 8 : 0, activePct)}%`,
+                  backgroundColor: "#0284c7",
+                }}
+                title={`กำลังซ่อม/รออะไหล่: ${counts.in_progress} รายการ`}
+              />
+              <div
+                style={{
+                  width: `${Math.max(counts.pending > 0 ? 8 : 0, pendingPct)}%`,
+                  backgroundColor: "#f59e0b",
+                }}
+                title={`รอดำเนินการ: ${counts.pending} รายการ`}
+              />
+              {counts.closedOther > 0 && (
+                <div
+                  style={{
+                    width: `${Math.max(
+                      6,
+                      Math.round((counts.closedOther / counts.total) * 100)
+                    )}%`,
+                    backgroundColor: "#ef4444",
+                  }}
+                  title={`ซ่อมไม่ได้/ยกเลิก: ${counts.closedOther} รายการ`}
+                />
+              )}
+            </div>
+
+            {/* Interactive Status Filter Chips */}
+            <div className="maint-mini-chips">
+              <button
+                type="button"
+                className={`maint-chip-btn ${statusFilter === "all" ? "active" : ""}`}
+                onClick={() => setStatusFilter("all")}
+              >
+                <span>ทั้งหมด</span>
+                <strong>{counts.total}</strong>
+              </button>
+              <button
+                type="button"
+                className={`maint-chip-btn ${statusFilter === "pending" ? "active" : ""}`}
+                onClick={() =>
+                  setStatusFilter(statusFilter === "pending" ? "all" : "pending")
+                }
+              >
+                <span className="dot" style={{ backgroundColor: "#f59e0b" }} />
+                <span>รอรับเรื่อง</span>
+                <strong>{counts.pending}</strong>
+              </button>
+              <button
+                type="button"
+                className={`maint-chip-btn ${statusFilter === "in_progress" ? "active" : ""}`}
+                onClick={() =>
+                  setStatusFilter(statusFilter === "in_progress" ? "all" : "in_progress")
+                }
+              >
+                <span className="dot" style={{ backgroundColor: "#0284c7" }} />
+                <span>กำลังซ่อม/รออะไหล่</span>
+                <strong>{counts.in_progress}</strong>
+              </button>
+              <button
+                type="button"
+                className={`maint-chip-btn ${statusFilter === "completed" ? "active" : ""}`}
+                onClick={() =>
+                  setStatusFilter(statusFilter === "completed" ? "all" : "completed")
+                }
+              >
+                <span className="dot" style={{ backgroundColor: "#10b981" }} />
+                <span>เสร็จสิ้น</span>
+                <strong>{counts.completed}</strong>
+              </button>
             </div>
           </div>
 
-          {/* In Progress / Waiting Parts */}
-          <div className="stat-box">
-            <div
-              className="stat-box-icon"
-              style={{ backgroundColor: "#e0f2fe", color: "#0284c7" }}
-            >
-              <Flame size={22} />
-            </div>
-            <div className="stat-box-body">
-              <div className="stat-box-label">กำลังซ่อม / รออะไหล่</div>
-              <div className="stat-box-val-row">
-                <span className="stat-box-number" style={{ color: "#0284c7" }}>
-                  {counts.in_progress}
-                </span>
-                <span className="stat-box-unit">รายการ</span>
+          {/* Panel 2: งบประมาณซ่อม & สัดส่วนช่องทางซ่อม (Cost & Channel Breakdown) */}
+          <div className="maint-bento-card">
+            <div className="maint-bento-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  className="maint-bento-icon"
+                  style={{ backgroundColor: "#f3e8ff", color: "#7c3aed" }}
+                >
+                  <Banknote size={19} />
+                </div>
+                <div>
+                  <div className="maint-bento-title">งบประมาณและช่องทางการซ่อม</div>
+                  <div className="maint-bento-sub">
+                    เฉลี่ย <strong>{avgRepairCost.toLocaleString()} ฿</strong> ต่อใบงานที่มีค่าใช้จ่าย
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* Completed */}
-          <div className="stat-box">
-            <div className="stat-box-icon normal">
-              <CheckCircle2 size={22} />
-            </div>
-            <div className="stat-box-body">
-              <div className="stat-box-label">ซ่อมเสร็จสิ้นแล้ว</div>
-              <div className="stat-box-val-row">
-                <span className="stat-box-number normal">{counts.completed}</span>
-                <span className="stat-box-unit">รายการ</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Total Repair Cost */}
-          <div className="stat-box">
-            <div
-              className="stat-box-icon"
-              style={{ backgroundColor: "#f3e8ff", color: "#7c3aed" }}
-            >
-              <Banknote size={22} />
-            </div>
-            <div className="stat-box-body">
-              <div className="stat-box-label">งบประมาณซ่อมสะสม</div>
-              <div className="stat-box-val-row">
-                <span className="stat-box-number" style={{ color: "#7c3aed", fontSize: "1.45rem" }}>
+              <div style={{ textAlign: "right" }}>
+                <span
+                  style={{
+                    fontSize: "1.4rem",
+                    fontWeight: 800,
+                    color: "#7c3aed",
+                    lineHeight: 1,
+                  }}
+                >
                   {counts.totalCost.toLocaleString()}
                 </span>
-                <span className="stat-box-unit">บาท</span>
+                <div style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>
+                  บาท (สะสมรวม)
+                </div>
+              </div>
+            </div>
+
+            <div className="maint-channel-grid">
+              <button
+                type="button"
+                className={`maint-channel-box ${
+                  repairTypeFilter === "internal" ? "active" : ""
+                }`}
+                onClick={() =>
+                  setRepairTypeFilter(repairTypeFilter === "internal" ? "all" : "internal")
+                }
+              >
+                <span className="maint-channel-label">🔧 ซ่อมเองภายใน</span>
+                <strong className="maint-channel-val">{counts.internalCount} งาน</strong>
+              </button>
+
+              <button
+                type="button"
+                className={`maint-channel-box ${
+                  repairTypeFilter === "warranty" ? "active" : ""
+                }`}
+                onClick={() =>
+                  setRepairTypeFilter(repairTypeFilter === "warranty" ? "all" : "warranty")
+                }
+              >
+                <span className="maint-channel-label">🛡️ เคลมประกันศูนย์</span>
+                <strong className="maint-channel-val">{counts.warrantyCount} งาน</strong>
+              </button>
+
+              <button
+                type="button"
+                className={`maint-channel-box ${
+                  repairTypeFilter === "external" ? "active" : ""
+                }`}
+                onClick={() =>
+                  setRepairTypeFilter(repairTypeFilter === "external" ? "all" : "external")
+                }
+              >
+                <span className="maint-channel-label">🏢 ส่งร้านภายนอก</span>
+                <strong className="maint-channel-val">{counts.externalCount} งาน</strong>
+              </button>
+            </div>
+          </div>
+
+          {/* Panel 3: แจ้งเตือนงานเร่งด่วน & ครุภัณฑ์ซ่อมไม่คุ้ม (SLA & Lemon Watchlist) */}
+          <div className="maint-bento-card">
+            <div className="maint-bento-header" style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  className="maint-bento-icon"
+                  style={{ backgroundColor: "#fef2f2", color: "#dc2626" }}
+                >
+                  <AlertTriangle size={19} />
+                </div>
+                <div>
+                  <div className="maint-bento-title">เฝ้าระวัง SLA &amp; ความคุ้มค่า</div>
+                  <div className="maint-bento-sub">คลิกเพื่อกรองงานด่วนหรือดูสมุดประวัติ</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="maint-alert-row-grid">
+              <button
+                type="button"
+                className={`maint-alert-pill overdue ${
+                  statusFilter === "overdue" ? "active" : ""
+                }`}
+                onClick={() =>
+                  setStatusFilter(statusFilter === "overdue" ? "all" : "overdue")
+                }
+              >
+                <div>
+                  <div style={{ fontSize: "0.73rem", fontWeight: 700 }}>⚠️ งานเกินกำหนด</div>
+                  <div style={{ fontSize: "0.68rem", opacity: 0.85 }}>เลยวันนัดส่งคืน</div>
+                </div>
+                <span className="maint-alert-count">{counts.overdue}</span>
+              </button>
+
+              <button
+                type="button"
+                className={`maint-alert-pill critical ${
+                  urgencyFilter === "critical" ? "active" : ""
+                }`}
+                onClick={() =>
+                  setUrgencyFilter(urgencyFilter === "critical" ? "all" : "critical")
+                }
+              >
+                <div>
+                  <div style={{ fontSize: "0.73rem", fontWeight: 700 }}>🔥 ด่วนที่สุด</div>
+                  <div style={{ fontSize: "0.68rem", opacity: 0.85 }}>รอดำเนินการด่วน</div>
+                </div>
+                <span className="maint-alert-count">{counts.criticalActive}</span>
+              </button>
+            </div>
+
+            {/* Lemon Assets Quick Access */}
+            <div className="maint-lemon-strip">
+              <span style={{ fontSize: "0.73rem", fontWeight: 700, color: "#991b1b" }}>
+                🚨 ครุภัณฑ์ซ่อมบ่อย/ไม่คุ้มซ่อม ({lemonAssetsList.length}):
+              </span>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
+                {lemonAssetsList.length === 0 ? (
+                  <span style={{ fontSize: "0.72rem", color: "#059669", fontWeight: 600 }}>
+                    ไม่มีเครื่องที่เข้าเกณฑ์เสี่ยง
+                  </span>
+                ) : (
+                  lemonAssetsList.map((code) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setLogbookAssetCode(code)}
+                      style={{
+                        fontSize: "0.7rem",
+                        fontFamily: "monospace",
+                        fontWeight: 700,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        backgroundColor: "#ffffff",
+                        color: "#dc2626",
+                        border: "1px solid #fecaca",
+                        cursor: "pointer",
+                      }}
+                      title="คลิกเปิดสมุดประวัติการซ่อมของครุภัณฑ์นี้"
+                    >
+                      {code} ({assetRepairCountMap[code]} ครั้ง)
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
