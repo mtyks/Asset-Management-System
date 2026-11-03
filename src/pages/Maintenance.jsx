@@ -8,7 +8,6 @@ import {
   saveMaintenanceTicketToCloud,
   deleteMaintenanceTicketFromCloud,
   uploadRepairPhoto,
-  resetMaintenanceTicketsToMock,
 } from "../lib/queries";
 import {
   Wrench,
@@ -39,7 +38,6 @@ import {
   Columns,
   Table as TableIcon,
   Timer,
-  RotateCcw,
 } from "lucide-react";
 
 const QR_MODAL_SCANNER_ID = "maintenance-qr-reader";
@@ -1173,27 +1171,6 @@ export default function Maintenance() {
                 <span>กระดานสถานะ (Kanban)</span>
               </button>
             </div>
-
-            <button
-              type="button"
-              className="btn btn-outline-white"
-              onClick={async () => {
-                const reloaded = await resetMaintenanceTicketsToMock(DEFAULT_TICKETS);
-                setTickets(reloaded);
-              }}
-              style={{
-                fontSize: "0.82rem",
-                padding: "8px 14px",
-                borderColor: "#cbd5e1",
-                color: "#334155",
-                fontWeight: 600,
-                whiteSpace: "nowrap",
-              }}
-              title="รีเซ็ตและโหลดข้อมูลตัวอย่าง 12 เคสครบทุกรูปแบบ"
-            >
-              <RotateCcw size={15} color="#0284c7" />
-              <span>โหลดข้อมูลตัวอย่าง (12 เคส)</span>
-            </button>
 
             <button
               type="button"
