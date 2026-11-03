@@ -1314,84 +1314,122 @@ export default function Maintenance() {
               </div>
             </div>
 
-            {/* Labeled Segmented Progress Bar (4 segments mapped 1-to-1 with the 4 badges below) */}
-            <div className="maint-cost-mini-chart" style={{ marginBottom: 10 }}>
-              <div className="maint-labeled-bar">
+            {/* Sleek Proportional Progress Bar Box */}
+            <div className="maint-cost-mini-chart">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  fontSize: "0.71rem",
+                  fontWeight: 700,
+                  color: "#475569",
+                  marginBottom: 6,
+                }}
+              >
+                <span>📋 ใบงานทั้งหมด: <strong style={{ color: "#0f172a" }}>{counts.total} งาน</strong></span>
+                {statusFilter !== "all" ? (
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter("all")}
+                    style={{
+                      border: "none",
+                      background: "#e2e8f0",
+                      color: "#0f172a",
+                      borderRadius: 999,
+                      padding: "1px 8px",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    ล้างตัวกรอง ✕
+                  </button>
+                ) : (
+                  <span style={{ color: "#64748b", fontWeight: 600 }}>คลิกเลือกสถานะเพื่อกรอง</span>
+                )}
+              </div>
+
+              <div className="maint-modern-progress">
                 {counts.completed > 0 && (
                   <div
-                    className="maint-bar-seg"
-                    style={{
-                      width: `${Math.max(15, completedPct)}%`,
-                      backgroundColor: "#10b981",
-                    }}
-                    title={`ซ่อมเสร็จสิ้น: ${counts.completed} งาน (${completedPct}%)`}
-                  >
-                    <span>เสร็จ {counts.completed}</span>
-                  </div>
+                    className={`maint-modern-seg seg-completed ${
+                      statusFilter === "completed" ? "active" : ""
+                    }`}
+                    style={{ flex: counts.completed }}
+                    onClick={() =>
+                      setStatusFilter(statusFilter === "completed" ? "all" : "completed")
+                    }
+                    title={`เสร็จสิ้น: ${counts.completed} งาน (${completedPct}%)`}
+                  />
                 )}
                 {counts.in_progress > 0 && (
                   <div
-                    className="maint-bar-seg"
-                    style={{
-                      width: `${Math.max(15, activePct)}%`,
-                      backgroundColor: "#0284c7",
-                    }}
-                    title={`กำลังซ่อม/รออะไหล่: ${counts.in_progress} งาน (${activePct}%)`}
-                  >
-                    <span>กำลังซ่อม {counts.in_progress}</span>
-                  </div>
+                    className={`maint-modern-seg seg-progress ${
+                      statusFilter === "in_progress_group" ? "active" : ""
+                    }`}
+                    style={{ flex: counts.in_progress }}
+                    onClick={() =>
+                      setStatusFilter(
+                        statusFilter === "in_progress_group" ? "all" : "in_progress_group"
+                      )
+                    }
+                    title={`กำลังซ่อม: ${counts.in_progress} งาน (${activePct}%)`}
+                  />
                 )}
                 {counts.pending > 0 && (
                   <div
-                    className="maint-bar-seg"
-                    style={{
-                      width: `${Math.max(13, pendingPct)}%`,
-                      backgroundColor: "#f59e0b",
-                    }}
+                    className={`maint-modern-seg seg-pending ${
+                      statusFilter === "pending" ? "active" : ""
+                    }`}
+                    style={{ flex: counts.pending }}
+                    onClick={() =>
+                      setStatusFilter(statusFilter === "pending" ? "all" : "pending")
+                    }
                     title={`รอรับเรื่อง: ${counts.pending} งาน (${pendingPct}%)`}
-                  >
-                    <span>รอ {counts.pending}</span>
-                  </div>
+                  />
                 )}
                 {counts.closedOther > 0 && (
                   <div
-                    className="maint-bar-seg"
-                    style={{
-                      width: `${Math.max(20, closedOtherPct)}%`,
-                      backgroundColor: "#64748b",
-                    }}
-                    title={`ไม่สำเร็จ (ซ่อมไม่ได้/ยกเลิก): ${counts.closedOther} งาน (${closedOtherPct}%)`}
-                  >
-                    <span>ไม่สำเร็จ {counts.closedOther}</span>
-                  </div>
+                    className={`maint-modern-seg seg-failed ${
+                      statusFilter === "closed_other" ? "active" : ""
+                    }`}
+                    style={{ flex: counts.closedOther }}
+                    onClick={() =>
+                      setStatusFilter(
+                        statusFilter === "closed_other" ? "all" : "closed_other"
+                      )
+                    }
+                    title={`ไม่สำเร็จ: ${counts.closedOther} งาน (${closedOtherPct}%)`}
+                  />
                 )}
               </div>
             </div>
 
-            {/* Interactive Status Filter Chips (Exact 1-to-1 Color & Count Match) */}
-            <div className="maint-mini-chips">
+            {/* 4-Column Interactive Status Breakdown Grid */}
+            <div className="maint-status-grid">
               <button
                 type="button"
-                className={`maint-chip-btn ${statusFilter === "all" ? "active" : ""}`}
-                onClick={() => setStatusFilter("all")}
-              >
-                <span>ทั้งหมด</span>
-                <strong>{counts.total}</strong>
-              </button>
-              <button
-                type="button"
-                className={`maint-chip-btn ${statusFilter === "completed" ? "active" : ""}`}
+                className={`maint-status-box completed ${
+                  statusFilter === "completed" ? "active" : ""
+                }`}
                 onClick={() =>
                   setStatusFilter(statusFilter === "completed" ? "all" : "completed")
                 }
               >
-                <span className="dot" style={{ backgroundColor: "#10b981" }} />
-                <span>เสร็จสิ้น</span>
-                <strong>{counts.completed}</strong>
+                <span className="maint-status-box-label">
+                  <span className="dot" style={{ backgroundColor: "#10b981" }} />
+                  เสร็จสิ้น
+                </span>
+                <strong className="maint-channel-val">{counts.completed} งาน</strong>
+                <span style={{ fontSize: "0.69rem", color: "#059669", fontWeight: 700 }}>
+                  {completedPct}%
+                </span>
               </button>
+
               <button
                 type="button"
-                className={`maint-chip-btn ${
+                className={`maint-status-box progress ${
                   statusFilter === "in_progress_group" ? "active" : ""
                 }`}
                 onClick={() =>
@@ -1400,44 +1438,61 @@ export default function Maintenance() {
                   )
                 }
               >
-                <span className="dot" style={{ backgroundColor: "#0284c7" }} />
-                <span>กำลังซ่อม</span>
-                <strong>{counts.in_progress}</strong>
+                <span className="maint-status-box-label">
+                  <span className="dot" style={{ backgroundColor: "#0284c7" }} />
+                  กำลังซ่อม
+                </span>
+                <strong className="maint-channel-val">{counts.in_progress} งาน</strong>
+                <span style={{ fontSize: "0.69rem", color: "#0284c7", fontWeight: 700 }}>
+                  {activePct}%
+                </span>
               </button>
+
               <button
                 type="button"
-                className={`maint-chip-btn ${statusFilter === "pending" ? "active" : ""}`}
+                className={`maint-status-box pending ${
+                  statusFilter === "pending" ? "active" : ""
+                }`}
                 onClick={() =>
                   setStatusFilter(statusFilter === "pending" ? "all" : "pending")
                 }
               >
-                <span className="dot" style={{ backgroundColor: "#f59e0b" }} />
-                <span>รอรับเรื่อง</span>
-                <strong>{counts.pending}</strong>
+                <span className="maint-status-box-label">
+                  <span className="dot" style={{ backgroundColor: "#f59e0b" }} />
+                  รอรับเรื่อง
+                </span>
+                <strong className="maint-channel-val">{counts.pending} งาน</strong>
+                <span style={{ fontSize: "0.69rem", color: "#d97706", fontWeight: 700 }}>
+                  {pendingPct}%
+                </span>
               </button>
-              {counts.closedOther > 0 && (
-                <button
-                  type="button"
-                  className={`maint-chip-btn ${
-                    statusFilter === "closed_other" ? "active" : ""
-                  }`}
-                  onClick={() =>
-                    setStatusFilter(
-                      statusFilter === "closed_other" ? "all" : "closed_other"
-                    )
-                  }
-                >
+
+              <button
+                type="button"
+                className={`maint-status-box failed ${
+                  statusFilter === "closed_other" ? "active" : ""
+                }`}
+                onClick={() =>
+                  setStatusFilter(
+                    statusFilter === "closed_other" ? "all" : "closed_other"
+                  )
+                }
+              >
+                <span className="maint-status-box-label">
                   <span className="dot" style={{ backgroundColor: "#64748b" }} />
-                  <span>ไม่สำเร็จ</span>
-                  <strong>{counts.closedOther}</strong>
-                </button>
-              )}
+                  ไม่สำเร็จ
+                </span>
+                <strong className="maint-channel-val">{counts.closedOther} งาน</strong>
+                <span style={{ fontSize: "0.69rem", color: "#64748b", fontWeight: 700 }}>
+                  {closedOtherPct}%
+                </span>
+              </button>
             </div>
           </div>
 
           {/* Panel 2: งบประมาณซ่อม & Mini Chart สัดส่วนค่าใช้จ่ายแต่ละช่องทาง */}
           <div className="maint-bento-card">
-            <div className="maint-bento-header" style={{ marginBottom: 10 }}>
+            <div className="maint-bento-header">
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div
                   className="maint-bento-icon"

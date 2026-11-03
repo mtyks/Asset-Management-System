@@ -2848,76 +2848,117 @@ input, select, textarea {
   transition: width 0.4s ease;
 }
 
-/* Labeled 1-to-1 Mapped Progress Bar */
-.maint-labeled-bar {
-  height: 24px;
+/* Sleek Proportional Segmented Progress Bar */
+.maint-modern-progress {
+  height: 10px;
   width: 100%;
-  background: #f1f5f9;
-  border-radius: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
   overflow: hidden;
   display: flex;
-  gap: 2px;
+  gap: 3px;
 }
 
-.maint-bar-seg {
+.maint-modern-seg {
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  font-size: 0.7rem;
-  font-weight: 800;
-  white-space: nowrap;
-  overflow: hidden;
-  padding: 0 6px;
-  transition: width 0.4s ease;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.maint-modern-seg:hover {
+  filter: brightness(1.08);
+  transform: scaleY(1.15);
+}
+
+.maint-modern-seg.seg-completed {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.maint-modern-seg.seg-progress {
+  background: linear-gradient(90deg, #38bdf8, #0284c7);
+}
+
+.maint-modern-seg.seg-pending {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+.maint-modern-seg.seg-failed {
+  background: linear-gradient(90deg, #94a3b8, #64748b);
 }
 
 /* Mini Cost Chart inside Budget Panel */
 .maint-cost-mini-chart {
   background: #f8fafc;
-  border: 1px solid #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 8px 12px;
-  margin-bottom: 10px;
+  padding: 9px 12px;
+  margin-bottom: 0;
 }
 
-.maint-mini-chips {
-  display: flex;
-  flex-wrap: wrap;
+/* 4-Column Status Breakdown Grid (Harmonized with Budget Channel Grid) */
+.maint-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
 }
 
-.maint-chip-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-size: 0.73rem;
-  font-weight: 600;
-  color: #334155;
+.maint-status-box {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 4px;
+  text-align: center;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   transition: all 0.15s ease;
 }
 
-.maint-chip-btn:hover {
-  background: #f1f5f9;
+.maint-status-box:hover {
+  background: #ffffff;
   border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
 }
 
-.maint-chip-btn.active {
-  background: #0f291e;
-  color: #ffffff;
-  border-color: #0f291e;
+.maint-status-box.completed.active {
+  background: #ecfdf5;
+  border-color: #10b981;
 }
 
-.maint-chip-btn .dot {
+.maint-status-box.progress.active {
+  background: #f0f9ff;
+  border-color: #0284c7;
+}
+
+.maint-status-box.pending.active {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+.maint-status-box.failed.active {
+  background: #f1f5f9;
+  border-color: #64748b;
+}
+
+.maint-status-box-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: #475569;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.maint-status-box-label .dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .maint-channel-grid {
