@@ -587,7 +587,19 @@ export async function importAssetsBatch(rawItems, onProgress) {
 // ---------------------------------------------------------------------------
 // Maintenance & Helpdesk Tickets (Supabase Cloud + LocalStorage Hybrid Sync)
 // ---------------------------------------------------------------------------
-const MAINTENANCE_STORAGE_KEY = "asset_maintenance_tickets";
+const MAINTENANCE_STORAGE_KEY = "asset_maintenance_tickets_v2";
+
+export async function resetMaintenanceTicketsToMock(defaultTickets = []) {
+  try {
+    localStorage.setItem(MAINTENANCE_STORAGE_KEY, JSON.stringify(defaultTickets));
+  } catch {}
+  if (isConfigured && defaultTickets.length > 0) {
+    try {
+      await supabase.from("maintenance_tickets").upsert(defaultTickets, { onConflict: "id" });
+    } catch {}
+  }
+  return defaultTickets;
+}
 
 export function compressImageToDataUrl(file, maxWidth = 900, quality = 0.78) {
   return new Promise((resolve, reject) => {
@@ -659,15 +671,23 @@ export async function fetchMaintenanceTickets(defaultTickets = []) {
         .order("created_at", { ascending: false });
 
       if (!error && Array.isArray(data)) {
-        if (data.length > 0) {
+        if (data.length > 0 && data.length >= defaultTickets.length) {
           try {
             localStorage.setItem(MAINTENANCE_STORAGE_KEY, JSON.stringify(data));
           } catch {}
           return { tickets: data, isCloudSynced: true };
         } else if (localTickets.length > 0) {
-          // Seed existing local tickets to Supabase table
-          await supabase.from("maintenance_tickets").upsert(localTickets, { onConflict: "id" });
-          return { tickets: localTickets, isCloudSynced: true };
+          // Seed or merge default mock tickets to Supabase table
+          const existingIds = new Set(data.map((d) => String(d.id)));
+          const merged = [
+            ...data,
+            ...localTickets.filter((t) => !existingIds.has(String(t.id))),
+          ];
+          await supabase.from("maintenance_tickets").upsert(merged, { onConflict: "id" });
+          try {
+            localStorage.setItem(MAINTENANCE_STORAGE_KEY, JSON.stringify(merged));
+          } catch {}
+          return { tickets: merged, isCloudSynced: true };
         }
         return { tickets: [], isCloudSynced: true };
       }

@@ -8,6 +8,7 @@ import {
   saveMaintenanceTicketToCloud,
   deleteMaintenanceTicketFromCloud,
   uploadRepairPhoto,
+  resetMaintenanceTicketsToMock,
 } from "../lib/queries";
 import {
   Wrench,
@@ -38,6 +39,7 @@ import {
   Columns,
   Table as TableIcon,
   Timer,
+  RotateCcw,
 } from "lucide-react";
 
 const QR_MODAL_SCANNER_ID = "maintenance-qr-reader";
@@ -48,62 +50,303 @@ const QUICK_TECHNICIANS = [
   "ช่างเทคนิคพัสดุกลาง",
 ];
 
-// Sample initial data with enriched fields
+// Helper to create clean SVG illustration data URLs for mock Before/After photos
+function createMockPhotoSvg(title, subtitle, bgColor, accentColor) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420">
+    <rect width="640" height="420" rx="16" fill="${bgColor}"/>
+    <rect x="24" y="24" width="592" height="372" rx="12" fill="#ffffff" stroke="${accentColor}" stroke-width="3" stroke-dasharray="8 6"/>
+    <circle cx="320" cy="155" r="52" fill="${bgColor}" stroke="${accentColor}" stroke-width="3"/>
+    <text x="320" y="168" font-family="sans-serif" font-size="36" text-anchor="middle" fill="${accentColor}">📷</text>
+    <text x="320" y="255" font-family="sans-serif" font-size="22" font-weight="bold" text-anchor="middle" fill="#0f172a">${title}</text>
+    <text x="320" y="292" font-family="sans-serif" font-size="16" text-anchor="middle" fill="#475569">${subtitle}</text>
+    <text x="320" y="345" font-family="monospace" font-size="13" text-anchor="middle" fill="${accentColor}">Asset Management &amp; Maintenance System</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+// Comprehensive Mock Data covering 12 realistic scenarios
 const DEFAULT_TICKETS = [
+  // --- กลุ่มที่ 1: ครุภัณฑ์ซ่อมซ้ำซาก 3 ครั้ง + งบสะสมเกิน 5,000 บาท (A-2569-1001) ---
   {
-    id: "1",
-    repair_no: "RP-2569-001",
+    id: "mock-9",
+    repair_no: "RP-2569-009",
     asset_code: "A-2569-1001",
     asset_name: "คอมพิวเตอร์ All-in-One Dell OptiPlex",
-    problem: "เปิดเครื่องแล้วจอไม่ติด มีเสียง Beep Code 3 ครั้ง พัดลมหมุนดังผิดปกติ",
-    urgency: "urgent",
-    location: "ห้องธุรการและสารบรรณ",
+    problem: "เปิดเครื่องแล้วจอไม่ติด มีเสียง Beep Code 3 ครั้ง คาดว่าภาคจ่ายไฟเมนบอร์ดช็อต (เสียครั้งที่ 3)",
+    urgency: "critical",
+    location: "ห้องธุรการและสารบรรณ (ชั้น 1)",
     reporter_name: "สมศรี พูนสุข",
     reporter_contact: "081-234-5678 (ต่อ 102)",
     status: "in_progress",
     repair_type: "internal",
     technician_name: "ทีมช่างไอทีและคอมพิวเตอร์",
     vendor_name: "",
-    expected_date: new Date(Date.now() + 86400000 * 1).toISOString().slice(0, 10),
-    repair_cost: 450,
-    parts_used: "ซิลิโคนระบายความร้อน CPU, สเปรย์ทำความสะอาดแผงวงจร",
-    technician_note: "ตรวจพบ RAM หลวมและมีฝุ่นสะสม กำลังทำความสะอาดและทดสอบ Boot เครื่อง",
-    before_image_url: "",
+    expected_date: new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10), // Overdue 2 days!
+    repair_cost: 2500,
+    parts_used: "ชุด IC ภาคจ่ายไฟ Mainboard และ RAM DDR4 8GB",
+    technician_note: "ตรวจพบคาปาซิเตอร์บวมและชิปจ่ายไฟช็อต กำลังรออะไหล่เปลี่ยนและทดสอบความเสถียร",
+    before_image_url: createMockPhotoSvg(
+      "รูปก่อนซ่อม: RP-2569-009",
+      "เมนบอร์ดช็อต มีเสียงเตือน Beep 3 ครั้ง (A-2569-1001)",
+      "#fef2f2",
+      "#dc2626"
+    ),
     after_image_url: "",
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
     completed_at: null,
   },
   {
-    id: "2",
-    repair_no: "RP-2569-002",
+    id: "mock-5",
+    repair_no: "RP-2569-005",
+    asset_code: "A-2569-1001",
+    asset_name: "คอมพิวเตอร์ All-in-One Dell OptiPlex",
+    problem: "เครื่องดับเองขณะใช้งานและมีกลิ่นไหม้จากหม้อแปลง Power Supply ด้านหลัง",
+    urgency: "urgent",
+    location: "ห้องธุรการและสารบรรณ (ชั้น 1)",
+    reporter_name: "สมศรี พูนสุข",
+    reporter_contact: "081-234-5678 (ต่อ 102)",
+    status: "completed",
+    repair_type: "external",
+    technician_name: "ทีมช่างไอทีและคอมพิวเตอร์",
+    vendor_name: "ร้านไอที เซอร์วิส เซ็นเตอร์",
+    expected_date: new Date(Date.now() - 86400000 * 14).toISOString().slice(0, 10),
+    repair_cost: 2400,
+    parts_used: "อะแดปเตอร์และชุด Power Supply แท้ Dell 180W",
+    technician_note: "เปลี่ยนชุดจ่ายไฟใหม่ ทดสอบเปิดใช้งานต่อเนื่อง 6 ชม. ผ่านเรียบร้อย",
+    before_image_url: "",
+    after_image_url: createMockPhotoSvg(
+      "รูปหลังซ่อมเสร็จ: RP-2569-005",
+      "เปลี่ยนชุด Power Supply 180W เรียบร้อย (A-2569-1001)",
+      "#ecfdf5",
+      "#059669"
+    ),
+    created_at: new Date(Date.now() - 86400000 * 18).toISOString(),
+    completed_at: new Date(Date.now() - 86400000 * 15).toISOString(),
+  },
+  {
+    id: "mock-1",
+    repair_no: "RP-2569-001",
+    asset_code: "A-2569-1001",
+    asset_name: "คอมพิวเตอร์ All-in-One Dell OptiPlex",
+    problem: "พัดลมระบายความร้อน CPU หมุนเสียงดังมากและเครื่องค้างเมื่อเปิดโปรแกรมพร้อมกัน",
+    urgency: "normal",
+    location: "ห้องธุรการและสารบรรณ (ชั้น 1)",
+    reporter_name: "สมศรี พูนสุข",
+    reporter_contact: "081-234-5678 (ต่อ 102)",
+    status: "completed",
+    repair_type: "internal",
+    technician_name: "ทีมช่างไอทีและคอมพิวเตอร์",
+    vendor_name: "",
+    expected_date: new Date(Date.now() - 86400000 * 32).toISOString().slice(0, 10),
+    repair_cost: 850,
+    parts_used: "พัดลม Cooling Fan + ซิลิโคนระบายความร้อน Arctic MX-4",
+    technician_note: "เปลี่ยนพัดลมระบายความร้อนและทาซิลิโคนใหม่ อุณหภูมิลดลงปกติ",
+    before_image_url: "",
+    after_image_url: "",
+    created_at: new Date(Date.now() - 86400000 * 35).toISOString(),
+    completed_at: new Date(Date.now() - 86400000 * 33).toISOString(),
+  },
+
+  // --- กลุ่มที่ 2: ครุภัณฑ์ซ่อม 2 ครั้ง แต่งบสะสมทะลุ 6,300 บาท (A-2569-1003) ---
+  {
+    id: "mock-6",
+    repair_no: "RP-2569-006",
     asset_code: "A-2569-1003",
     asset_name: "เครื่องโปรเจกเตอร์ 4K Epson",
-    problem: "หลอดภาพกระพริบ และแจ้งเตือน Lamp Overheat หลังเปิดใช้งานได้ 10 นาที",
+    problem: "หลอดภาพกระพริบและขึ้นไฟแดงแจ้งเตือน Lamp Replace หลังเปิดใช้งานได้ 10 นาที",
     urgency: "critical",
-    location: "ห้องประชุมใหญ่ (ชั้น 1)",
+    location: "ห้องประชุมใหญ่ (ชั้น 2)",
     reporter_name: "วิชัย เกียรติสกุล",
     reporter_contact: "089-876-5432 (ต่อ 201)",
     status: "waiting_parts",
     repair_type: "external",
     technician_name: "ช่างเทคนิคพัสดุกลาง",
     vendor_name: "ศูนย์บริการ Epson Authorized Service",
-    expected_date: new Date(Date.now() + 86400000 * 4).toISOString().slice(0, 10),
-    repair_cost: 3200,
-    parts_used: "ชุดหลอดภาพโปรเจกเตอร์แท้ ELPLP97 และพัดลมระบายความร้อน",
-    technician_note: "ส่งตรวจเช็คที่ศูนย์บริการ รอเบิกอะไหล่หลอดภาพใหม่",
+    expected_date: new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
+    repair_cost: 4500,
+    parts_used: "ชุดหลอดภาพโปรเจกเตอร์แท้ ELPLP97 และฟิลเตอร์กรองฝุ่น",
+    technician_note: "ส่งเครื่องเข้าศูนย์ Epson รอเบิกอะไหล่หลอดภาพแท้ประมาณ 3 วันทำการ",
+    before_image_url: createMockPhotoSvg(
+      "รูปก่อนซ่อม: RP-2569-006",
+      "ไฟแจ้งเตือน Lamp Replace บนตัวเครื่องโปรเจกเตอร์ Epson",
+      "#fffbeb",
+      "#d97706"
+    ),
+    after_image_url: "",
+    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    completed_at: null,
+  },
+  {
+    id: "mock-2",
+    repair_no: "RP-2569-002",
+    asset_code: "A-2569-1003",
+    asset_name: "เครื่องโปรเจกเตอร์ 4K Epson",
+    problem: "ภาพฉายขึ้นจอมีจุดดำและสีเพี้ยนออกโทนเหลือง พัดลมท้ายเครื่องไม่หมุน",
+    urgency: "urgent",
+    location: "ห้องประชุมใหญ่ (ชั้น 2)",
+    reporter_name: "วิชัย เกียรติสกุล",
+    reporter_contact: "089-876-5432 (ต่อ 201)",
+    status: "completed",
+    repair_type: "external",
+    technician_name: "ช่างเทคนิคพัสดุกลาง",
+    vendor_name: "ศูนย์บริการ Epson Authorized Service",
+    expected_date: new Date(Date.now() - 86400000 * 22).toISOString().slice(0, 10),
+    repair_cost: 1800,
+    parts_used: "พัดลมระบายความร้อน Blower Fan และน้ำยาทำความสะอาดชุดปริซึม",
+    technician_note: "ล้างชุดออปติคอลและเปลี่ยนพัดลมระบายความร้อนใหม่",
+    before_image_url: "",
+    after_image_url: "",
+    created_at: new Date(Date.now() - 86400000 * 26).toISOString(),
+    completed_at: new Date(Date.now() - 86400000 * 23).toISOString(),
+  },
+
+  // --- กลุ่มที่ 3: งานซ่อมล่าช้า Overdue 4 วัน + ส่งเคลมประกัน (A-2569-1005) ---
+  {
+    id: "mock-4",
+    repair_no: "RP-2569-004",
+    asset_code: "A-2569-1005",
+    asset_name: "เครื่องปรับอากาศ Inverter Daikin 24,000 BTU",
+    problem: "แอร์ไม่เย็น มีแต่ลมธรรมดาออกมา และมีน้ำหยดลงจากรางคอยล์เย็นจำนวนมาก",
+    urgency: "critical",
+    location: "ห้องเซิร์ฟเวอร์และอุปกรณ์เครือข่าย",
+    reporter_name: "ธนกร วงศ์สวัสดิ์",
+    reporter_contact: "086-555-9191 (ต่อ 305)",
+    status: "waiting_parts",
+    repair_type: "warranty",
+    technician_name: "ทีมช่างไฟฟ้าและอาคาร",
+    vendor_name: "บริษัท สยามไดกิ้นเซลส์ จำกัด (เคลมประกันศูนย์)",
+    expected_date: new Date(Date.now() - 86400000 * 4).toISOString().slice(0, 10), // Overdue 4 days!
+    repair_cost: 0,
+    parts_used: "แผงวงจรควบคุม Inverter PCB (อยู่ในประกันศูนย์ 5 ปี)",
+    technician_note: "ช่างศูนย์เข้าตรวจเช็คแล้ว รอเบิกแผง PCB จากคลังอะไหล่กลาง (ล่าช้ากว่ากำหนด 4 วัน)",
+    before_image_url: createMockPhotoSvg(
+      "รูปก่อนซ่อม: RP-2569-004",
+      "รหัส Error กระพริบที่หน้ากากแอร์ห้อง Server",
+      "#fef2f2",
+      "#dc2626"
+    ),
+    after_image_url: "",
+    created_at: new Date(Date.now() - 86400000 * 8).toISOString(),
+    completed_at: null,
+  },
+
+  // --- กลุ่มที่ 4: ซ่อมไม่ได้ / ชำรุดรอแทงจำหน่าย (Unrepairable - A-2569-1008) ---
+  {
+    id: "mock-7",
+    repair_no: "RP-2569-007",
+    asset_code: "A-2569-1008",
+    asset_name: "เครื่องสำรองไฟ UPS APC Smart-UPS 1500VA",
+    problem: "แบตเตอรี่บวมดันฝาเครื่อง และแผงวงจร Inverter ไหม้มีกลิ่นเหม็น ไม่สามารถเก็บไฟได้",
+    urgency: "urgent",
+    location: "ห้องการเงินและบัญชี (ชั้น 1)",
+    reporter_name: "กมลชนก เลิศล้ำ",
+    reporter_contact: "082-991-4455 (ต่อ 108)",
+    status: "unrepairable",
+    repair_type: "external",
+    technician_name: "ทีมช่างไฟฟ้าและอาคาร",
+    vendor_name: "ศูนย์บริการชไนเดอร์ อิเล็คทริค (APC)",
+    expected_date: new Date(Date.now() - 86400000 * 5).toISOString().slice(0, 10),
+    repair_cost: 300,
+    parts_used: "ค่าบริการเปิดเครื่องตรวจสอบทางเทคนิค",
+    technician_note: "หม้อแปลงหลักและบอร์ด Inverter เสียหายหนัก ประเมินค่าซ่อม 8,900 บาท สูงเกิน 70% ของเครื่องใหม่ เสนอแทงจำหน่าย",
+    before_image_url: createMockPhotoSvg(
+      "รูปสภาพชำรุด: RP-2569-007",
+      "แผงวงจร Inverter ไหม้และแบตเตอรี่เสื่อมสภาพ (ซ่อมไม่ได้)",
+      "#fef2f2",
+      "#b91c1c"
+    ),
+    after_image_url: "",
+    created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
+    completed_at: null,
+  },
+
+  // --- กลุ่มที่ 5: รอดำเนินการ (Pending) เพิ่งเปิดใบงานใหม่ ---
+  {
+    id: "mock-10",
+    repair_no: "RP-2569-010",
+    asset_code: "A-2569-1004",
+    asset_name: "เครื่องพิมพ์เลเซอร์สีมัลติฟังก์ชัน Brother",
+    problem: "กระดาษติดบริเวณชุดทำความร้อน (Fuser Unit) และเวลาสั่งพิมพ์มีเส้นดำคาดกลางหน้ากระดาษ",
+    urgency: "urgent",
+    location: "ห้องงานทะเบียนและวัดผล",
+    reporter_name: "ณัฐพงศ์ เจริญผล",
+    reporter_contact: "084-112-3344 (ต่อ 204)",
+    status: "pending",
+    repair_type: "internal",
+    technician_name: "",
+    vendor_name: "",
+    expected_date: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
+    repair_cost: 0,
+    parts_used: "",
+    technician_note: "",
+    before_image_url: createMockPhotoSvg(
+      "รูปก่อนซ่อม: RP-2569-010",
+      "กระดาษติดในชุดลูกยางความร้อนและมีคราบหมึกเลอะ",
+      "#f0f9ff",
+      "#0284c7"
+    ),
+    after_image_url: "",
+    created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+    completed_at: null,
+  },
+  {
+    id: "mock-11",
+    repair_no: "RP-2569-011",
+    asset_code: "A-2569-1009",
+    asset_name: "เก้าอี้สำนักงานเพื่อสุขภาพ Ergonomic",
+    problem: "โช้คไฮดรอลิกปรับระดับความสูงทรุดตัวลงเอง และล้อเลื่อนด้านหน้าแตก 1 ล้อ",
+    urgency: "normal",
+    location: "ห้องพักอาจารย์ / เจ้าหน้าที่",
+    reporter_name: "ปวีณา สุขสวัสดิ์",
+    reporter_contact: "ต่อ 114",
+    status: "pending",
+    repair_type: "internal",
+    technician_name: "",
+    vendor_name: "",
+    expected_date: new Date(Date.now() + 86400000 * 5).toISOString().slice(0, 10),
+    repair_cost: 0,
+    parts_used: "",
+    technician_note: "",
+    before_image_url: "",
+    after_image_url: "",
+    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+    completed_at: null,
+  },
+
+  // --- กลุ่มที่ 6: กำลังซ่อม (In Progress) อยู่ในกรอบเวลา SLA ---
+  {
+    id: "mock-8",
+    repair_no: "RP-2569-008",
+    asset_code: "A-2569-1006",
+    asset_name: "สวิตช์เครือข่าย Cisco Catalyst 24-Port PoE",
+    problem: "พอร์ต LAN ช่องที่ 1–8 ไม่จ่ายไฟ PoE ให้กับจุดกระจายสัญญาณ Wi-Fi Access Point",
+    urgency: "critical",
+    location: "ตู้ Rack สื่อสาร ชั้น 3",
+    reporter_name: "อภิชาติ สายชล",
+    reporter_contact: "089-443-2211 (ฝ่ายไอที)",
+    status: "in_progress",
+    repair_type: "warranty",
+    technician_name: "ทีมช่างไอทีและคอมพิวเตอร์",
+    vendor_name: "ศูนย์บริการ Synnex (Cisco Warranty)",
+    expected_date: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
+    repair_cost: 0,
+    parts_used: "ส่งเคลมเปลี่ยนโมดูลจ่ายไฟ PoE ภายใต้ประกัน",
+    technician_note: "นำสวิตช์สำรองไปติดตั้งแทนชั่วคราวแล้ว อยู่ระหว่างรอรับเครื่องเคลมกลับ",
     before_image_url: "",
     after_image_url: "",
     created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
     completed_at: null,
   },
+
+  // --- กลุ่มที่ 7: ซ่อมเสร็จสิ้นแล้ว (Completed) พร้อมรูปก่อน-หลังซ่อม ---
   {
-    id: "3",
+    id: "mock-3",
     repair_no: "RP-2569-003",
     asset_code: "A-2569-1002",
-    asset_name: "โต๊ะทำงานผู้บริหาร 180 ซม.",
-    problem: "รางลิ้นชักด้านขวาหลุดและติดขัด ไม่สามารถเปิดได้",
+    asset_name: "โต๊ะทำงานผู้บริหารไม้สัก 180 ซม.",
+    problem: "รางลิ้นชักด้านขวาหลุดและลูกปืนแตก ไม่สามารถเลื่อนเปิด-ปิดลิ้นชักเก็บเอกสารได้",
     urgency: "normal",
-    location: "ห้องผู้อำนวยการ",
+    location: "ห้องผู้อำนวยการ (ชั้น 2)",
     reporter_name: "สุดาพร มั่นคง",
     reporter_contact: "ต่อ 105",
     status: "completed",
@@ -112,12 +355,70 @@ const DEFAULT_TICKETS = [
     vendor_name: "",
     expected_date: new Date(Date.now() - 86400000 * 3).toISOString().slice(0, 10),
     repair_cost: 350,
-    parts_used: "ชุดรางเลื่อนลูกปืน 16 นิ้ว 1 คู่",
-    technician_note: "เปลี่ยนรางเลื่อนลิ้นชักใหม่และขันน็อตยึดแน่นเรียบร้อย ใช้งานได้ปกติ",
-    before_image_url: "",
-    after_image_url: "",
+    parts_used: "ชุดรางเลื่อนลูกปืนรับน้ำหนัก 2 ชั้น ขนาด 16 นิ้ว 1 คู่",
+    technician_note: "ถอดรางเดิมที่ชำรุดออก เปลี่ยนรางเลื่อนลูกปืนชุดใหม่และตั้งระดับลิ้นชักเรียบร้อย",
+    before_image_url: createMockPhotoSvg(
+      "รูปก่อนซ่อม: RP-2569-003",
+      "รางลิ้นชักหลุดและลูกปืนแตก (A-2569-1002)",
+      "#fffbeb",
+      "#d97706"
+    ),
+    after_image_url: createMockPhotoSvg(
+      "รูปหลังซ่อมเสร็จ: RP-2569-003",
+      "เปลี่ยนรางลูกปืนใหม่ 16 นิ้ว ใช้งานได้ปกติ",
+      "#ecfdf5",
+      "#059669"
+    ),
     created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
     completed_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+  },
+  {
+    id: "mock-12",
+    repair_no: "RP-2569-012",
+    asset_code: "A-2569-1007",
+    asset_name: "เครื่องสแกนเอกสารความเร็วสูง Fujitsu fi-8170",
+    problem: "ดึงกระดาษซ้อนกันหลายแผ่นเวลาสแกนเอกสารจำนวนมาก ลูกยางฟีดกระดาษเสื่อมสภาพ",
+    urgency: "normal",
+    location: "ห้องสารบรรณกลาง",
+    reporter_name: "มนัสนันท์ ใจดี",
+    reporter_contact: "085-778-9900 (ต่อ 103)",
+    status: "completed",
+    repair_type: "internal",
+    technician_name: "ช่างเทคนิคพัสดุกลาง",
+    vendor_name: "",
+    expected_date: new Date(Date.now() - 86400000 * 6).toISOString().slice(0, 10),
+    repair_cost: 950,
+    parts_used: "ชุดลูกยางดึงกระดาษ Pick Roller & Brake Roller แท้",
+    technician_note: "เปลี่ยนชุดลูกยางดึงกระดาษและทำความสะอาดหัวอ่าน Optical Sensor ทดสอบสแกน 100 แผ่นผ่านปกติ",
+    before_image_url: "",
+    after_image_url: "",
+    created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
+    completed_at: new Date(Date.now() - 86400000 * 6).toISOString(),
+  },
+
+  // --- กลุ่มที่ 8: ยกเลิกคำขอ (Cancelled) ---
+  {
+    id: "mock-13",
+    repair_no: "RP-2569-013",
+    asset_code: "A-2569-1010",
+    asset_name: "จอภาพไร้ขอบ LG UltraFine IPS 27 นิ้ว",
+    problem: "หน้าจอขึ้น No Signal เข้าใจว่าจอภาพเสีย",
+    urgency: "normal",
+    location: "ห้องปฏิบัติการคอมพิวเตอร์ 1",
+    reporter_name: "ชญานิศ รัตนโชติ",
+    reporter_contact: "ต่อ 210",
+    status: "cancelled",
+    repair_type: "internal",
+    technician_name: "ทีมช่างไอทีและคอมพิวเตอร์",
+    vendor_name: "",
+    expected_date: null,
+    repair_cost: 0,
+    parts_used: "-",
+    technician_note: "ตรวจสอบเบื้องต้นพบว่าสาย HDMI ด้านหลังหลวม เสียบใหม่แล้วใช้งานได้ปกติ จึงขอยกเลิกใบแจ้งซ่อม",
+    before_image_url: "",
+    after_image_url: "",
+    created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
+    completed_at: null,
   },
 ];
 
@@ -872,6 +1173,27 @@ export default function Maintenance() {
                 <span>กระดานสถานะ (Kanban)</span>
               </button>
             </div>
+
+            <button
+              type="button"
+              className="btn btn-outline-white"
+              onClick={async () => {
+                const reloaded = await resetMaintenanceTicketsToMock(DEFAULT_TICKETS);
+                setTickets(reloaded);
+              }}
+              style={{
+                fontSize: "0.82rem",
+                padding: "8px 14px",
+                borderColor: "#cbd5e1",
+                color: "#334155",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+              title="รีเซ็ตและโหลดข้อมูลตัวอย่าง 12 เคสครบทุกรูปแบบ"
+            >
+              <RotateCcw size={15} color="#0284c7" />
+              <span>โหลดข้อมูลตัวอย่าง (12 เคส)</span>
+            </button>
 
             <button
               type="button"
