@@ -81,7 +81,7 @@ export default function TopHeader({ onToggleSidebar }) {
           to="/"
           className="btn btn-outline-white"
           style={{
-            fontSize: "0.8rem",
+            fontSize: "0.88rem",
             padding: "5px 12px",
             display: "inline-flex",
             alignItems: "center",

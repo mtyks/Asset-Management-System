@@ -60,10 +60,12 @@ export default function App() {
   // 3. สาธารณะ: สแกน QR & ดูรายละเอียดครุภัณฑ์
   if (isScanOrPublicAsset) {
     return (
-      <Routes>
-        <Route path="/scan" element={<ScanQR />} />
-        <Route path="/asset/:assetCode" element={<AssetDetail />} />
-      </Routes>
+      <div className="asset-public-layout">
+        <Routes>
+          <Route path="/scan" element={<ScanQR />} />
+          <Route path="/asset/:assetCode" element={<AssetDetail />} />
+        </Routes>
+      </div>
     );
   }
 

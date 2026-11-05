@@ -205,7 +205,7 @@ export default function Transfers() {
                       </td>
                       <td>
                         <div style={{ fontWeight: 600, color: "#0f291e" }}>{assetName}</div>
-                        <div style={{ fontSize: "0.75rem", color: "#52796f" }}>
+                        <div style={{ fontSize: "0.84rem", color: "#52796f" }}>
                           {r.assets?.color ? `สี ${r.assets.color}` : ""}
                         </div>
                       </td>
@@ -213,7 +213,7 @@ export default function Transfers() {
                         <div style={{ fontWeight: 600, color: "#0f291e" }}>{r.borrower_name}</div>
                       </td>
                       <td>
-                        <span style={{ fontSize: "0.85rem", color: "#52796f" }}>
+                        <span style={{ fontSize: "0.94rem", color: "#52796f" }}>
                           {r.borrower_contact || "-"}
                         </span>
                       </td>

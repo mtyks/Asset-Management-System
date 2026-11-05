@@ -99,7 +99,7 @@ export default function Dashboard() {
       {/* 1. Clean Modern Header */}
       <div className="page-heading-row" style={{ marginBottom: 24 }}>
         <div className="page-title-group">
-          <h1 style={{ fontSize: "1.55rem", fontWeight: 800, letterSpacing: "-0.02em" }}>
+          <h1 style={{ fontSize: "1.65rem", fontWeight: 800, letterSpacing: "-0.02em" }}>
             ภาพรวมระบบครุภัณฑ์
           </h1>
           <p className="page-subtitle" style={{ marginTop: 4 }}>
@@ -295,7 +295,7 @@ export default function Dashboard() {
                         <td>
                           <span className="category-pill">{categoryName}</span>
                         </td>
-                        <td style={{ fontSize: "0.84rem", color: "#475569", fontWeight: 500 }}>
+                        <td style={{ fontSize: "0.94rem", color: "#475569", fontWeight: 500 }}>
                           {roomText}
                         </td>
                         <td style={{ paddingRight: 24 }}>

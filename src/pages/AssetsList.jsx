@@ -594,14 +594,14 @@ export default function AssetsList() {
 
                       {/* สถานที่ */}
                       <td>
-                        <span style={{ fontSize: "0.85rem", color: "#475569" }}>
+                        <span style={{ fontSize: "0.94rem", color: "#475569" }}>
                           {roomText}
                         </span>
                       </td>
 
                       {/* ผู้รับผิดชอบ */}
                       <td>
-                        <span style={{ fontSize: "0.85rem", color: "#334155" }}>
+                        <span style={{ fontSize: "0.94rem", color: "#334155" }}>
                           {asset.responsible_person || "ไม่ระบุ"}
                         </span>
                       </td>

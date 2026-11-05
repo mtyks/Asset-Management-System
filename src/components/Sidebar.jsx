@@ -26,7 +26,7 @@ export default function Sidebar({ isOpen, onClose }) {
       <aside className={`app-sidebar ${isOpen ? "sidebar-open" : ""}`}>
         {/* Header Title without Icon */}
         <div className="sidebar-header" style={{ padding: "20px 18px 16px" }}>
-          <div className="sidebar-logo-title" style={{ fontSize: "1.05rem", fontWeight: 800, lineHeight: 1.3, letterSpacing: "-0.01em" }}>
+          <div className="sidebar-logo-title" style={{ fontSize: "1.12rem", fontWeight: 800, lineHeight: 1.3, letterSpacing: "-0.01em" }}>
             ระบบบริหารจัดการครุภัณฑ์
           </div>
           {isOpen && (
@@ -139,7 +139,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 gap: "8px",
                 padding: "9px 14px",
                 borderRadius: "8px",
-                fontSize: "0.82rem",
+                fontSize: "0.9rem",
                 fontWeight: 600,
                 color: "#cbd5e1",
                 background: "rgba(255, 255, 255, 0.05)",

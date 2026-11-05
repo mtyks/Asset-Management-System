@@ -192,15 +192,15 @@ export default function AssetDetail() {
 
           {/* Specifications Card (Read-Only) */}
           <div className="form-card" style={{ margin: 0 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: "1.12rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
               <ShieldCheck size={18} color="#059669" />
               <span>ข้อมูลจำเพาะของครุภัณฑ์</span>
             </h3>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.88rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.96rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>
                 <span style={{ color: "#64748b" }}>เลขครุภัณฑ์:</span>
-                <strong style={{ fontFamily: "monospace", fontSize: "0.95rem" }}>{codeStr}</strong>
+                <strong style={{ fontFamily: "monospace", fontSize: "1.02rem" }}>{codeStr}</strong>
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", paddingBottom: "8px" }}>

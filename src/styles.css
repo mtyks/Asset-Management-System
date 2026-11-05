@@ -3350,3 +3350,211 @@ input, select, textarea {
 .modern-table tbody tr:hover td.sticky-action-col {
   background-color: #f6faf8;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Asset Management System — Enhanced Typography Scale (Scoped)               */
+/* ปรับขนาดตัวหนังสือเฉพาะระบบบริหารจัดการครุภัณฑ์ให้อ่านง่ายขึ้น             */
+/* โดยไม่กระทบหน้า Portal หรือระบบแจ้งซ่อม (Maintenance)                      */
+/* -------------------------------------------------------------------------- */
+.app-layout,
+.asset-public-layout {
+  font-size: 1.05rem;
+}
+
+/* Sidebar Typography */
+.app-layout .sidebar-logo-title {
+  font-size: 1.12rem;
+}
+
+.app-layout .sidebar-section-label {
+  font-size: 0.8rem;
+}
+
+.app-layout .sidebar-link {
+  font-size: 0.96rem;
+}
+
+.app-layout .sidebar-user-name {
+  font-size: 0.9rem;
+}
+
+.app-layout .sidebar-user-email {
+  font-size: 0.8rem;
+}
+
+/* Top Header Typography */
+.app-layout .breadcrumb {
+  font-size: 0.94rem;
+}
+
+.app-layout .budget-year-badge {
+  font-size: 0.88rem;
+}
+
+/* Page Headings & Subtitles */
+.app-layout .page-title-group h1,
+.asset-public-layout .page-title-group h1 {
+  font-size: 1.62rem;
+}
+
+.app-layout .page-subtitle,
+.asset-public-layout .page-subtitle {
+  font-size: 0.95rem;
+}
+
+/* Buttons, Inputs, Selects & Labels */
+.app-layout .btn,
+.asset-public-layout .btn {
+  font-size: 0.95rem;
+}
+
+.app-layout .search-input-field,
+.app-layout .filter-select,
+.app-layout .form-control,
+.asset-public-layout .search-input-field,
+.asset-public-layout .filter-select,
+.asset-public-layout .form-control {
+  font-size: 0.96rem;
+}
+
+.app-layout .form-group label,
+.asset-public-layout .form-group label {
+  font-size: 0.94rem;
+}
+
+.app-layout .form-error-banner,
+.asset-public-layout .form-error-banner {
+  font-size: 0.95rem;
+}
+
+/* Dashboard KPI & Stat Summary Cards */
+.app-layout .kpi-card-label {
+  font-size: 0.94rem;
+}
+
+.app-layout .kpi-card-value {
+  font-size: 2.15rem;
+}
+
+.app-layout .kpi-card-unit {
+  font-size: 0.9rem;
+}
+
+.app-layout .kpi-card-footer {
+  font-size: 0.85rem;
+}
+
+.app-layout .kpi-card-badge {
+  font-size: 0.82rem;
+}
+
+.app-layout .stat-box-label {
+  font-size: 0.94rem;
+}
+
+.app-layout .stat-box-number {
+  font-size: 1.8rem;
+}
+
+.app-layout .stat-box-unit {
+  font-size: 0.9rem;
+}
+
+/* Dashboard Panels, Category Progress & Locations */
+.app-layout .dash-panel-title {
+  font-size: 1.1rem;
+}
+
+.app-layout .dash-panel-link {
+  font-size: 0.88rem;
+}
+
+.app-layout .cat-progress-top {
+  font-size: 0.94rem;
+}
+
+.app-layout .cat-progress-pct {
+  font-size: 0.84rem;
+}
+
+.app-layout .location-name {
+  font-size: 0.94rem;
+}
+
+.app-layout .location-badge {
+  font-size: 0.84rem;
+}
+
+.app-layout .recent-asset-name {
+  font-size: 0.96rem;
+}
+
+.app-layout .recent-asset-code {
+  font-size: 0.84rem;
+}
+
+/* Data Tables, Pills, Action Links & Pagination */
+.app-layout .modern-table,
+.asset-public-layout .modern-table {
+  font-size: 0.96rem;
+}
+
+.app-layout .modern-table th,
+.asset-public-layout .modern-table th {
+  font-size: 0.9rem;
+}
+
+.app-layout .table-empty-row,
+.asset-public-layout .table-empty-row {
+  font-size: 0.98rem;
+}
+
+.app-layout .asset-code-cell {
+  font-size: 0.98rem;
+}
+
+.app-layout .asset-name-main {
+  font-size: 0.98rem;
+}
+
+.app-layout .asset-name-sub {
+  font-size: 0.86rem;
+}
+
+.app-layout .category-pill,
+.app-layout .status-pill,
+.asset-public-layout .category-pill,
+.asset-public-layout .status-pill {
+  font-size: 0.86rem;
+}
+
+.app-layout .action-btn-link,
+.asset-public-layout .action-btn-link {
+  font-size: 0.88rem;
+}
+
+.app-layout .pagination-info,
+.app-layout .pagination-size-wrap {
+  font-size: 0.92rem;
+}
+
+.app-layout .pagination-btn,
+.app-layout .pagination-size-select {
+  font-size: 0.9rem;
+}
+
+.app-layout .modal-title,
+.asset-public-layout .modal-title {
+  font-size: 1.22rem;
+}
+
+.app-layout .bulk-action-info {
+  font-size: 0.98rem;
+}
+
+.app-layout .bulk-btn-edit,
+.app-layout .bulk-btn-delete,
+.app-layout .bulk-btn-clear {
+  font-size: 0.92rem;
+}
+
