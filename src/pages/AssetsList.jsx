@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   listAssets,
   listCategories,
@@ -7,6 +7,7 @@ import {
   getDashboardCounts,
   deleteAsset,
   bulkDeleteAssets,
+  updateAssetStatus,
 } from "../lib/queries";
 import StatusBadge from "../components/StatusBadge";
 import ImportCSVModal from "../components/ImportCSVModal";
@@ -45,6 +46,8 @@ function loadSavedAssetFilters() {
 }
 
 export default function AssetsList() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlStatus = searchParams.get("status");
   const savedState = loadSavedAssetFilters();
 
   const [assets, setAssets] = useState([]);
@@ -61,14 +64,32 @@ export default function AssetsList() {
     search: savedState?.filters?.search || "",
     categoryId: savedState?.filters?.categoryId || "",
     roomId: savedState?.filters?.roomId || "",
-    status: savedState?.filters?.status || "",
+    status:
+      urlStatus !== null
+        ? urlStatus === "all"
+          ? ""
+          : urlStatus
+        : savedState?.filters?.status || "",
   }));
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [noticeMessage, setNoticeMessage] = useState("");
   const [deletingCode, setDeletingCode] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [repairCompleteTarget, setRepairCompleteTarget] = useState(null);
+  const [repairCompleteNote, setRepairCompleteNote] = useState("ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+
+  // Sync URL query param (?status=...) when navigating from Dashboard
+  useEffect(() => {
+    if (urlStatus !== null) {
+      const mapped = urlStatus === "all" ? "" : urlStatus;
+      setFilters((prev) => ({ ...prev, status: mapped }));
+      setCurrentPage(1);
+    }
+  }, [urlStatus]);
 
   // Multi-Select & Bulk Edit States
   const [selectedCodes, setSelectedCodes] = useState([]);
@@ -243,6 +264,40 @@ export default function AssetsList() {
     }
   };
 
+  // บันทึกซ่อมเสร็จ / เปลี่ยนสถานะกลับเป็นใช้งานปกติ
+  const confirmRepairComplete = async () => {
+    if (!repairCompleteTarget) return;
+    setUpdatingStatus(true);
+    try {
+      await updateAssetStatus(
+        repairCompleteTarget.asset_code,
+        "normal",
+        repairCompleteNote.trim() || "ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ"
+      );
+      setNoticeMessage(
+        `บันทึกสถานะ "ใช้งานปกติ (ซ่อมเสร็จ)" สำหรับครุภัณฑ์ "${repairCompleteTarget.name}" (${repairCompleteTarget.asset_code}) เรียบร้อยแล้ว`
+      );
+      setRepairCompleteTarget(null);
+      setRepairCompleteNote("ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ");
+      fetchAssets();
+      getDashboardCounts().then(setCounts).catch(() => {});
+    } catch (err) {
+      alert("อัปเดตสถานะไม่สำเร็จ: " + err.message);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleQuickStatusFilter = (statusVal) => {
+    setFilters((prev) => ({ ...prev, status: statusVal }));
+    setCurrentPage(1);
+    if (statusVal) {
+      setSearchParams({ status: statusVal });
+    } else {
+      setSearchParams({});
+    }
+  };
+
   // Helper เลือก Icon ตามชื่อ/หมวดหมู่
   const getItemIcon = (name = "", category = "") => {
     const text = (name + " " + category).toLowerCase();
@@ -310,10 +365,57 @@ export default function AssetsList() {
         </div>
       </div>
 
-      {/* 2. Stat Summary Cards Grid (4 cards in a row) */}
+      {noticeMessage && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: "12px 16px",
+            borderRadius: 10,
+            backgroundColor: "#ecfdf5",
+            border: "1px solid #6ee7b7",
+            color: "#065f46",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            fontSize: "0.92rem",
+            fontWeight: 600,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <CheckCircle2 size={18} color="#059669" />
+            <span>{noticeMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNoticeMessage("")}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#047857",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: "0.85rem",
+            }}
+          >
+            ปิด
+          </button>
+        </div>
+      )}
+
+      {/* 2. Stat Summary Cards Grid (4 cards in a row - Clickable to Filter) */}
       <div className="stats-summary-grid">
         {/* Total */}
-        <div className="stat-box">
+        <div
+          className="stat-box"
+          onClick={() => handleQuickStatusFilter("")}
+          style={{
+            cursor: "pointer",
+            outline: filters.status === "" ? "2px solid #3b82f6" : "none",
+            backgroundColor: filters.status === "" ? "#f8fafc" : undefined,
+          }}
+          title="คลิกเพื่อแสดงครุภัณฑ์ทั้งหมด"
+        >
           <div className="stat-box-icon total">
             <Package size={22} />
           </div>
@@ -329,7 +431,16 @@ export default function AssetsList() {
         </div>
 
         {/* Normal */}
-        <div className="stat-box">
+        <div
+          className="stat-box"
+          onClick={() => handleQuickStatusFilter("normal")}
+          style={{
+            cursor: "pointer",
+            outline: filters.status === "normal" ? "2px solid #10b981" : "none",
+            backgroundColor: filters.status === "normal" ? "#f0fdf4" : undefined,
+          }}
+          title="คลิกเพื่อกรองเฉพาะครุภัณฑ์ที่ใช้งานปกติ"
+        >
           <div className="stat-box-icon normal">
             <CheckCircle2 size={22} />
           </div>
@@ -345,7 +456,16 @@ export default function AssetsList() {
         </div>
 
         {/* Borrowed */}
-        <div className="stat-box">
+        <div
+          className="stat-box"
+          onClick={() => handleQuickStatusFilter("borrowed")}
+          style={{
+            cursor: "pointer",
+            outline: filters.status === "borrowed" ? "2px solid #f59e0b" : "none",
+            backgroundColor: filters.status === "borrowed" ? "#fffbeb" : undefined,
+          }}
+          title="คลิกเพื่อกรองเฉพาะครุภัณฑ์ที่ถูกยืมใช้งาน"
+        >
           <div className="stat-box-icon borrow">
             <Inbox size={22} />
           </div>
@@ -361,7 +481,26 @@ export default function AssetsList() {
         </div>
 
         {/* Repair */}
-        <div className="stat-box">
+        <div
+          className="stat-box"
+          onClick={() => handleQuickStatusFilter("repair_damaged")}
+          style={{
+            cursor: "pointer",
+            outline:
+              filters.status === "repair_damaged" ||
+              filters.status === "repair" ||
+              filters.status === "damaged"
+                ? "2px solid #ef4444"
+                : "none",
+            backgroundColor:
+              filters.status === "repair_damaged" ||
+              filters.status === "repair" ||
+              filters.status === "damaged"
+                ? "#fef2f2"
+                : undefined,
+          }}
+          title="คลิกเพื่อกรองเฉพาะครุภัณฑ์ที่ส่งซ่อม / ชำรุด"
+        >
           <div className="stat-box-icon repair">
             <Wrench size={22} />
           </div>
@@ -429,13 +568,13 @@ export default function AssetsList() {
           className="filter-select"
           value={filters.status}
           onChange={(e) => {
-            setFilters((prev) => ({ ...prev, status: e.target.value }));
-            setCurrentPage(1);
+            handleQuickStatusFilter(e.target.value);
           }}
         >
           <option value="">ทุกสถานะ</option>
           <option value="normal">ใช้งานปกติ</option>
           <option value="borrowed">ยืมใช้งาน</option>
+          <option value="repair_damaged">ส่งซ่อม / ชำรุด (ทั้งหมด)</option>
           <option value="repair">ส่งซ่อม</option>
           <option value="damaged">ชำรุด</option>
         </select>
@@ -614,6 +753,24 @@ export default function AssetsList() {
                       {/* จัดการ */}
                       <td>
                         <div className="table-actions" style={{ justifyContent: "flex-end" }}>
+                          {(asset.status === "repair" || asset.status === "damaged") && (
+                            <button
+                              type="button"
+                              className="action-btn-link"
+                              style={{
+                                color: "#059669",
+                                backgroundColor: "#ecfdf5",
+                                borderColor: "#a7f3d0",
+                              }}
+                              onClick={() => {
+                                setRepairCompleteNote("ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ");
+                                setRepairCompleteTarget(asset);
+                              }}
+                              title="บันทึกซ่อมเสร็จ / เปลี่ยนสถานะเป็นใช้งานปกติ"
+                            >
+                              ซ่อมเสร็จ
+                            </button>
+                          )}
                           <Link
                             to={`/assets/${encodeURIComponent(code)}/edit`}
                             className="action-btn-link"
@@ -736,6 +893,73 @@ export default function AssetsList() {
           </div>
         )}
       </div>
+
+      {/* Repair Complete Confirmation Modal */}
+      {repairCompleteTarget && (
+        <div className="modal-overlay" onClick={() => setRepairCompleteTarget(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: "#ecfdf5",
+                    color: "#059669",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <CheckCircle2 size={20} />
+                </div>
+                <h3 className="modal-title" style={{ margin: 0 }}>
+                  ยืนยันการบันทึกซ่อมเสร็จ / กลับมาใช้งานปกติ
+                </h3>
+              </div>
+            </div>
+
+            <p style={{ fontSize: "0.9rem", color: "#475569", margin: "14px 0 12px" }}>
+              ต้องการเปลี่ยนสถานะครุภัณฑ์{" "}
+              <strong>"{repairCompleteTarget.name}"</strong> (รหัส:{" "}
+              <strong>{repairCompleteTarget.asset_code}</strong>) กลับเป็น{" "}
+              <strong style={{ color: "#059669" }}>"ใช้งานปกติ"</strong> ใช่หรือไม่?
+            </p>
+
+            <div className="form-group" style={{ marginBottom: 18 }}>
+              <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>หมายเหตุการซ่อม / การตรวจสอบ</label>
+              <input
+                type="text"
+                className="form-control"
+                value={repairCompleteNote}
+                onChange={(e) => setRepairCompleteNote(e.target.value)}
+                placeholder="เช่น ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ"
+              />
+            </div>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setRepairCompleteTarget(null)}
+                disabled={updatingStatus}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ backgroundColor: "#059669", borderColor: "#059669" }}
+                onClick={confirmRepairComplete}
+                disabled={updatingStatus}
+              >
+                {updatingStatus ? "กำลังบันทึก..." : "ยืนยันซ่อมเสร็จ"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Single Delete Confirmation Modal */}
       {deleteTarget && (

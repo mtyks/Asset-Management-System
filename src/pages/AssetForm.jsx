@@ -5,6 +5,7 @@ import {
   listRooms,
   createAsset,
   updateAsset,
+  updateAssetStatus,
   getAssetByCode,
   uploadAssetImage,
 } from "../lib/queries";
@@ -23,6 +24,7 @@ const emptyForm = {
   category_code: "",
   color: "",
   room_code: "",
+  status: "normal",
   received_date: new Date().toISOString().slice(0, 10),
   responsible_person: "",
   image_url: "",
@@ -37,6 +39,7 @@ export default function AssetForm() {
 
   const [categories, setCategories] = useState([]);
   const [rooms, setRooms] = useState([]);
+  const [initialStatus, setInitialStatus] = useState("normal");
 
   const [form, setForm] = useState(() =>
     isEditMode ? emptyForm : { ...emptyForm, asset_code: generateAssetCode() }
@@ -61,6 +64,8 @@ export default function AssetForm() {
     getAssetByCode(actualLookupCode)
       .then((asset) => {
         if (cancelled) return;
+        const currentStat = asset.status || "normal";
+        setInitialStatus(currentStat);
         setForm({
           asset_code: asset.asset_code || "",
           name: asset.name || "",
@@ -68,6 +73,7 @@ export default function AssetForm() {
             asset.category_code || asset.asset_categories?.category_code || "",
           color: asset.color || "",
           room_code: asset.room_code || asset.rooms?.room_code || "",
+          status: currentStat,
           received_date: asset.received_date || "",
           responsible_person: asset.responsible_person || "",
           image_url: asset.image_url || "",
@@ -115,12 +121,20 @@ export default function AssetForm() {
         category_code: form.category_code || null,
         color: form.color.trim() || null,
         room_code: form.room_code || null,
+        status: form.status || "normal",
         received_date: form.received_date || null,
         responsible_person: form.responsible_person.trim() || null,
         image_url: finalImageUrl || null,
       };
 
       if (isEditMode) {
+        if (form.status && form.status !== initialStatus) {
+          await updateAssetStatus(
+            actualLookupCode,
+            form.status,
+            "อัปเดตสถานะผ่านหน้าแก้ไขข้อมูลครุภัณฑ์"
+          );
+        }
         await updateAsset(actualLookupCode, payload);
         navigate("/assets");
       } else {
@@ -375,6 +389,21 @@ export default function AssetForm() {
                 value={form.received_date}
                 onChange={handleChange}
               />
+            </div>
+
+            <div className="form-group">
+              <label>สถานะครุภัณฑ์</label>
+              <select
+                name="status"
+                className="form-control"
+                value={form.status || "normal"}
+                onChange={handleChange}
+              >
+                <option value="normal">ใช้งานปกติ</option>
+                <option value="repair">ส่งซ่อม</option>
+                <option value="damaged">ชำรุด</option>
+                <option value="borrowed">ยืมใช้งาน</option>
+              </select>
             </div>
           </div>
 

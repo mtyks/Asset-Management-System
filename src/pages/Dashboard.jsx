@@ -128,7 +128,7 @@ export default function Dashboard() {
       {/* 2. Top 4 KPI Cards (Interactive & Clean) */}
       <div className="dashboard-kpi-grid">
         {/* Card 1: Total */}
-        <Link to="/assets" className="kpi-card">
+        <Link to="/assets?status=all" className="kpi-card">
           <div className="kpi-card-top">
             <div>
               <span className="kpi-card-label">ครุภัณฑ์ทั้งหมด</span>
@@ -150,7 +150,7 @@ export default function Dashboard() {
         </Link>
 
         {/* Card 2: Ready / Normal */}
-        <Link to="/assets" className="kpi-card">
+        <Link to="/assets?status=normal" className="kpi-card">
           <div className="kpi-card-top">
             <div>
               <span className="kpi-card-label">พร้อมใช้งานปกติ</span>
@@ -195,7 +195,7 @@ export default function Dashboard() {
         </Link>
 
         {/* Card 4: Repair / Damaged */}
-        <Link to="/assets" className="kpi-card">
+        <Link to="/assets?status=repair_damaged" className="kpi-card">
           <div className="kpi-card-top">
             <div>
               <span className="kpi-card-label">ส่งซ่อม / ชำรุด</span>
