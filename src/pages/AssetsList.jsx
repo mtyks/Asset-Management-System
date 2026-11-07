@@ -753,24 +753,6 @@ export default function AssetsList() {
                       {/* จัดการ */}
                       <td>
                         <div className="table-actions" style={{ justifyContent: "flex-end" }}>
-                          {(asset.status === "repair" || asset.status === "damaged") && (
-                            <button
-                              type="button"
-                              className="action-btn-link"
-                              style={{
-                                color: "#059669",
-                                backgroundColor: "#ecfdf5",
-                                borderColor: "#a7f3d0",
-                              }}
-                              onClick={() => {
-                                setRepairCompleteNote("ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ");
-                                setRepairCompleteTarget(asset);
-                              }}
-                              title="บันทึกซ่อมเสร็จ / เปลี่ยนสถานะเป็นใช้งานปกติ"
-                            >
-                              ซ่อมเสร็จ
-                            </button>
-                          )}
                           <Link
                             to={`/assets/${encodeURIComponent(code)}/edit`}
                             className="action-btn-link"
@@ -893,73 +875,6 @@ export default function AssetsList() {
           </div>
         )}
       </div>
-
-      {/* Repair Complete Confirmation Modal */}
-      {repairCompleteTarget && (
-        <div className="modal-overlay" onClick={() => setRepairCompleteTarget(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 8,
-                    backgroundColor: "#ecfdf5",
-                    color: "#059669",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <CheckCircle2 size={20} />
-                </div>
-                <h3 className="modal-title" style={{ margin: 0 }}>
-                  ยืนยันการบันทึกซ่อมเสร็จ / กลับมาใช้งานปกติ
-                </h3>
-              </div>
-            </div>
-
-            <p style={{ fontSize: "0.9rem", color: "#475569", margin: "14px 0 12px" }}>
-              ต้องการเปลี่ยนสถานะครุภัณฑ์{" "}
-              <strong>"{repairCompleteTarget.name}"</strong> (รหัส:{" "}
-              <strong>{repairCompleteTarget.asset_code}</strong>) กลับเป็น{" "}
-              <strong style={{ color: "#059669" }}>"ใช้งานปกติ"</strong> ใช่หรือไม่?
-            </p>
-
-            <div className="form-group" style={{ marginBottom: 18 }}>
-              <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>หมายเหตุการซ่อม / การตรวจสอบ</label>
-              <input
-                type="text"
-                className="form-control"
-                value={repairCompleteNote}
-                onChange={(e) => setRepairCompleteNote(e.target.value)}
-                placeholder="เช่น ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ"
-              />
-            </div>
-
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setRepairCompleteTarget(null)}
-                disabled={updatingStatus}
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ backgroundColor: "#059669", borderColor: "#059669" }}
-                onClick={confirmRepairComplete}
-                disabled={updatingStatus}
-              >
-                {updatingStatus ? "กำลังบันทึก..." : "ยืนยันซ่อมเสร็จ"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Single Delete Confirmation Modal */}
       {deleteTarget && (

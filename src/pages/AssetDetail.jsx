@@ -92,13 +92,9 @@ export default function AssetDetail() {
   const isInRepairOrDamaged = asset.status === "repair" || asset.status === "damaged";
 
   const openRepairOrStatusModal = () => {
-    if (isInRepairOrDamaged) {
-      setTargetStatus("normal");
-      setStatusNote("ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ");
-    } else {
-      setTargetStatus("repair");
-      setStatusNote("");
-    }
+    if (isInRepairOrDamaged) return;
+    setTargetStatus("repair");
+    setStatusNote("");
     setShowStatusModal(true);
   };
 
@@ -107,9 +103,7 @@ export default function AssetDetail() {
     setUpdatingStatus(true);
     try {
       const defaultNote =
-        targetStatus === "normal"
-          ? "ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ"
-          : targetStatus === "damaged"
+        targetStatus === "damaged"
           ? "แจ้งครุภัณฑ์ชำรุด รอตรวจสอบ"
           : "แจ้งส่งซ่อมครุภัณฑ์";
       const finalNote = statusNote.trim() || defaultNote;
@@ -118,12 +112,7 @@ export default function AssetDetail() {
       setShowStatusModal(false);
       await load();
 
-      const statusLabel =
-        targetStatus === "normal"
-          ? "ใช้งานปกติ (ซ่อมเสร็จ)"
-          : targetStatus === "damaged"
-          ? "ชำรุด"
-          : "ส่งซ่อม";
+      const statusLabel = targetStatus === "damaged" ? "ชำรุด" : "ส่งซ่อม";
       setNoticeBanner(
         `แจ้งเตือน: บันทึกสถานะ "${statusLabel}" สำหรับครุภัณฑ์ "${asset.name}" (${codeStr}) เรียบร้อยแล้ว`
       );
@@ -189,20 +178,20 @@ export default function AssetDetail() {
         </div>
 
         <div className="page-actions-group">
-          <button
-            type="button"
-            onClick={openRepairOrStatusModal}
-            className="btn btn-primary"
-            style={{
-              backgroundColor: isInRepairOrDamaged ? "#059669" : "#0284c7",
-              borderColor: isInRepairOrDamaged ? "#059669" : "#0284c7",
-            }}
-          >
-            {isInRepairOrDamaged ? <CheckCircle2 size={16} /> : <Wrench size={16} />}
-            <span>
-              {isInRepairOrDamaged ? "บันทึกซ่อมเสร็จ / ใช้งานปกติ" : "แจ้งซ่อมครุภัณฑ์นี้"}
-            </span>
-          </button>
+          {!isInRepairOrDamaged && (
+            <button
+              type="button"
+              onClick={openRepairOrStatusModal}
+              className="btn btn-primary"
+              style={{
+                backgroundColor: "#0284c7",
+                borderColor: "#0284c7",
+              }}
+            >
+              <Wrench size={16} />
+              <span>แจ้งซ่อมครุภัณฑ์นี้</span>
+            </button>
+          )}
           <Link to="/assets" className="btn btn-outline-white">
             <ArrowLeft size={16} />
             <span>ย้อนกลับ</span>
@@ -383,18 +372,34 @@ export default function AssetDetail() {
                 <Printer size={16} />
                 <span>พิมพ์สติ๊กเกอร์ QR</span>
               </button>
-              <button
-                type="button"
-                onClick={openRepairOrStatusModal}
-                className="btn btn-outline-white"
-                style={{
-                  color: isInRepairOrDamaged ? "#059669" : "#0284c7",
-                  borderColor: isInRepairOrDamaged ? "#a7f3d0" : "#bae6fd",
-                }}
-              >
-                {isInRepairOrDamaged ? <CheckCircle2 size={16} /> : <Wrench size={16} />}
-                <span>{isInRepairOrDamaged ? "บันทึกซ่อมเสร็จ" : "แจ้งซ่อมด่วน"}</span>
-              </button>
+              {isInRepairOrDamaged ? (
+                <span
+                  className="btn btn-outline-white"
+                  style={{
+                    color: "#059669",
+                    backgroundColor: "#ecfdf5",
+                    borderColor: "#a7f3d0",
+                    cursor: "default",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <CheckCircle2 size={16} />
+                  <span>บันทึกการส่งแล้ว</span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openRepairOrStatusModal}
+                  className="btn btn-outline-white"
+                  style={{
+                    color: "#0284c7",
+                    borderColor: "#bae6fd",
+                  }}
+                >
+                  <Wrench size={16} />
+                  <span>แจ้งซ่อมด่วน</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -407,7 +412,7 @@ export default function AssetDetail() {
               </h3>
             </div>
             <p style={{ fontSize: "0.84rem", color: "#64748b", margin: 0, lineHeight: 1.6 }}>
-              ข้อมูลนี้ได้รับการรับรองจากระบบบริหารจัดการพัสดุและครุภัณฑ์ หากพบว่าครุภัณฑ์ชำรุดเสียหาย หรือต้องการอัปเดตผลการซ่อม สามารถกดปุ่ม <strong>{isInRepairOrDamaged ? "บันทึกซ่อมเสร็จ / ใช้งานปกติ" : "แจ้งซ่อมครุภัณฑ์นี้"}</strong> ด้านบนเพื่อบันทึกสถานะและประวัติการเปลี่ยนแปลงในระบบได้ทันที
+              ข้อมูลนี้ได้รับการรับรองจากระบบบริหารจัดการพัสดุและครุภัณฑ์ หากพบว่าครุภัณฑ์ชำรุดเสียหาย สามารถกดปุ่ม <strong>แจ้งซ่อมครุภัณฑ์นี้</strong> เพื่อบันทึกสถานะการส่งซ่อมและประวัติการเปลี่ยนแปลงในระบบได้ทันที
             </p>
           </div>
         </div>
@@ -457,19 +462,17 @@ export default function AssetDetail() {
                     width: 36,
                     height: 36,
                     borderRadius: 8,
-                    backgroundColor: isInRepairOrDamaged ? "#ecfdf5" : "#e0f2fe",
-                    color: isInRepairOrDamaged ? "#059669" : "#0284c7",
+                    backgroundColor: "#e0f2fe",
+                    color: "#0284c7",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  {isInRepairOrDamaged ? <CheckCircle2 size={20} /> : <Wrench size={20} />}
+                  <Wrench size={20} />
                 </div>
                 <h3 className="modal-title" style={{ margin: 0 }}>
-                  {isInRepairOrDamaged
-                    ? "ยืนยันการบันทึกซ่อมเสร็จ / อัปเดตสถานะครุภัณฑ์"
-                    : "ยืนยันการแจ้งซ่อม / เปลี่ยนสถานะครุภัณฑ์"}
+                  ยืนยันการแจ้งซ่อม / เปลี่ยนสถานะครุภัณฑ์
                 </h3>
               </div>
             </div>
@@ -491,7 +494,6 @@ export default function AssetDetail() {
                 >
                   <option value="repair">ส่งซ่อม (Repair)</option>
                   <option value="damaged">ชำรุด (Damaged)</option>
-                  <option value="normal">ใช้งานปกติ / ซ่อมเสร็จแล้ว (Normal)</option>
                 </select>
               </div>
 
@@ -504,11 +506,7 @@ export default function AssetDetail() {
                   rows={3}
                   value={statusNote}
                   onChange={(e) => setStatusNote(e.target.value)}
-                  placeholder={
-                    targetStatus === "normal"
-                      ? "เช่น ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ"
-                      : "ระบุอาการชำรุด หรือสาเหตุการส่งซ่อม..."
-                  }
+                  placeholder="ระบุอาการชำรุด หรือสาเหตุการส่งซ่อม..."
                 />
               </div>
 
@@ -525,8 +523,8 @@ export default function AssetDetail() {
                   type="submit"
                   className="btn btn-primary"
                   style={{
-                    backgroundColor: targetStatus === "normal" ? "#059669" : "#0284c7",
-                    borderColor: targetStatus === "normal" ? "#059669" : "#0284c7",
+                    backgroundColor: "#0284c7",
+                    borderColor: "#0284c7",
                   }}
                   disabled={updatingStatus}
                 >
