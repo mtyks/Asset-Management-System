@@ -83,6 +83,212 @@ function appendLocalStatusLog(entry) {
   }
 }
 
+export async function getAllStatusLogs() {
+  let remoteLogs = [];
+  try {
+    const { data, error } = await supabase
+      .from("asset_status_log")
+      .select("*")
+      .order("changed_at", { ascending: false })
+      .limit(500);
+    if (!error && Array.isArray(data)) {
+      remoteLogs = data;
+    }
+  } catch (err) {
+    console.warn("getAllStatusLogs error:", err);
+  }
+
+  const localLogs = getLocalStatusLogs();
+  if (localLogs.length === 0) return remoteLogs;
+
+  const merged = [...remoteLogs.map((r) => ({ ...r }))];
+  for (const loc of localLogs) {
+    const locCode = String(loc.asset_code || "").trim().toUpperCase();
+    const locTime = new Date(loc.changed_at).getTime();
+    const matchIdx = merged.findIndex((rem) => {
+      const remCode = String(rem.asset_code || "").trim().toUpperCase();
+      const remTime = new Date(rem.changed_at).getTime();
+      return (
+        remCode === locCode &&
+        rem.new_status === loc.new_status &&
+        Math.abs(remTime - locTime) < 15000
+      );
+    });
+
+    if (matchIdx >= 0) {
+      if (!merged[matchIdx].note && loc.note) {
+        merged[matchIdx].note = loc.note;
+      }
+    } else {
+      merged.push(loc);
+    }
+  }
+
+  merged.sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
+  return merged;
+}
+
+export async function getRepairHistorySummary() {
+  try {
+    const [allLogs, { data: rawAssets }] = await Promise.all([
+      getAllStatusLogs(),
+      supabase
+        .from("assets")
+        .select(
+          `asset_code, name, status, responsible_person, asset_categories ( category_name ), rooms ( room_name )`
+        ),
+    ]);
+
+    const assets = applyAssetOverrides(rawAssets || []);
+    const assetByCode = new Map();
+    for (const a of assets) {
+      const code = String(a.asset_code || "").trim().toUpperCase();
+      if (code) assetByCode.set(code, a);
+    }
+
+    // Also inspect maintenance tickets in localStorage if available
+    let tickets = [];
+    try {
+      const rawTickets = localStorage.getItem("asset_maintenance_tickets_v2");
+      if (rawTickets) tickets = JSON.parse(rawTickets) || [];
+    } catch {}
+
+    // Map of assetCode (UPPERCASE) -> repair summary for that asset
+    const repairedMap = {};
+
+    // Process status logs related to repair / damaged / repair completion
+    const repairLogs = [];
+    for (const log of allLogs) {
+      const codeUpper = String(log.asset_code || "").trim().toUpperCase();
+      if (!codeUpper) continue;
+
+      const noteStr = String(log.note || "");
+      const isRepairRelated =
+        log.old_status === "repair" ||
+        log.old_status === "damaged" ||
+        log.new_status === "repair" ||
+        log.new_status === "damaged" ||
+        noteStr.includes("ซ่อม") ||
+        noteStr.includes("ชำรุด");
+
+      if (!isRepairRelated) continue;
+
+      const assetObj = assetByCode.get(codeUpper);
+      const currentStatus = assetObj?.status || "normal";
+
+      const isCompletedEvent =
+        log.new_status === "normal" &&
+        (log.old_status === "repair" ||
+          log.old_status === "damaged" ||
+          noteStr.includes("ซ่อม"));
+
+      const enrichedLog = {
+        ...log,
+        asset_code: assetObj?.asset_code || log.asset_code,
+        asset_name: assetObj?.name || log.asset_code,
+        category_name: assetObj?.asset_categories?.category_name || "ครุภัณฑ์ทั่วไป",
+        room_name: assetObj?.rooms?.room_name || "-",
+        current_status: currentStatus,
+        is_completed_event: isCompletedEvent,
+      };
+      repairLogs.push(enrichedLog);
+
+      if (!repairedMap[codeUpper]) {
+        repairedMap[codeUpper] = {
+          asset_code: assetObj?.asset_code || log.asset_code,
+          hasRepairHistory: true,
+          isRepairedAndNormal: false,
+          lastCompletedAt: null,
+          lastCompletedNote: null,
+          lastReportedAt: null,
+          lastReportedNote: null,
+          completedCount: 0,
+          totalEvents: 0,
+        };
+      }
+
+      const entry = repairedMap[codeUpper];
+      entry.totalEvents += 1;
+
+      if (isCompletedEvent) {
+        entry.completedCount += 1;
+        if (
+          !entry.lastCompletedAt ||
+          new Date(log.changed_at) > new Date(entry.lastCompletedAt)
+        ) {
+          entry.lastCompletedAt = log.changed_at;
+          entry.lastCompletedNote =
+            log.note || "ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ";
+        }
+      } else if (log.new_status === "repair" || log.new_status === "damaged") {
+        if (
+          !entry.lastReportedAt ||
+          new Date(log.changed_at) > new Date(entry.lastReportedAt)
+        ) {
+          entry.lastReportedAt = log.changed_at;
+          entry.lastReportedNote = log.note || "แจ้งส่งซ่อมครุภัณฑ์";
+        }
+      }
+    }
+
+    // Also check completed tickets in maintenance_tickets
+    for (const t of tickets) {
+      const codeUpper = String(t.asset_code || "").trim().toUpperCase();
+      if (!codeUpper || !assetByCode.has(codeUpper)) continue;
+
+      const assetObj = assetByCode.get(codeUpper);
+      if (!repairedMap[codeUpper]) {
+        repairedMap[codeUpper] = {
+          asset_code: assetObj.asset_code,
+          hasRepairHistory: true,
+          isRepairedAndNormal: false,
+          lastCompletedAt: null,
+          lastCompletedNote: null,
+          lastReportedAt: null,
+          lastReportedNote: null,
+          completedCount: 0,
+          totalEvents: 0,
+        };
+      }
+      const entry = repairedMap[codeUpper];
+      if (t.status === "completed") {
+        const compTime = t.completed_at || t.created_at;
+        if (!entry.lastCompletedAt) {
+          entry.lastCompletedAt = compTime;
+          entry.lastCompletedNote =
+            t.technician_note || `ซ่อมเสร็จสิ้น (${t.repair_no || "ใบงานซ่อม"})`;
+          entry.completedCount += 1;
+        }
+      }
+    }
+
+    // Finalize which assets are currently back to normal AND have repair history
+    for (const [codeUpper, entry] of Object.entries(repairedMap)) {
+      const assetObj = assetByCode.get(codeUpper);
+      if (!assetObj) continue;
+      const curStatus = assetObj.status || "normal";
+      if (curStatus === "normal" && (entry.completedCount > 0 || entry.hasRepairHistory)) {
+        entry.isRepairedAndNormal = true;
+        if (!entry.lastCompletedAt) {
+          entry.lastCompletedAt = entry.lastReportedAt;
+          entry.lastCompletedNote =
+            entry.lastCompletedNote ||
+            entry.lastReportedNote ||
+            "ซ่อมเสร็จสิ้น กลับมาใช้งานปกติ";
+        }
+      }
+    }
+
+    return {
+      repairedMap,
+      repairLogs,
+    };
+  } catch (err) {
+    console.warn("getRepairHistorySummary error:", err);
+    return { repairedMap: {}, repairLogs: [] };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
@@ -139,8 +345,20 @@ export async function listAssets(filters = {}) {
 
   let rows = applyAssetOverrides(data || []);
 
+  // แนบข้อมูลประวัติการซ่อม (repair_info) ให้ครุภัณฑ์แต่ละชิ้น
+  const { repairedMap } = await getRepairHistorySummary();
+  rows = rows.map((r) => {
+    const codeUpper = String(r.asset_code || "").trim().toUpperCase();
+    return {
+      ...r,
+      repair_info: repairedMap[codeUpper] || null,
+    };
+  });
+
   if (filters.status === "repair_damaged") {
     rows = rows.filter((r) => r.status === "repair" || r.status === "damaged");
+  } else if (filters.status === "repaired") {
+    rows = rows.filter((r) => Boolean(r.repair_info?.isRepairedAndNormal));
   } else if (filters.status) {
     rows = rows.filter((r) => (r.status || "normal") === filters.status);
   }
@@ -343,8 +561,8 @@ export async function updateAssetStatus(assetCode, newStatus, note = "") {
   const cleanCode = decodeURIComponent(String(assetCode || "")).trim();
   let oldStatus = "normal";
   try {
-    const existing = await getAssetByCode(cleanCode);
-    oldStatus = existing?.status || "normal";
+    const existingAsset = await getAssetByCode(cleanCode);
+    oldStatus = existingAsset?.status || "normal";
   } catch {}
 
   const nowIso = new Date().toISOString();
