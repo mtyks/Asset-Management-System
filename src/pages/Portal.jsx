@@ -279,8 +279,8 @@ export default function Portal() {
 
             <div className="portal-card-content">
               <div className="portal-card-category">ระบบบริการซ่อมบำรุง</div>
-              <h2 className="portal-card-title">ระบบแจ้งซ่อมและบำรุงรักษา</h2>
-              <div className="portal-card-sub-en">Maintenance & Repair Service System</div>
+              <h2 className="portal-card-title">ระบบบริหารจัดการงานแจ้งซ่อมด้านเทคโนโลยีสารสนเทศ</h2>
+              <div className="portal-card-sub-en">IT Help Desk Management System</div>
 
               <p className="portal-card-desc">
                 ส่งคำขอแจ้งซ่อมครุภัณฑ์และอุปกรณ์ชำรุด ติดตามสถานะงานซ่อมแบบ Real-time บันทึกการดำเนินงานของช่าง และประเมินประวัติการซ่อมบำรุง

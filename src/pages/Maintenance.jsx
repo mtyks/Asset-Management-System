@@ -1325,9 +1325,11 @@ export default function Maintenance() {
               <Wrench size={20} />
             </div>
             <div>
-              <div className="maintenance-brand-title">ระบบแจ้งซ่อมและบำรุงรักษา</div>
+              <div className="maintenance-brand-title">
+                ระบบบริหารจัดการงานแจ้งซ่อมด้านเทคโนโลยีสารสนเทศ
+              </div>
               <div className="maintenance-brand-sub">
-                Maintenance &amp; Repair Service System
+                IT Help Desk Management System
               </div>
             </div>
           </div>
@@ -4084,7 +4086,7 @@ export default function Maintenance() {
                     ใบแจ้งซ่อมและบันทึกประวัติการบำรุงรักษาครุภัณฑ์
                   </h2>
                   <div style={{ fontSize: "0.84rem", color: "#475569" }}>
-                    ระบบบริหารจัดการครุภัณฑ์และงานซ่อมบำรุง (Maintenance Job Sheet)
+                    ระบบบริหารจัดการงานแจ้งซ่อมด้านเทคโนโลยีสารสนเทศ (IT Help Desk Management System)
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>

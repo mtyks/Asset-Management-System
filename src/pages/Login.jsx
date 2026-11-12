@@ -25,7 +25,7 @@ export default function Login() {
   const redirectTo = location.state?.from?.pathname || "/";
   const targetPath = location.state?.from?.pathname || "";
   const systemTitle = targetPath.includes("maintenance")
-    ? "ระบบแจ้งซ่อมและบำรุงรักษา"
+    ? "ระบบบริหารจัดการงานแจ้งซ่อมด้านเทคโนโลยีสารสนเทศ"
     : targetPath.includes("dashboard") || targetPath.includes("asset")
     ? "ระบบบริหารจัดการครุภัณฑ์"
     : "ระบบบริการและบริหารจัดการองค์กร";
