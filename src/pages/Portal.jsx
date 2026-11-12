@@ -10,15 +10,23 @@ import {
   Calendar,
   LogOut,
   User,
+  Lock,
 } from "lucide-react";
 
 export default function Portal() {
-  const { user, signOut } = useAuth();
+  const { user, userRole, signOut } = useAuth();
   const navigate = useNavigate();
+  const isEmployeeOnly = Boolean(user && userRole === "employee");
 
   // Handle entering systems: redirect to login if not authenticated
   const handleEnterSystem = (destination) => {
     if (user) {
+      if (destination === "/dashboard" && isEmployeeOnly) {
+        alert(
+          "จำกัดสิทธิ์การเข้าถึง: ระบบบริหารจัดการทะเบียนครุภัณฑ์เปิดให้เฉพาะ 'แอดมิน (Admin)' และ 'ช่างเทคนิค (Technician)' เท่านั้น"
+        );
+        return;
+      }
       navigate(destination);
     } else {
       navigate("/login", { state: { from: { pathname: destination } } });
@@ -171,15 +179,35 @@ export default function Portal() {
             </div>
 
             <div className="portal-card-action">
-              <button
-                type="button"
-                className="portal-enter-btn emerald"
-                style={{ width: "100%", border: "none", cursor: "pointer" }}
-                onClick={() => handleEnterSystem("/dashboard")}
-              >
-                <span>เข้าสู่ระบบครุภัณฑ์</span>
-                <ArrowRight size={18} />
-              </button>
+              {isEmployeeOnly ? (
+                <button
+                  type="button"
+                  className="portal-enter-btn emerald"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: "#f1f5f9",
+                    color: "#64748b",
+                    cursor: "not-allowed",
+                    boxShadow: "none",
+                  }}
+                  onClick={() => handleEnterSystem("/dashboard")}
+                  title="เฉพาะแอดมินและช่างเทคนิคเท่านั้น"
+                >
+                  <Lock size={16} />
+                  <span>เฉพาะแอดมิน / เจ้าหน้าที่พัสดุ</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="portal-enter-btn emerald"
+                  style={{ width: "100%", border: "none", cursor: "pointer" }}
+                  onClick={() => handleEnterSystem("/dashboard")}
+                >
+                  <span>เข้าสู่ระบบครุภัณฑ์</span>
+                  <ArrowRight size={18} />
+                </button>
+              )}
             </div>
           </div>
 

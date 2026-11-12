@@ -19,7 +19,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 
 export default function App() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -82,6 +82,11 @@ export default function App() {
         <Route path="*" element={<Maintenance />} />
       </Routes>
     );
+  }
+
+  // จำกัดสิทธิ์พนักงานทั่วไป (employee) ไม่ให้เข้าถึง Dashboard ทะเบียนครุภัณฑ์หลัก
+  if (userRole === "employee") {
+    return <Navigate to="/maintenance" replace />;
   }
 
   // 6. ระบบบริหารจัดการครุภัณฑ์ (Asset Management System with Sidebar & TopHeader)

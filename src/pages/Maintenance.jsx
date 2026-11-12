@@ -1432,7 +1432,9 @@ export default function Maintenance() {
               </span>
             </div>
             <p className="page-subtitle">
-              ติดตามไทม์ไลน์สถานะ SLA สมุดประวัติการซ่อมรายเครื่อง กระดาน Kanban และส่งออกรายงาน Excel
+              {canUpdateTicket
+                ? "ติดตามไทม์ไลน์สถานะ SLA สมุดประวัติการซ่อมรายเครื่อง กระดาน Kanban และส่งออกรายงาน Excel"
+                : "ส่งคำขอแจ้งซ่อมครุภัณฑ์ สแกน QR Code และติดตามความคืบหน้าสถานะงานซ่อมแบบเรียลไทม์"}
             </p>
           </div>
 
@@ -1457,27 +1459,30 @@ export default function Maintenance() {
               </button>
             </div>
 
-            <button
-              type="button"
-              className="btn btn-outline-white"
-              onClick={handleExportCSV}
-              style={{
-                fontSize: "0.82rem",
-                padding: "8px 14px",
-                borderColor: "#cbd5e1",
-                color: "#0f291e",
-                fontWeight: 600,
-                whiteSpace: "nowrap",
-              }}
-              title="ดาวน์โหลดรายงานสรุปการซ่อมเป็นไฟล์ Excel (.CSV)"
-            >
-              <Download size={15} color="#059669" />
-              <span>Export Excel (.CSV)</span>
-            </button>
+            {canUpdateTicket && (
+              <button
+                type="button"
+                className="btn btn-outline-white"
+                onClick={handleExportCSV}
+                style={{
+                  fontSize: "0.82rem",
+                  padding: "8px 14px",
+                  borderColor: "#cbd5e1",
+                  color: "#0f291e",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}
+                title="ดาวน์โหลดรายงานสรุปการซ่อมเป็นไฟล์ Excel (.CSV)"
+              >
+                <Download size={15} color="#059669" />
+                <span>Export Excel (.CSV)</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* 2. Maintenance Executive Overview (3 Non-Repetitive Analytical Panels - Refined) */}
+        {/* 2. Role-Based Overview: Executive 3-Card Dashboard (Admin/Tech) vs Simple Status Bar (Employee) */}
+        {canUpdateTicket ? (
         <div className="maint-overview-bento">
           {/* Panel 1: ภาพรวมสถานะงานซ่อม */}
           <div className="maint-bento-card">
@@ -1934,6 +1939,97 @@ export default function Maintenance() {
             </div>
           </div>
         </div>
+        ) : (
+          /* Simple Clean Status Summary Strip for Employee Role (Hides Budget & Lemon Asset Analysis) */
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              padding: "14px 18px",
+              marginBottom: 18,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 12,
+              boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: "0.92rem", fontWeight: 700, color: "#0f172a" }}>
+                ติดตามสถานะคำขอแจ้งซ่อมครุภัณฑ์ (สำหรับพนักงาน)
+              </div>
+              <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 2 }}>
+                คลิกที่ปุ่มสถานะเพื่อกรองดูรายการแจ้งซ่อม หรือกดปุ่ม &quot;แจ้งซ่อม&quot; ด้านบนเพื่อส่งคำขอใหม่
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className={`maint-status-box pending ${
+                  statusFilter === "pending" ? "active" : ""
+                }`}
+                style={{ minWidth: 125, padding: "8px 12px" }}
+                onClick={() =>
+                  setStatusFilter(statusFilter === "pending" ? "all" : "pending")
+                }
+              >
+                <span className="maint-status-box-label">
+                  <span className="dot" style={{ backgroundColor: "#f59e0b" }} />
+                  รอดำเนินการ
+                </span>
+                <div className="maint-status-box-num">
+                  <strong>{counts.pending}</strong>
+                  <span>งาน</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className={`maint-status-box progress ${
+                  statusFilter === "in_progress_group" ? "active" : ""
+                }`}
+                style={{ minWidth: 125, padding: "8px 12px" }}
+                onClick={() =>
+                  setStatusFilter(
+                    statusFilter === "in_progress_group" ? "all" : "in_progress_group"
+                  )
+                }
+              >
+                <span className="maint-status-box-label">
+                  <span className="dot" style={{ backgroundColor: "#0284c7" }} />
+                  กำลังซ่อม
+                </span>
+                <div className="maint-status-box-num">
+                  <strong>{counts.in_progress}</strong>
+                  <span>งาน</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className={`maint-status-box completed ${
+                  statusFilter === "completed" ? "active" : ""
+                }`}
+                style={{ minWidth: 125, padding: "8px 12px" }}
+                onClick={() =>
+                  setStatusFilter(statusFilter === "completed" ? "all" : "completed")
+                }
+              >
+                <span className="maint-status-box-label">
+                  <span className="dot" style={{ backgroundColor: "#10b981" }} />
+                  ซ่อมเสร็จสิ้น
+                </span>
+                <div className="maint-status-box-num">
+                  <strong>{counts.completed}</strong>
+                  <span>งาน</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 3. Search & Filter Bar */}
         <div className="filter-toolbar">
@@ -2049,23 +2145,25 @@ export default function Maintenance() {
                         </span>
                       </div>
                     </th>
-                    <th
-                      className={`sortable-th ${sortConfig.key === "repair_cost" ? "sorted" : ""}`}
-                      style={{ minWidth: "100px" }}
-                      onClick={() => handleSort("repair_cost")}
-                      title="คลิกเพื่อเรียงตามค่าซ่อม"
-                    >
-                      <div className="sortable-th-inner">
-                        <span>ค่าซ่อม / อะไหล่</span>
-                        <span className="sort-indicator">
-                          {sortConfig.key === "repair_cost"
-                            ? sortConfig.direction === "desc"
-                              ? "↓"
-                              : "↑"
-                            : "⇅"}
-                        </span>
-                      </div>
-                    </th>
+                    {canUpdateTicket && (
+                      <th
+                        className={`sortable-th ${sortConfig.key === "repair_cost" ? "sorted" : ""}`}
+                        style={{ minWidth: "100px" }}
+                        onClick={() => handleSort("repair_cost")}
+                        title="คลิกเพื่อเรียงตามค่าซ่อม"
+                      >
+                        <div className="sortable-th-inner">
+                          <span>ค่าซ่อม / อะไหล่</span>
+                          <span className="sort-indicator">
+                            {sortConfig.key === "repair_cost"
+                              ? sortConfig.direction === "desc"
+                                ? "↓"
+                                : "↑"
+                              : "⇅"}
+                          </span>
+                        </div>
+                      </th>
+                    )}
                     <th
                       className={`sortable-th ${sortConfig.key === "status" ? "sorted" : ""}`}
                       style={{ minWidth: "120px" }}
@@ -2421,29 +2519,31 @@ export default function Maintenance() {
                             )}
                           </td>
 
-                          {/* 5. Repair Cost & Parts */}
-                          <td>
-                            <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.86rem" }}>
-                              {Number(t.repair_cost) > 0
-                                ? `${Number(t.repair_cost).toLocaleString()} ฿`
-                                : "-"}
-                            </div>
-                            {t.parts_used && (
-                              <div
-                                style={{
-                                  fontSize: "0.73rem",
-                                  color: "#64748b",
-                                  maxWidth: 140,
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}
-                                title={t.parts_used}
-                              >
-                                อะไหล่: {t.parts_used}
+                          {/* 5. Repair Cost & Parts (Admin & Technician Only) */}
+                          {canUpdateTicket && (
+                            <td>
+                              <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.86rem" }}>
+                                {Number(t.repair_cost) > 0
+                                  ? `${Number(t.repair_cost).toLocaleString()} ฿`
+                                  : "-"}
                               </div>
-                            )}
-                          </td>
+                              {t.parts_used && (
+                                <div
+                                  style={{
+                                    fontSize: "0.73rem",
+                                    color: "#64748b",
+                                    maxWidth: 140,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                  title={t.parts_used}
+                                >
+                                  อะไหล่: {t.parts_used}
+                                </div>
+                              )}
+                            </td>
+                          )}
 
                           {/* 6. Status + SLA Duration / Overdue Badge */}
                           <td>
@@ -3072,44 +3172,57 @@ export default function Maintenance() {
                                     )}
                                   </span>
 
-                                  {hasCost ? (
-                                    <strong
-                                      style={{
-                                        color: "#6d28d9",
-                                        backgroundColor: "#f3e8ff",
-                                        padding: "2px 9px",
-                                        borderRadius: 6,
-                                        fontSize: "0.8rem",
-                                        fontWeight: 800,
-                                        whiteSpace: "nowrap",
-                                      }}
-                                    >
-                                      {Number(t.repair_cost).toLocaleString()} ฿
-                                    </strong>
-                                  ) : isWarrantyFree ? (
-                                    <span
-                                      style={{
-                                        color: "#059669",
-                                        backgroundColor: "#ecfdf5",
-                                        padding: "2px 8px",
-                                        borderRadius: 6,
-                                        fontSize: "0.75rem",
-                                        fontWeight: 700,
-                                        whiteSpace: "nowrap",
-                                      }}
-                                    >
-                                      เคลมฟรี
-                                    </span>
+                                  {canUpdateTicket ? (
+                                    hasCost ? (
+                                      <strong
+                                        style={{
+                                          color: "#6d28d9",
+                                          backgroundColor: "#f3e8ff",
+                                          padding: "2px 9px",
+                                          borderRadius: 6,
+                                          fontSize: "0.8rem",
+                                          fontWeight: 800,
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        {Number(t.repair_cost).toLocaleString()} ฿
+                                      </strong>
+                                    ) : isWarrantyFree ? (
+                                      <span
+                                        style={{
+                                          color: "#059669",
+                                          backgroundColor: "#ecfdf5",
+                                          padding: "2px 8px",
+                                          borderRadius: 6,
+                                          fontSize: "0.75rem",
+                                          fontWeight: 700,
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        เคลมฟรี
+                                      </span>
+                                    ) : (
+                                      <span
+                                        style={{
+                                          color: "#94a3b8",
+                                          fontSize: "0.78rem",
+                                          fontWeight: 600,
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        ค่าซ่อม: -
+                                      </span>
+                                    )
                                   ) : (
                                     <span
                                       style={{
-                                        color: "#94a3b8",
-                                        fontSize: "0.78rem",
+                                        color: "#64748b",
+                                        fontSize: "0.76rem",
                                         fontWeight: 600,
                                         whiteSpace: "nowrap",
                                       }}
                                     >
-                                      ค่าซ่อม: -
+                                      ผู้แจ้ง: {t.reporter_name}
                                     </span>
                                   )}
                                 </div>
