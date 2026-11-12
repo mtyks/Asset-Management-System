@@ -42,6 +42,8 @@ import {
   Users,
   ShieldCheck,
   LogOut,
+  MapPin,
+  Trash2,
 } from "lucide-react";
 
 const QR_MODAL_SCANNER_ID = "maintenance-qr-reader";
@@ -482,12 +484,21 @@ function getSlaInfo(ticket) {
     }
   }
 
-  const openDays = Math.max(1, Math.ceil((now - createdMs) / 86400000));
+  const elapsedMs = Math.max(0, now - createdMs);
+  const isCreatedToday =
+    new Date(createdMs).toDateString() === new Date(now).toDateString();
+  const openDays = Math.floor(elapsedMs / 86400000);
+
+  const openLabel =
+    isCreatedToday || elapsedMs < 86400000
+      ? "เปิดงานวันนี้"
+      : `เปิดงาน ${Math.max(1, openDays)} วัน`;
+
   return {
     type: "normal",
     isOverdue: false,
-    days: openDays,
-    label: `เปิดงาน ${openDays} วัน`,
+    days: isCreatedToday ? 0 : Math.max(1, openDays),
+    label: openLabel,
   };
 }
 
@@ -535,6 +546,97 @@ function RepairStepTimeline({ status }) {
         );
       })}
     </div>
+  );
+}
+
+function renderUrgencyBadge(urgency) {
+  if (urgency === "critical") {
+    return (
+      <span
+        className="status-pill status-damaged"
+        style={{ fontSize: "0.72rem", padding: "2px 7px", whiteSpace: "nowrap" }}
+      >
+        ด่วนที่สุด
+      </span>
+    );
+  }
+  if (urgency === "urgent") {
+    return (
+      <span
+        className="status-pill status-repair"
+        style={{ fontSize: "0.72rem", padding: "2px 7px", whiteSpace: "nowrap" }}
+      >
+        ด่วน
+      </span>
+    );
+  }
+  return (
+    <span
+      className="status-pill"
+      style={{
+        fontSize: "0.72rem",
+        padding: "2px 7px",
+        backgroundColor: "#f1f5f9",
+        color: "#475569",
+        whiteSpace: "nowrap",
+      }}
+    >
+      ปกติ
+    </span>
+  );
+}
+
+function renderStatusBadge(status) {
+  if (status === "completed") {
+    return (
+      <span className="status-pill status-normal" style={{ whiteSpace: "nowrap" }}>
+        <span className="status-dot" />
+        ซ่อมเสร็จสิ้น
+      </span>
+    );
+  }
+  if (status === "in_progress") {
+    return (
+      <span className="status-pill status-borrowed" style={{ whiteSpace: "nowrap" }}>
+        <span className="status-dot" />
+        กำลังซ่อม
+      </span>
+    );
+  }
+  if (status === "waiting_parts") {
+    return (
+      <span
+        className="status-pill"
+        style={{ backgroundColor: "#eff6ff", color: "#1d4ed8", whiteSpace: "nowrap" }}
+      >
+        <span className="status-dot" style={{ backgroundColor: "#2563eb" }} />
+        รออะไหล่/ส่งศูนย์
+      </span>
+    );
+  }
+  if (status === "unrepairable") {
+    return (
+      <span className="status-pill status-damaged" style={{ whiteSpace: "nowrap" }}>
+        <span className="status-dot" />
+        ซ่อมไม่ได้
+      </span>
+    );
+  }
+  if (status === "cancelled") {
+    return (
+      <span
+        className="status-pill"
+        style={{ backgroundColor: "#f1f5f9", color: "#64748b", whiteSpace: "nowrap" }}
+      >
+        ยกเลิกแล้ว
+      </span>
+    );
+  }
+  return (
+    <span className="status-pill status-repair" style={{ whiteSpace: "nowrap" }}>
+      <span className="status-dot" />
+      รอดำเนินการ
+    </span>
   );
 }
 
@@ -2120,7 +2222,7 @@ export default function Maintenance() {
         {/* 4A. Table View of Repair Tickets */}
         {viewMode === "table" ? (
           <div className="table-card">
-            <div className="table-responsive">
+            <div className="table-responsive maint-desktop-table">
               <table className="modern-table maint-compact-table">
                 <thead>
                   <tr>
@@ -2258,72 +2360,8 @@ export default function Maintenance() {
                     </tr>
                   ) : (
                     paginatedTickets.map((t) => {
-                      const urgencyBadge =
-                        t.urgency === "critical" ? (
-                          <span
-                            className="status-pill status-damaged"
-                            style={{ fontSize: "0.72rem", padding: "2px 7px" }}
-                          >
-                            ด่วนที่สุด
-                          </span>
-                        ) : t.urgency === "urgent" ? (
-                          <span
-                            className="status-pill status-repair"
-                            style={{ fontSize: "0.72rem", padding: "2px 7px" }}
-                          >
-                            ด่วน
-                          </span>
-                        ) : (
-                          <span
-                            className="status-pill"
-                            style={{
-                              fontSize: "0.72rem",
-                              padding: "2px 7px",
-                              backgroundColor: "#f1f5f9",
-                              color: "#475569",
-                            }}
-                          >
-                            ปกติ
-                          </span>
-                        );
-
-                      const statusBadge =
-                        t.status === "completed" ? (
-                          <span className="status-pill status-normal">
-                            <span className="status-dot" />
-                            ซ่อมเสร็จสิ้น
-                          </span>
-                        ) : t.status === "in_progress" ? (
-                          <span className="status-pill status-borrowed">
-                            <span className="status-dot" />
-                            กำลังซ่อม
-                          </span>
-                        ) : t.status === "waiting_parts" ? (
-                          <span
-                            className="status-pill"
-                            style={{ backgroundColor: "#eff6ff", color: "#1d4ed8" }}
-                          >
-                            <span className="status-dot" style={{ backgroundColor: "#2563eb" }} />
-                            รออะไหล่/ส่งศูนย์
-                          </span>
-                        ) : t.status === "unrepairable" ? (
-                          <span className="status-pill status-damaged">
-                            <span className="status-dot" />
-                            ซ่อมไม่ได้
-                          </span>
-                        ) : t.status === "cancelled" ? (
-                          <span
-                            className="status-pill"
-                            style={{ backgroundColor: "#f1f5f9", color: "#64748b" }}
-                          >
-                            ยกเลิกแล้ว
-                          </span>
-                        ) : (
-                          <span className="status-pill status-repair">
-                            <span className="status-dot" />
-                            รอดำเนินการ
-                          </span>
-                        );
+                      const urgencyBadge = renderUrgencyBadge(t.urgency);
+                      const statusBadge = renderStatusBadge(t.status);
 
                       const rType = t.repair_type || "internal";
                       const repeatCount = assetRepairCountMap[t.asset_code] || 0;
@@ -2686,6 +2724,186 @@ export default function Maintenance() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card View (Optimized for Small Screens & Touch Devices) */}
+            <div className="maint-mobile-cards">
+              {loading ? (
+                <div className="maint-mobile-card-empty">
+                  กำลังโหลดข้อมูลรายการแจ้งซ่อม...
+                </div>
+              ) : filteredTickets.length === 0 ? (
+                <div className="maint-mobile-card-empty">
+                  ไม่พบรายการแจ้งซ่อมตามเงื่อนไขที่เลือก
+                </div>
+              ) : (
+                paginatedTickets.map((t) => {
+                  const urgencyBadge = renderUrgencyBadge(t.urgency);
+                  const statusBadge = renderStatusBadge(t.status);
+                  const sla = getSlaInfo(t);
+                  const repeatCount = assetRepairCountMap[t.asset_code] || 0;
+                  const cumulativeAssetCost = assetRepairCostMap[t.asset_code] || 0;
+                  const isLemonWarning =
+                    repeatCount >= 3 || cumulativeAssetCost >= 5000 || t.status === "unrepairable";
+
+                  return (
+                    <div key={`mob-${t.id}`} className="maint-mobile-card">
+                      {/* Top Header */}
+                      <div className="maint-mobile-card-header">
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span className="maint-mobile-repair-no">{t.repair_no || t.id}</span>
+                          {urgencyBadge}
+                        </div>
+                        <div>{statusBadge}</div>
+                      </div>
+
+                      {/* Asset & Room Location */}
+                      <div className="maint-mobile-card-asset">
+                        <div className="maint-mobile-asset-title">{t.asset_name || "อุปกรณ์ทั่วไป"}</div>
+                        <div className="maint-mobile-asset-sub">
+                          {t.asset_code && t.asset_code !== "-" && (
+                            <span className="maint-mobile-code-badge">{t.asset_code}</span>
+                          )}
+                          {t.location && (
+                            <span className="maint-mobile-location">
+                              <MapPin size={12} /> {t.location}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Lemon / High Cost Warning */}
+                      {isLemonWarning && (
+                        <div className="maint-mobile-lemon-alert">
+                          <Flame size={13} color="#dc2626" />
+                          <span>
+                            {t.status === "unrepairable"
+                              ? "ซ่อมไม่ได้/ชำรุดรอจำหน่าย"
+                              : `ซ่อมซ้ำ ${repeatCount} ครั้ง • งบสะสม ${cumulativeAssetCost.toLocaleString()} ฿`}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Problem Description & Attached Photos */}
+                      <div className="maint-mobile-problem">
+                        <div className="maint-mobile-problem-text">
+                          <strong>อาการ:</strong> {t.problem || "-"}
+                        </div>
+                        {(t.before_image_url || t.after_image_url) && (
+                          <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                            {t.before_image_url && (
+                              <button
+                                type="button"
+                                className="maint-mobile-photo-tag"
+                                onClick={() => setPreviewImage(t.before_image_url)}
+                              >
+                                <Camera size={12} /> รูปก่อนซ่อม
+                              </button>
+                            )}
+                            {t.after_image_url && (
+                              <button
+                                type="button"
+                                className="maint-mobile-photo-tag after"
+                                onClick={() => setPreviewImage(t.after_image_url)}
+                              >
+                                <CheckCircle2 size={12} /> รูปหลังซ่อม
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Details Grid */}
+                      <div className="maint-mobile-details-grid">
+                        <div className="maint-mobile-detail-item">
+                          <span className="maint-mobile-detail-label">ช่างผู้รับผิดชอบ</span>
+                          <span className="maint-mobile-detail-val">
+                            {t.technician_name ? (
+                              <span style={{ color: "#065f46", fontWeight: 600 }}>{t.technician_name}</span>
+                            ) : (
+                              <span style={{ color: "#94a3b8" }}>ยังไม่ระบุช่าง</span>
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="maint-mobile-detail-item">
+                          <span className="maint-mobile-detail-label">สถานะ / SLA</span>
+                          <span className={`maint-mobile-sla-val ${sla.isOverdue ? "overdue" : ""}`}>
+                            <Clock size={11} />
+                            {sla.label}
+                          </span>
+                        </div>
+
+                        {canUpdateTicket && Number(t.repair_cost) > 0 && (
+                          <div className="maint-mobile-detail-item">
+                            <span className="maint-mobile-detail-label">ค่าซ่อม</span>
+                            <span className="maint-mobile-detail-val" style={{ color: "#b45309", fontWeight: 700 }}>
+                              {Number(t.repair_cost).toLocaleString()} ฿
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="maint-mobile-detail-item">
+                          <span className="maint-mobile-detail-label">ผู้แจ้ง</span>
+                          <span className="maint-mobile-detail-val" style={{ color: "#475569" }}>
+                            {t.reporter_name || "-"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Technician Note */}
+                      {t.technician_note && (
+                        <div className="maint-mobile-technote">
+                          <strong>บันทึกช่าง:</strong> {t.technician_note}
+                        </div>
+                      )}
+
+                      {/* Action Buttons Bar */}
+                      <div className="maint-mobile-actions">
+                        <button
+                          type="button"
+                          className="maint-mobile-action-btn"
+                          onClick={() => handleOpenPrint(t)}
+                        >
+                          <Printer size={13} />
+                          <span>ใบงาน</span>
+                        </button>
+
+                        {canUpdateTicket ? (
+                          <>
+                            <button
+                              type="button"
+                              className="maint-mobile-action-btn primary"
+                              onClick={() => handleOpenUpdate(t)}
+                            >
+                              <Edit size={13} />
+                              <span>อัปเดตงาน</span>
+                            </button>
+                            {canDeleteTicket && (
+                              <button
+                                type="button"
+                                className="maint-mobile-action-btn danger"
+                                onClick={() => handleDeleteTicket(t)}
+                              >
+                                <Trash2 size={13} />
+                                <span>ลบ</span>
+                              </button>
+                            )}
+                          </>
+                        ) : t.status === "pending" && isOwnTicket(t) ? (
+                          <button
+                            type="button"
+                            className="maint-mobile-action-btn danger"
+                            onClick={() => handleReporterCancelTicket(t)}
+                          >
+                            <span>ยกเลิกคำขอ</span>
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             {/* Pagination Bar */}

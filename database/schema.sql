@@ -100,7 +100,7 @@ create index if not exists idx_borrow_asset on borrow_records(asset_code);
 
 create table if not exists maintenance_tickets (
   id                text primary key,
-  repair_no         text not null unique,
+  repair_no         text,
   asset_code        text,
   asset_name        text not null,
   problem           text not null,
@@ -112,7 +112,7 @@ create table if not exists maintenance_tickets (
   repair_type       text not null default 'internal',
   technician_name   text,
   vendor_name       text,
-  expected_date     date,
+  expected_date     text,
   repair_cost       numeric default 0,
   parts_used        text,
   technician_note   text,
@@ -124,6 +124,20 @@ create table if not exists maintenance_tickets (
 
 create index if not exists idx_maintenance_asset on maintenance_tickets(asset_code);
 create index if not exists idx_maintenance_status on maintenance_tickets(status);
+
+-- ----------------------------------------------------------------------------
+-- 5.6 APP USERS (ระบบผู้ใช้งานและการจัดการสิทธิ์ 3 ระดับ)
+-- ----------------------------------------------------------------------------
+
+create table if not exists app_users (
+  id                text primary key,
+  email             text unique not null,
+  full_name         text,
+  password          text,
+  role              text not null default 'employee',
+  approval_status   text not null default 'approved',
+  created_at        timestamptz not null default now()
+);
 
 -- ----------------------------------------------------------------------------
 -- 6. STAFF PROFILES
@@ -203,6 +217,7 @@ alter table assets             enable row level security;
 alter table asset_status_log   enable row level security;
 alter table borrow_records     enable row level security;
 alter table maintenance_tickets enable row level security;
+alter table app_users          enable row level security;
 alter table profiles           enable row level security;
 
 create policy "public read buildings"   on buildings          for select using (true);
@@ -211,13 +226,16 @@ create policy "public read categories"  on asset_categories   for select using (
 create policy "public read assets"      on assets             for select using (true);
 create policy "public read status log"  on asset_status_log   for select using (true);
 create policy "public read maintenance" on maintenance_tickets for select using (true);
+create policy "public read app_users"   on app_users          for select using (true);
 
-create policy "staff write buildings"  on buildings          for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "staff write rooms"      on rooms              for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "staff write categories" on asset_categories   for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "staff write assets"     on assets             for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "staff write borrow"     on borrow_records     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "staff write maintenance" on maintenance_tickets for all using (true) with check (true);
+create policy "public write buildings"  on buildings          for all using (true) with check (true);
+create policy "public write rooms"      on rooms              for all using (true) with check (true);
+create policy "public write categories" on asset_categories   for all using (true) with check (true);
+create policy "public write assets"     on assets             for all using (true) with check (true);
+create policy "public write status log" on asset_status_log   for all using (true) with check (true);
+create policy "public write borrow"     on borrow_records     for all using (true) with check (true);
+create policy "public write maintenance" on maintenance_tickets for all using (true) with check (true);
+create policy "public write app_users"   on app_users          for all using (true) with check (true);
 
 create policy "staff read own profile" on profiles for select using (auth.uid() = id);
 create policy "staff update own profile" on profiles for update using (auth.uid() = id);
