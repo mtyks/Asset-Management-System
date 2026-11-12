@@ -22,11 +22,13 @@ export default function Login() {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const redirectTo = location.state?.from?.pathname || "/dashboard";
+  const redirectTo = location.state?.from?.pathname || "/";
   const targetPath = location.state?.from?.pathname || "";
   const systemTitle = targetPath.includes("maintenance")
     ? "ระบบแจ้งซ่อมและบำรุงรักษา"
-    : "ระบบบริหารจัดการครุภัณฑ์";
+    : targetPath.includes("dashboard") || targetPath.includes("asset")
+    ? "ระบบบริหารจัดการครุภัณฑ์"
+    : "ระบบบริการและบริหารจัดการองค์กร";
 
   // Keypad definitions with numbers only
   const KEYPAD_BUTTONS = [
@@ -101,13 +103,18 @@ export default function Login() {
 
     setSubmitting(true);
     try {
-      const { error: signInError } = await signIn(email.trim(), passcode);
+      const { data: signInData, error: signInError } = await signIn(email.trim(), passcode);
       if (signInError) {
         setError(signInError.message || "อีเมลหรือรหัส Passcode ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
         setPasscode("");
         return;
       }
-      navigate(redirectTo, { replace: true });
+      const loggedInRole = signInData?.user?.role || "employee";
+      if (loggedInRole === "admin" || loggedInRole === "technician") {
+        navigate("/", { replace: true });
+      } else {
+        navigate(redirectTo, { replace: true });
+      }
     } catch (err) {
       setError(err.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง");
       setPasscode("");
