@@ -426,6 +426,17 @@ const REPAIR_TYPE_LABELS = {
   external: "ส่งร้านซ่อมภายนอก",
 };
 
+const SLA_DAYS_MAP = {
+  critical: 1,
+  urgent: 3,
+  normal: 7,
+};
+
+function getAutoSlaExpectedDate(urgency = "normal", baseMs = Date.now()) {
+  const slaDays = SLA_DAYS_MAP[urgency] || 7;
+  return new Date(baseMs + slaDays * 86400000).toISOString().slice(0, 10);
+}
+
 // Calculate SLA duration & overdue status for a ticket
 function getSlaInfo(ticket) {
   const now = Date.now();
@@ -451,9 +462,11 @@ function getSlaInfo(ticket) {
     };
   }
 
-  // Active ticket: check expected_date for overdue
-  if (ticket.expected_date) {
-    const expEndMs = new Date(`${ticket.expected_date}T23:59:59`).getTime();
+  // Active ticket: check expected_date (or auto-calculated SLA deadline by urgency) for overdue
+  const effectiveExpectedDate =
+    ticket.expected_date || getAutoSlaExpectedDate(ticket.urgency || "normal", createdMs);
+  if (effectiveExpectedDate) {
+    const expEndMs = new Date(`${effectiveExpectedDate}T23:59:59`).getTime();
     if (!Number.isNaN(expEndMs) && now > expEndMs) {
       const overdueDays = Math.max(1, Math.ceil((now - expEndMs) / 86400000));
       return {
@@ -529,8 +542,9 @@ export default function Maintenance() {
   const [loading, setLoading] = useState(true);
   const [isCloudSynced, setIsCloudSynced] = useState(false);
 
-  // View Mode ("table" | "kanban")
+  // View Mode ("table" | "kanban") & Role Permission Mode ("staff" | "reporter")
   const [viewMode, setViewMode] = useState("table");
+  const [userRoleMode, setUserRoleMode] = useState("staff");
 
   // Filter & Sort States
   const [search, setSearch] = useState("");
@@ -801,7 +815,7 @@ export default function Maintenance() {
       repair_type: formData.repair_type || "internal",
       technician_name: formData.technician_name.trim() || "",
       vendor_name: "",
-      expected_date: null,
+      expected_date: getAutoSlaExpectedDate(formData.urgency),
       repair_cost: 0,
       parts_used: "",
       technician_note: "",
@@ -834,19 +848,38 @@ export default function Maintenance() {
 
   // Handle Open Update Status Modal
   const handleOpenUpdate = (ticket) => {
+    const createdMs = ticket.created_at ? new Date(ticket.created_at).getTime() : Date.now();
     setSelectedTicket(ticket);
     setUpdateForm({
       status: ticket.status || "in_progress",
       repair_type: ticket.repair_type || "internal",
       technician_name: ticket.technician_name || "",
       vendor_name: ticket.vendor_name || "",
-      expected_date: ticket.expected_date || "",
+      expected_date:
+        ticket.expected_date || getAutoSlaExpectedDate(ticket.urgency || "normal", createdMs),
       repair_cost: ticket.repair_cost || 0,
       parts_used: ticket.parts_used || "",
       technician_note: ticket.technician_note || "",
       after_image_url: ticket.after_image_url || "",
     });
     setShowUpdateModal(true);
+  };
+
+  // Handle Reporter Cancel Pending Ticket (Allowed ONLY when status === "pending")
+  const handleReporterCancelTicket = async (ticket) => {
+    if (ticket.status !== "pending") {
+      alert("สามารถยกเลิกได้เฉพาะใบแจ้งซ่อมที่อยู่ในสถานะ 'รอดำเนินการ' เท่านั้น");
+      return;
+    }
+    if (!window.confirm(`ยืนยันการยกเลิกคำขอแจ้งซ่อม ${ticket.repair_no}?`)) return;
+    const updatedTicket = {
+      ...ticket,
+      status: "cancelled",
+      technician_note: ticket.technician_note || "ผู้แจ้งซ่อมขอยกเลิกรายการ (ขณะรอดำเนินการ)",
+    };
+    const updatedList = tickets.map((t) => (t.id === ticket.id ? updatedTicket : t));
+    setTickets(updatedList);
+    await saveMaintenanceTicketToCloud(updatedTicket, updatedList);
   };
 
   // Handle Save Status Update
@@ -1205,6 +1238,25 @@ export default function Maintenance() {
           </div>
 
           <div className="maintenance-topbar-actions">
+            <div className="view-toggle-group" title="สลับมุมมองตามบทบาทผู้ใช้งานเพื่อจำกัดสิทธิ์">
+              <button
+                type="button"
+                className={`view-toggle-btn ${userRoleMode === "staff" ? "active" : ""}`}
+                onClick={() => setUserRoleMode("staff")}
+              >
+                <UserCheck size={14} />
+                <span>สิทธิ์: เจ้าหน้าที่ / ช่าง</span>
+              </button>
+              <button
+                type="button"
+                className={`view-toggle-btn ${userRoleMode === "reporter" ? "active" : ""}`}
+                onClick={() => setUserRoleMode("reporter")}
+              >
+                <Eye size={14} />
+                <span>สิทธิ์: ผู้แจ้งซ่อม</span>
+              </button>
+            </div>
+
             <Link
               to="/"
               className="btn btn-outline-white"
@@ -2349,24 +2401,38 @@ export default function Maintenance() {
                                 <Printer size={13} />
                                 <span>ใบงาน</span>
                               </button>
-                              <button
-                                type="button"
-                                className="action-btn-link"
-                                onClick={() => handleOpenUpdate(t)}
-                                title="อัปเดตสถานะ / บันทึกช่าง / ค่าซ่อม"
-                                style={{ whiteSpace: "nowrap" }}
-                              >
-                                อัปเดตงาน
-                              </button>
-                              <button
-                                type="button"
-                                className="action-btn-link danger"
-                                onClick={() => handleDeleteTicket(t)}
-                                title="ลบคำขอแจ้งซ่อม"
-                                style={{ whiteSpace: "nowrap" }}
-                              >
-                                ลบ
-                              </button>
+                              {userRoleMode === "staff" ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="action-btn-link"
+                                    onClick={() => handleOpenUpdate(t)}
+                                    title="อัปเดตสถานะ / บันทึกช่าง / ค่าซ่อม"
+                                    style={{ whiteSpace: "nowrap" }}
+                                  >
+                                    อัปเดตงาน
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="action-btn-link danger"
+                                    onClick={() => handleDeleteTicket(t)}
+                                    title="ลบคำขอแจ้งซ่อม"
+                                    style={{ whiteSpace: "nowrap" }}
+                                  >
+                                    ลบ
+                                  </button>
+                                </>
+                              ) : t.status === "pending" ? (
+                                <button
+                                  type="button"
+                                  className="action-btn-link danger"
+                                  onClick={() => handleReporterCancelTicket(t)}
+                                  title="ผู้แจ้งซ่อมสามารถยกเลิกได้เฉพาะใบงานที่รอดำเนินการ"
+                                  style={{ whiteSpace: "nowrap" }}
+                                >
+                                  ยกเลิกคำขอ
+                                </button>
+                              ) : null}
                             </div>
                           </td>
                         </tr>
@@ -2835,36 +2901,48 @@ export default function Maintenance() {
 
                               {/* Row 5: Responsive Non-Clipping Action Footer */}
                               <div className="kanban-card-footer">
-                                <select
-                                  className="kanban-quick-select"
-                                  value={t.status}
-                                  title="เปลี่ยนสถานะใบงานด่วน"
-                                  onChange={async (e) => {
-                                    const newStatus = e.target.value;
-                                    const updatedTicket = {
-                                      ...t,
-                                      status: newStatus,
-                                      completed_at:
-                                        newStatus === "completed"
-                                          ? new Date().toISOString()
-                                          : t.completed_at,
-                                    };
-                                    const updatedList = tickets.map((item) =>
-                                      item.id === t.id ? updatedTicket : item
-                                    );
-                                    setTickets(updatedList);
-                                    await saveMaintenanceTicketToCloud(updatedTicket, updatedList);
-                                  }}
-                                >
-                                  <option value="pending">สถานะ: รอดำเนินการ</option>
-                                  <option value="in_progress">สถานะ: กำลังซ่อม</option>
-                                  <option value="waiting_parts">สถานะ: รออะไหล่/ส่งศูนย์</option>
-                                  <option value="completed">สถานะ: ซ่อมเสร็จสิ้น</option>
-                                  <option value="unrepairable">สถานะ: ซ่อมไม่ได้</option>
-                                  <option value="cancelled">สถานะ: ยกเลิก</option>
-                                </select>
+                                {userRoleMode === "staff" && (
+                                  <select
+                                    className="kanban-quick-select"
+                                    value={t.status}
+                                    title="เปลี่ยนสถานะใบงานด่วน"
+                                    onChange={async (e) => {
+                                      const newStatus = e.target.value;
+                                      const updatedTicket = {
+                                        ...t,
+                                        status: newStatus,
+                                        completed_at:
+                                          newStatus === "completed"
+                                            ? new Date().toISOString()
+                                            : t.completed_at,
+                                      };
+                                      const updatedList = tickets.map((item) =>
+                                        item.id === t.id ? updatedTicket : item
+                                      );
+                                      setTickets(updatedList);
+                                      await saveMaintenanceTicketToCloud(
+                                        updatedTicket,
+                                        updatedList
+                                      );
+                                    }}
+                                  >
+                                    <option value="pending">สถานะ: รอดำเนินการ</option>
+                                    <option value="in_progress">สถานะ: กำลังซ่อม</option>
+                                    <option value="waiting_parts">สถานะ: รออะไหล่/ส่งศูนย์</option>
+                                    <option value="completed">สถานะ: ซ่อมเสร็จสิ้น</option>
+                                    <option value="unrepairable">สถานะ: ซ่อมไม่ได้</option>
+                                    <option value="cancelled">สถานะ: ยกเลิก</option>
+                                  </select>
+                                )}
 
-                                <div className="kanban-footer-btns">
+                                <div
+                                  className="kanban-footer-btns"
+                                  style={
+                                    userRoleMode !== "staff" && t.status !== "pending"
+                                      ? { gridTemplateColumns: "1fr" }
+                                      : undefined
+                                  }
+                                >
                                   <button
                                     type="button"
                                     className="action-btn-link kanban-btn-item"
@@ -2878,13 +2956,23 @@ export default function Maintenance() {
                                     <Printer size={13} />
                                     <span>ใบงาน</span>
                                   </button>
-                                  <button
-                                    type="button"
-                                    className="action-btn-link kanban-btn-item"
-                                    onClick={() => handleOpenUpdate(t)}
-                                  >
-                                    <span>อัปเดตงาน</span>
-                                  </button>
+                                  {userRoleMode === "staff" ? (
+                                    <button
+                                      type="button"
+                                      className="action-btn-link kanban-btn-item"
+                                      onClick={() => handleOpenUpdate(t)}
+                                    >
+                                      <span>อัปเดตงาน</span>
+                                    </button>
+                                  ) : t.status === "pending" ? (
+                                    <button
+                                      type="button"
+                                      className="action-btn-link danger kanban-btn-item"
+                                      onClick={() => handleReporterCancelTicket(t)}
+                                    >
+                                      <span>ยกเลิกคำขอ</span>
+                                    </button>
+                                  ) : null}
                                 </div>
                               </div>
                             </div>
@@ -3101,16 +3189,38 @@ export default function Maintenance() {
                 </div>
 
                 <div className="form-group">
-                  <label>ระดับความเร่งด่วน</label>
+                  <label>ระดับความเร่งด่วน (กำหนดเกณฑ์ SLA อัตโนมัติ)</label>
                   <select
                     className="form-control"
                     value={formData.urgency}
                     onChange={(e) => setFormData((f) => ({ ...f, urgency: e.target.value }))}
                   >
-                    <option value="normal">ปกติ (Normal)</option>
-                    <option value="urgent">ด่วน (Urgent)</option>
-                    <option value="critical">ด่วนที่สุด (Critical)</option>
+                    <option value="normal">ปกติ (Normal) — SLA ภายใน 7 วัน</option>
+                    <option value="urgent">ด่วน (Urgent) — SLA ภายใน 3 วัน</option>
+                    <option value="critical">ด่วนที่สุด (Critical) — SLA ภายใน 1 วัน</option>
                   </select>
+                  <div
+                    style={{
+                      marginTop: 5,
+                      fontSize: "0.74rem",
+                      color:
+                        formData.urgency === "critical"
+                          ? "#dc2626"
+                          : formData.urgency === "urgent"
+                          ? "#d97706"
+                          : "#059669",
+                      fontWeight: 700,
+                    }}
+                  >
+                    กำหนดส่งคืนตามเกณฑ์ SLA อัตโนมัติ:{" "}
+                    {new Date(
+                      `${getAutoSlaExpectedDate(formData.urgency)}T00:00:00`
+                    ).toLocaleDateString("th-TH", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </div>
                 </div>
               </div>
 
