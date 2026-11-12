@@ -147,6 +147,116 @@ export default function Login() {
           </div>
         )}
 
+        {/* Quick Role Selection Strip (3 Roles: Admin, Technician, Employee) */}
+        <div
+          style={{
+            backgroundColor: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 12,
+            padding: "10px 12px",
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              fontSize: "0.74rem",
+              fontWeight: 700,
+              color: "#475569",
+              marginBottom: 7,
+            }}
+          >
+            บัญชีตามบทบาทสิทธิ์ (คลิกเพื่อกรอกอีเมลและรหัส 6 หลักอัตโนมัติ):
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setEmail("admin@organization.go.th");
+                setPasscode("111111");
+              }}
+              style={{
+                padding: "6px 6px",
+                borderRadius: 8,
+                border:
+                  email === "admin@organization.go.th"
+                    ? "1.5px solid #059669"
+                    : "1px solid #cbd5e1",
+                backgroundColor:
+                  email === "admin@organization.go.th" ? "#ecfdf5" : "#ffffff",
+                color: "#065f46",
+                fontSize: "0.73rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                textAlign: "center",
+              }}
+            >
+              <div>แอดมิน</div>
+              <div style={{ fontSize: "0.66rem", color: "#64748b", fontWeight: 600 }}>
+                รหัส: 111111
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setEmail("tech@organization.go.th");
+                setPasscode("222222");
+              }}
+              style={{
+                padding: "6px 6px",
+                borderRadius: 8,
+                border:
+                  email === "tech@organization.go.th"
+                    ? "1.5px solid #0284c7"
+                    : "1px solid #cbd5e1",
+                backgroundColor:
+                  email === "tech@organization.go.th" ? "#f0f9ff" : "#ffffff",
+                color: "#0369a1",
+                fontSize: "0.73rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                textAlign: "center",
+              }}
+            >
+              <div>ช่างซ่อม</div>
+              <div style={{ fontSize: "0.66rem", color: "#64748b", fontWeight: 600 }}>
+                รหัส: 222222
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setEmail("emp@organization.go.th");
+                setPasscode("333333");
+              }}
+              style={{
+                padding: "6px 6px",
+                borderRadius: 8,
+                border:
+                  email === "emp@organization.go.th"
+                    ? "1.5px solid #7c3aed"
+                    : "1px solid #cbd5e1",
+                backgroundColor:
+                  email === "emp@organization.go.th" ? "#f3e8ff" : "#ffffff",
+                color: "#5b21b6",
+                fontSize: "0.73rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                textAlign: "center",
+              }}
+            >
+              <div>พนักงาน</div>
+              <div style={{ fontSize: "0.66rem", color: "#64748b", fontWeight: 600 }}>
+                รหัส: 333333
+              </div>
+            </button>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit}>
           {/* Email input */}
           <div className="form-group" style={{ marginBottom: 14 }}>

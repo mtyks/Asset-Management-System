@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Html5Qrcode } from "html5-qrcode";
+import { useAuth, ROLE_LABELS } from "../lib/AuthContext";
 import {
   listAssets,
   updateAssetStatus,
@@ -38,6 +39,9 @@ import {
   Columns,
   Table as TableIcon,
   Timer,
+  Users,
+  ShieldCheck,
+  LogOut,
 } from "lucide-react";
 
 const QR_MODAL_SCANNER_ID = "maintenance-qr-reader";
@@ -536,15 +540,33 @@ function RepairStepTimeline({ status }) {
 
 export default function Maintenance() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const {
+    user,
+    userRole,
+    usersList,
+    updateUserRoleAndStatus,
+    deleteUserByEmail,
+    signOut,
+  } = useAuth();
+
+  // 3-Role Permission Flags: "admin" | "technician" | "employee"
+  const isAdmin = userRole === "admin";
+  const isTech = userRole === "technician";
+  const canUpdateTicket = isAdmin || isTech;
+  const canDeleteTicket = isAdmin;
+  const pendingUsersCount = (usersList || []).filter(
+    (u) => u.approval_status === "pending"
+  ).length;
 
   const [tickets, setTickets] = useState([]);
   const [assetsList, setAssetsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isCloudSynced, setIsCloudSynced] = useState(false);
 
-  // View Mode ("table" | "kanban") & Role Permission Mode ("staff" | "reporter")
+  // View Mode ("table" | "kanban") & Admin User Management Modal
   const [viewMode, setViewMode] = useState("table");
-  const [userRoleMode, setUserRoleMode] = useState("staff");
+  const [showUserMgmtModal, setShowUserMgmtModal] = useState(false);
 
   // Filter, Sort & Pagination States
   const [search, setSearch] = useState("");
@@ -590,13 +612,22 @@ export default function Maintenance() {
     problem: "",
     urgency: "normal",
     location: "",
-    reporter_name: "",
+    reporter_name: user?.user_metadata?.full_name || "",
     reporter_contact: "",
     repair_type: "internal",
     technician_name: "",
     before_image_url: "",
   });
   const [uploadingBeforeImg, setUploadingBeforeImg] = useState(false);
+
+  useEffect(() => {
+    const defaultName = user?.user_metadata?.full_name || "";
+    if (defaultName) {
+      setFormData((prev) =>
+        prev.reporter_name ? prev : { ...prev, reporter_name: defaultName }
+      );
+    }
+  }, [user]);
 
   // Form State: Update Ticket Status & Technician Info
   const [updateForm, setUpdateForm] = useState({
@@ -1253,24 +1284,67 @@ export default function Maintenance() {
           </div>
 
           <div className="maintenance-topbar-actions">
-            <div className="view-toggle-group" title="สลับมุมมองตามบทบาทผู้ใช้งานเพื่อจำกัดสิทธิ์">
-              <button
-                type="button"
-                className={`view-toggle-btn ${userRoleMode === "staff" ? "active" : ""}`}
-                onClick={() => setUserRoleMode("staff")}
-              >
-                <UserCheck size={14} />
-                <span>สิทธิ์: เจ้าหน้าที่ / ช่าง</span>
-              </button>
-              <button
-                type="button"
-                className={`view-toggle-btn ${userRoleMode === "reporter" ? "active" : ""}`}
-                onClick={() => setUserRoleMode("reporter")}
-              >
-                <Eye size={14} />
-                <span>สิทธิ์: ผู้แจ้งซ่อม</span>
-              </button>
+            {/* Active Logged-in Role Badge */}
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "5px 12px",
+                borderRadius: 999,
+                fontSize: "0.78rem",
+                fontWeight: 700,
+                backgroundColor: isAdmin
+                  ? "#fef3c7"
+                  : isTech
+                  ? "#e0f2fe"
+                  : "#f1f5f9",
+                color: isAdmin ? "#92400e" : isTech ? "#075985" : "#334155",
+                border: `1px solid ${
+                  isAdmin ? "#fde68a" : isTech ? "#bae6fd" : "#cbd5e1"
+                }`,
+              }}
+              title="สิทธิ์การใช้งานของบัญชีที่ล็อกอินอยู่ปัจจุบัน"
+            >
+              <ShieldCheck size={14} />
+              <span>
+                {user?.user_metadata?.full_name || "ผู้ใช้งาน"} ({ROLE_LABELS[userRole] || "พนักงาน"})
+              </span>
             </div>
+
+            {/* Admin Only: User Approval & Role Assignment Button */}
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn btn-outline-white"
+                style={{
+                  fontSize: "0.82rem",
+                  padding: "6px 12px",
+                  position: "relative",
+                  borderColor: pendingUsersCount > 0 ? "#f59e0b" : undefined,
+                }}
+                onClick={() => setShowUserMgmtModal(true)}
+                title="อนุมัติผู้สมัครใหม่และกำหนดสิทธิ์ผู้ใช้งาน"
+              >
+                <Users size={15} />
+                <span>จัดการผู้ใช้ / อนุมัติสิทธิ์</span>
+                {pendingUsersCount > 0 && (
+                  <span
+                    style={{
+                      marginLeft: 4,
+                      backgroundColor: "#dc2626",
+                      color: "#fff",
+                      fontSize: "0.7rem",
+                      fontWeight: 800,
+                      padding: "1px 6px",
+                      borderRadius: 999,
+                    }}
+                  >
+                    รออนุมัติ {pendingUsersCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             <Link
               to="/"
@@ -1280,6 +1354,20 @@ export default function Maintenance() {
               <LayoutGrid size={15} />
               <span>หน้าเลือกเมนูรวม</span>
             </Link>
+
+            <button
+              type="button"
+              className="btn btn-outline-white"
+              style={{ fontSize: "0.82rem", padding: "6px 12px" }}
+              onClick={async () => {
+                await signOut();
+                navigate("/login");
+              }}
+              title="สลับบัญชีผู้ใช้งานเพื่อทดสอบสิทธิ์อื่น หรือออกจากระบบ"
+            >
+              <LogOut size={15} />
+              <span>สลับบัญชี</span>
+            </button>
 
             <button
               type="button"
@@ -2416,7 +2504,7 @@ export default function Maintenance() {
                                 <Printer size={13} />
                                 <span>ใบงาน</span>
                               </button>
-                              {userRoleMode === "staff" ? (
+                              {canUpdateTicket ? (
                                 <>
                                   <button
                                     type="button"
@@ -2427,22 +2515,24 @@ export default function Maintenance() {
                                   >
                                     อัปเดตงาน
                                   </button>
-                                  <button
-                                    type="button"
-                                    className="action-btn-link danger"
-                                    onClick={() => handleDeleteTicket(t)}
-                                    title="ลบคำขอแจ้งซ่อม"
-                                    style={{ whiteSpace: "nowrap" }}
-                                  >
-                                    ลบ
-                                  </button>
+                                  {canDeleteTicket && (
+                                    <button
+                                      type="button"
+                                      className="action-btn-link danger"
+                                      onClick={() => handleDeleteTicket(t)}
+                                      title="ลบคำขอแจ้งซ่อม (เฉพาะแอดมิน)"
+                                      style={{ whiteSpace: "nowrap" }}
+                                    >
+                                      ลบ
+                                    </button>
+                                  )}
                                 </>
                               ) : t.status === "pending" ? (
                                 <button
                                   type="button"
                                   className="action-btn-link danger"
                                   onClick={() => handleReporterCancelTicket(t)}
-                                  title="ผู้แจ้งซ่อมสามารถยกเลิกได้เฉพาะใบงานที่รอดำเนินการ"
+                                  title="พนักงานผู้แจ้งซ่อมสามารถยกเลิกได้เฉพาะใบงานที่รอดำเนินการ"
                                   style={{ whiteSpace: "nowrap" }}
                                 >
                                   ยกเลิกคำขอ
@@ -3022,11 +3112,11 @@ export default function Maintenance() {
 
                               {/* Row 5: Responsive Non-Clipping Action Footer */}
                               <div className="kanban-card-footer">
-                                {userRoleMode === "staff" && (
+                                {canUpdateTicket && (
                                   <select
                                     className="kanban-quick-select"
                                     value={t.status}
-                                    title="เปลี่ยนสถานะใบงานด่วน"
+                                    title="เปลี่ยนสถานะใบงานด่วน (สำหรับช่างและแอดมิน)"
                                     onChange={async (e) => {
                                       const newStatus = e.target.value;
                                       const updatedTicket = {
@@ -3059,7 +3149,7 @@ export default function Maintenance() {
                                 <div
                                   className="kanban-footer-btns"
                                   style={
-                                    userRoleMode !== "staff" && t.status !== "pending"
+                                    !canUpdateTicket && t.status !== "pending"
                                       ? { gridTemplateColumns: "1fr" }
                                       : undefined
                                   }
@@ -3077,7 +3167,7 @@ export default function Maintenance() {
                                     <Printer size={13} />
                                     <span>ใบงาน</span>
                                   </button>
-                                  {userRoleMode === "staff" ? (
+                                  {canUpdateTicket ? (
                                     <button
                                       type="button"
                                       className="action-btn-link kanban-btn-item"
@@ -4275,6 +4365,274 @@ export default function Maintenance() {
           </div>
         );
       })()}
+
+      {/* ===================================================================== */}
+      {/* MODAL 6: Admin User Approval & 3-Role Permission Management           */}
+      {/* ===================================================================== */}
+      {showUserMgmtModal && isAdmin && (
+        <div
+          className="modal-overlay no-print"
+          onClick={() => setShowUserMgmtModal(false)}
+        >
+          <div
+            className="modal-content"
+            style={{ maxWidth: "760px", maxHeight: "90vh", overflowY: "auto" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: "#fef3c7",
+                    color: "#b45309",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h3 className="modal-title" style={{ margin: 0 }}>
+                    จัดการผู้ใช้งานและอนุมัติสิทธิ์ (Admin Role Management)
+                  </h3>
+                  <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                    อนุมัติผู้สมัครใหม่และกำหนดสิทธิ์การใช้งาน 3 ระดับ: แอดมิน / ช่าง / พนักงาน
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="action-btn-link"
+                onClick={() => setShowUserMgmtModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 10,
+                padding: "10px 14px",
+                marginBottom: 14,
+                fontSize: "0.79rem",
+                color: "#334155",
+                lineHeight: 1.5,
+              }}
+            >
+              <strong>สรุปขอบเขตสิทธิ์ทั้ง 3 ระดับ:</strong>
+              <div style={{ marginTop: 4, display: "grid", gap: 3 }}>
+                <div>
+                  • <strong>แอดมิน (Admin):</strong> อนุมัติผู้สมัครใหม่ กำหนดสิทธิ์ อัปเดตสถานะงานซ่อม ลบใบงาน และจัดการระบบทั้งหมด
+                </div>
+                <div>
+                  • <strong>ช่าง (Technician):</strong> รับงานซ่อม อัปเดตสถานะ บันทึกค่าซ่อม/อะไหล่/รูปหลังซ่อม และพิมพ์ใบงาน (ลบใบงานไม่ได้)
+                </div>
+                <div>
+                  • <strong>พนักงาน (Employee):</strong> แจ้งซ่อมครุภัณฑ์ สแกน QR ติดตามสถานะ พิมพ์ใบงาน และยกเลิกได้เฉพาะใบงานที่รอดำเนินการ
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {(usersList || []).map((u) => {
+                const isPending = u.approval_status === "pending";
+                const isSuspended = u.approval_status === "suspended";
+                const isSelf =
+                  (u.email || "").toLowerCase() ===
+                  (user?.email || "").toLowerCase();
+
+                return (
+                  <div
+                    key={u.id || u.email}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: 12,
+                      padding: "12px 14px",
+                      borderRadius: 10,
+                      border: `1px solid ${
+                        isPending
+                          ? "#fde68a"
+                          : isSuspended
+                          ? "#fecaca"
+                          : "#e2e8f0"
+                      }`,
+                      backgroundColor: isPending
+                        ? "#fffbeb"
+                        : isSuspended
+                        ? "#fef2f2"
+                        : "#ffffff",
+                    }}
+                  >
+                    <div style={{ minWidth: 210, flex: 1 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <strong style={{ fontSize: "0.9rem", color: "#0f172a" }}>
+                          {u.full_name || "ไม่ระบุชื่อ"}
+                        </strong>
+                        <span
+                          style={{
+                            fontSize: "0.7rem",
+                            fontWeight: 700,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            backgroundColor: isPending
+                              ? "#fef3c7"
+                              : isSuspended
+                              ? "#fee2e2"
+                              : "#dcfce7",
+                            color: isPending
+                              ? "#b45309"
+                              : isSuspended
+                              ? "#b91c1c"
+                              : "#15803d",
+                          }}
+                        >
+                          {isPending
+                            ? "รออนุมัติ"
+                            : isSuspended
+                            ? "ระงับสิทธิ์"
+                            : "อนุมัติแล้ว"}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.76rem",
+                          color: "#64748b",
+                          marginTop: 2,
+                        }}
+                      >
+                        อีเมล: {u.email} | รหัสเข้าใช้งาน:{" "}
+                        <code
+                          style={{
+                            backgroundColor: "#f1f5f9",
+                            padding: "1px 5px",
+                            borderRadius: 4,
+                            color: "#0f172a",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {u.passcode}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <select
+                        className="form-control"
+                        style={{
+                          width: "auto",
+                          minWidth: 135,
+                          padding: "5px 10px",
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
+                        }}
+                        value={u.role || "employee"}
+                        onChange={(e) =>
+                          updateUserRoleAndStatus(u.email, {
+                            role: e.target.value,
+                          })
+                        }
+                      >
+                        <option value="employee">สิทธิ์: พนักงาน</option>
+                        <option value="technician">สิทธิ์: ช่าง</option>
+                        <option value="admin">สิทธิ์: แอดมิน</option>
+                      </select>
+
+                      {isPending ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{
+                            padding: "5px 12px",
+                            fontSize: "0.78rem",
+                            backgroundColor: "#059669",
+                          }}
+                          onClick={() =>
+                            updateUserRoleAndStatus(u.email, {
+                              approval_status: "approved",
+                            })
+                          }
+                        >
+                          <Check size={14} />
+                          <span>อนุมัติใช้งาน</span>
+                        </button>
+                      ) : (
+                        !isSelf && (
+                          <button
+                            type="button"
+                            className="action-btn-link"
+                            style={{ fontSize: "0.76rem" }}
+                            onClick={() =>
+                              updateUserRoleAndStatus(u.email, {
+                                approval_status: isSuspended
+                                  ? "approved"
+                                  : "suspended",
+                              })
+                            }
+                          >
+                            {isSuspended ? "คืนสิทธิ์ใช้งาน" : "ระงับสิทธิ์"}
+                          </button>
+                        )
+                      )}
+
+                      {!isSelf && (
+                        <button
+                          type="button"
+                          className="action-btn-link danger"
+                          style={{ fontSize: "0.76rem" }}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `ยืนยันการลบบัญชีผู้ใช้ ${u.full_name} (${u.email})?`
+                              )
+                            ) {
+                              deleteUserByEmail(u.email);
+                            }
+                          }}
+                        >
+                          ลบ
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="form-actions" style={{ marginTop: 18 }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowUserMgmtModal(false)}
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

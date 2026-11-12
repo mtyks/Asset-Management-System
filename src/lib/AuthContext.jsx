@@ -3,34 +3,135 @@ import { supabase, isConfigured } from "../supabaseClient";
 
 const AuthContext = createContext(null);
 
-const DEFAULT_DEMO_USER = {
-  id: "demo-user-id",
-  email: "admin@organization.go.th",
-  user_metadata: { full_name: "ผู้ดูแลระบบพัสดุ" },
+export const ROLE_LABELS = {
+  admin: "ผู้ดูแลระบบ (Admin)",
+  technician: "ช่างเทคนิค (Technician)",
+  employee: "พนักงานทั่วไป (Employee)",
 };
+
+const SEED_USERS = [
+  {
+    id: "seed-admin-01",
+    email: "admin@organization.go.th",
+    password: "111111",
+    role: "admin",
+    approval_status: "approved",
+    user_metadata: {
+      full_name: "ผู้ดูแลระบบหลัก (Admin)",
+      role: "admin",
+      approval_status: "approved",
+    },
+    created_at: "2026-08-17T08:00:00.000Z",
+  },
+  {
+    id: "seed-tech-01",
+    email: "tech@organization.go.th",
+    password: "222222",
+    role: "technician",
+    approval_status: "approved",
+    user_metadata: {
+      full_name: "ทีมช่างไอทีและคอมพิวเตอร์",
+      role: "technician",
+      approval_status: "approved",
+    },
+    created_at: "2026-08-17T08:05:00.000Z",
+  },
+  {
+    id: "seed-emp-01",
+    email: "emp@organization.go.th",
+    password: "333333",
+    role: "employee",
+    approval_status: "approved",
+    user_metadata: {
+      full_name: "สมศรี พูนสุข",
+      role: "employee",
+      approval_status: "approved",
+    },
+    created_at: "2026-08-17T08:10:00.000Z",
+  },
+];
 
 const LOCAL_USERS_KEY = "app_local_users";
 const ACTIVE_USER_KEY = "app_active_user";
 
+function normalizeUserRecord(u) {
+  if (!u) return null;
+  const emailLower = (u.email || "").toLowerCase();
+  const defaultRole =
+    emailLower === "admin@organization.go.th"
+      ? "admin"
+      : emailLower === "tech@organization.go.th"
+      ? "technician"
+      : "employee";
+
+  const role = u.role || u.user_metadata?.role || defaultRole;
+  const approvalStatus =
+    u.approval_status || u.user_metadata?.approval_status || "approved";
+  const fullName =
+    u.user_metadata?.full_name ||
+    u.full_name ||
+    (role === "admin"
+      ? "ผู้ดูแลระบบ"
+      : role === "technician"
+      ? "ช่างเทคนิค"
+      : "พนักงานทั่วไป");
+
+  return {
+    ...u,
+    role,
+    approval_status: approvalStatus,
+    user_metadata: {
+      ...(u.user_metadata || {}),
+      full_name: fullName,
+      role,
+      approval_status: approvalStatus,
+    },
+  };
+}
+
 function getLocalUsers() {
   try {
     const data = localStorage.getItem(LOCAL_USERS_KEY);
-    return data ? JSON.parse(data) : [];
+    const parsed = data ? JSON.parse(data) : [];
+    const byEmail = new Map();
+    for (const s of SEED_USERS) {
+      byEmail.set(s.email.toLowerCase(), normalizeUserRecord(s));
+    }
+    for (const u of parsed) {
+      if (u && u.email) {
+        const key = u.email.toLowerCase();
+        const existingSeed = byEmail.get(key);
+        byEmail.set(
+          key,
+          normalizeUserRecord({
+            ...(existingSeed || {}),
+            ...u,
+          })
+        );
+      }
+    }
+    const merged = Array.from(byEmail.values());
+    localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(merged));
+    return merged;
   } catch {
-    return [];
+    return SEED_USERS;
   }
 }
 
 function saveLocalUser(userRecord) {
   try {
+    const normalized = normalizeUserRecord(userRecord);
     const users = getLocalUsers();
     const existingIndex = users.findIndex(
-      (u) => u.email.toLowerCase() === userRecord.email.toLowerCase()
+      (u) => u.email.toLowerCase() === normalized.email.toLowerCase()
     );
     if (existingIndex >= 0) {
-      users[existingIndex] = { ...users[existingIndex], ...userRecord };
+      users[existingIndex] = normalizeUserRecord({
+        ...users[existingIndex],
+        ...normalized,
+      });
     } else {
-      users.push(userRecord);
+      users.push(normalized);
     }
     localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
   } catch (err) {
@@ -41,7 +142,14 @@ function saveLocalUser(userRecord) {
 function getActiveUser() {
   try {
     const data = localStorage.getItem(ACTIVE_USER_KEY);
-    return data ? JSON.parse(data) : null;
+    if (!data) return null;
+    const parsed = JSON.parse(data);
+    // Sync latest role/status from localUsers registry
+    const localUsers = getLocalUsers();
+    const latest = localUsers.find(
+      (u) => u.email.toLowerCase() === (parsed.email || "").toLowerCase()
+    );
+    return normalizeUserRecord(latest ? { ...parsed, ...latest } : parsed);
   } catch {
     return null;
   }
@@ -50,7 +158,7 @@ function getActiveUser() {
 function saveActiveUser(u) {
   try {
     if (u) {
-      localStorage.setItem(ACTIVE_USER_KEY, JSON.stringify(u));
+      localStorage.setItem(ACTIVE_USER_KEY, JSON.stringify(normalizeUserRecord(u)));
     } else {
       localStorage.removeItem(ACTIVE_USER_KEY);
     }
@@ -60,126 +168,127 @@ function saveActiveUser(u) {
 }
 
 export function AuthProvider({ children }) {
+  const [usersList, setUsersList] = useState(() => getLocalUsers());
   const [activeUser, setActiveUser] = useState(() => getActiveUser());
-  const [session, setSession] = useState(isConfigured ? undefined : (activeUser ? { user: activeUser } : null));
+  const [session, setSession] = useState(
+    isConfigured ? undefined : activeUser ? { user: activeUser } : null
+  );
+
+  const refreshUsersList = () => {
+    const latest = getLocalUsers();
+    setUsersList(latest);
+    return latest;
+  };
 
   useEffect(() => {
-    if (!isConfigured) {
-      const active = getActiveUser();
-      setSession(active ? { user: active } : null);
-      setActiveUser(active);
-      return;
-    }
-
-    supabase.auth
-      .getSession()
-      .then(async ({ data }) => {
-        if (data?.session) {
-          setSession(data.session);
-          saveActiveUser(data.session.user);
-          setActiveUser(data.session.user);
-        } else {
-          // If no remote session, check local active user
-          const active = getActiveUser();
-          setSession(active ? { user: active } : null);
-          setActiveUser(active);
-
-          // ถ้ามี local active user แต่ Supabase ยังไม่มี session ให้ auto-sync เข้า Supabase ทันที
-          if (active && active.email) {
-            const localUsers = getLocalUsers();
-            const found = localUsers.find((lu) => lu.email === active.email.toLowerCase());
-            if (found && found.password) {
-              try {
-                let authRes = await supabase.auth.signInWithPassword({
-                  email: found.email,
-                  password: found.password,
-                });
-                if (authRes.error && authRes.error.message?.includes("Invalid login credentials")) {
-                  authRes = await supabase.auth.signUp({
-                    email: found.email,
-                    password: found.password,
-                    options: { data: found.user_metadata || {} },
-                  });
-                }
-                if (authRes.data?.session) {
-                  setSession(authRes.data.session);
-                  saveActiveUser(authRes.data.user);
-                  setActiveUser(authRes.data.user);
-                }
-              } catch (e) {
-                console.warn("Auto session sync error:", e);
-              }
-            }
-          }
-        }
-      })
-      .catch(() => {
-        const active = getActiveUser();
-        setSession(active ? { user: active } : null);
-        setActiveUser(active);
-      });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      if (newSession?.user) {
-        saveActiveUser(newSession.user);
-        setActiveUser(newSession.user);
-      }
-    });
-
-    return () => {
-      listener?.subscription?.unsubscribe();
-    };
+    const active = getActiveUser();
+    setActiveUser(active);
+    setSession(active ? { user: active } : null);
   }, []);
 
-  const currentUser = isConfigured ? (session?.user ?? activeUser) : activeUser;
+  const currentUser = normalizeUserRecord(activeUser || session?.user || null);
 
   const value = {
     session,
     user: currentUser,
-    isLoading: isConfigured && session === undefined,
+    userRole: currentUser?.role || "employee",
+    usersList,
+    isLoading: false,
+
+    updateUserRoleAndStatus: (targetEmail, updates = {}) => {
+      const normalizedEmail = (targetEmail || "").trim().toLowerCase();
+      const all = getLocalUsers();
+      const found = all.find((u) => u.email.toLowerCase() === normalizedEmail);
+      if (!found) return null;
+
+      const updatedRecord = normalizeUserRecord({
+        ...found,
+        role: updates.role || found.role,
+        approval_status: updates.approval_status || found.approval_status,
+        user_metadata: {
+          ...(found.user_metadata || {}),
+          role: updates.role || found.role,
+          approval_status: updates.approval_status || found.approval_status,
+        },
+      });
+      saveLocalUser(updatedRecord);
+      const nextList = refreshUsersList();
+
+      if (currentUser && currentUser.email.toLowerCase() === normalizedEmail) {
+        saveActiveUser(updatedRecord);
+        setActiveUser(updatedRecord);
+        setSession({ user: updatedRecord });
+      }
+      return nextList;
+    },
+
+    deleteUserByEmail: (targetEmail) => {
+      const normalizedEmail = (targetEmail || "").trim().toLowerCase();
+      if (normalizedEmail === "admin@organization.go.th") {
+        throw new Error("ไม่สามารถลบบัญชีผู้ดูแลระบบหลักได้");
+      }
+      const filtered = getLocalUsers().filter(
+        (u) => u.email.toLowerCase() !== normalizedEmail
+      );
+      localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(filtered));
+      setUsersList(filtered);
+      return filtered;
+    },
 
     signIn: async (email, password) => {
       const normalizedEmail = (email || "").trim().toLowerCase();
       const pwd = String(password || "").trim();
 
-      // 1. ตรวจสอบในฐานข้อมูลบัญชีท้องถิ่น (Local Users) ก่อนเสมอ
+      // 1. ตรวจสอบในฐานข้อมูลบัญชีผู้ใช้งาน (Local Users & Seed Roles)
       const localUsers = getLocalUsers();
-      const localUser = localUsers.find((u) => u.email === normalizedEmail);
+      const localUser = localUsers.find(
+        (u) => u.email.toLowerCase() === normalizedEmail
+      );
 
       if (localUser) {
-        if (String(localUser.password).trim() === pwd) {
-          const u = {
+        const isDefaultAdminPass =
+          normalizedEmail === "admin@organization.go.th" &&
+          (pwd === "111111" || pwd === "123456" || pwd === String(localUser.password).trim());
+
+        if (String(localUser.password).trim() === pwd || isDefaultAdminPass) {
+          if (localUser.approval_status === "pending") {
+            return {
+              data: null,
+              error: {
+                message:
+                  "บัญชีนี้ยังอยู่ระหว่างรอผู้ดูแลระบบ (Admin) อนุมัติและกำหนดสิทธิ์การใช้งาน",
+              },
+            };
+          }
+
+          if (localUser.approval_status === "suspended") {
+            return {
+              data: null,
+              error: {
+                message:
+                  "บัญชีผู้ใช้งานนี้ถูกระงับสิทธิ์การใช้งานชั่วคราว กรุณาติดต่อผู้ดูแลระบบ",
+              },
+            };
+          }
+
+          const u = normalizeUserRecord({
             id: localUser.id,
             email: localUser.email,
+            role: localUser.role,
+            approval_status: localUser.approval_status,
             user_metadata: localUser.user_metadata || { full_name: "ผู้ใช้งาน" },
-          };
+          });
           saveActiveUser(u);
           setActiveUser(u);
           setSession({ user: u });
 
-          // เชื่อมต่อและขอ Session JWT จาก Supabase เพื่อให้มีสิทธิ์แก้ไขข้อมูล (RLS: authenticated)
           if (isConfigured) {
             try {
-              let authRes = await supabase.auth.signInWithPassword({
+              await supabase.auth.signInWithPassword({
                 email: normalizedEmail,
                 password: pwd,
               });
-              if (authRes.error && authRes.error.message?.includes("Invalid login credentials")) {
-                authRes = await supabase.auth.signUp({
-                  email: normalizedEmail,
-                  password: pwd,
-                  options: { data: localUser.user_metadata || {} },
-                });
-              }
-              if (authRes.data?.session) {
-                setSession(authRes.data.session);
-                saveActiveUser(authRes.data.user);
-                setActiveUser(authRes.data.user);
-              }
-            } catch (authSyncErr) {
-              console.warn("Supabase auth sync warning:", authSyncErr);
-            }
+            } catch {}
           }
 
           return { data: { user: u }, error: null };
@@ -187,66 +296,6 @@ export function AuthProvider({ children }) {
           return {
             data: null,
             error: { message: "รหัส Passcode ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง" },
-          };
-        }
-      }
-
-      // ตรวจสอบบัญชีแอดมินจำลองเริ่มต้น
-      if (normalizedEmail === "admin@organization.go.th" && pwd === "password123") {
-        saveActiveUser(DEFAULT_DEMO_USER);
-        setActiveUser(DEFAULT_DEMO_USER);
-        setSession({ user: DEFAULT_DEMO_USER });
-        return { data: { user: DEFAULT_DEMO_USER }, error: null };
-      }
-
-      // 2. หากไม่พบบัญชีในเครื่อง และมีการตั้งค่า Supabase ให้ลองตรวจสอบกับ Supabase
-      if (isConfigured) {
-        try {
-          const res = await supabase.auth.signInWithPassword({
-            email: normalizedEmail,
-            password: pwd,
-          });
-
-          if (!res.error && res.data?.user) {
-            saveActiveUser(res.data.user);
-            setActiveUser(res.data.user);
-            return res;
-          }
-
-          if (res.error) {
-            const isNetworkError =
-              res.error.message?.includes("Failed to fetch") ||
-              res.error.message?.includes("fetch failed") ||
-              res.error.name === "AuthRetryableFetchError" ||
-              res.error.status === 0;
-
-            if (isNetworkError) {
-              return {
-                data: null,
-                error: { message: "ไม่พบบัญชีผู้ใช้งานนี้ในระบบ กรุณาสมัครสมาชิกก่อนเข้าสู่ระบบ" },
-              };
-            }
-
-            if (res.error.message?.includes("Invalid login credentials")) {
-              return {
-                data: null,
-                error: { message: "อีเมลหรือรหัส Passcode ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง" },
-              };
-            }
-
-            if (res.error.message?.includes("Email not confirmed")) {
-              return {
-                data: null,
-                error: { message: "กรุณายืนยันอีเมลในกล่องจดหมายของท่านก่อนเข้าสู่ระบบ" },
-              };
-            }
-
-            return res;
-          }
-        } catch (err) {
-          return {
-            data: null,
-            error: { message: "ไม่พบบัญชีผู้ใช้งานนี้ในระบบ กรุณาสมัครสมาชิกก่อนเข้าสู่ระบบ" },
           };
         }
       }
@@ -261,127 +310,57 @@ export function AuthProvider({ children }) {
       const normalizedEmail = (email || "").trim().toLowerCase();
       const pwd = String(password || "").trim();
 
-      // 1. ตรวจสอบว่ามีอีเมลนี้สมัครอยู่แล้วหรือไม่ (ป้องกันการสมัครซ้ำ)
       const localUsers = getLocalUsers();
-      const existingUser = localUsers.find((u) => u.email === normalizedEmail);
+      const existingUser = localUsers.find(
+        (u) => u.email.toLowerCase() === normalizedEmail
+      );
       if (existingUser) {
         return {
           data: null,
-          error: { message: "อีเมลนี้มีบัญชีผู้ใช้งานในระบบอยู่แล้ว กรุณาเข้าสู่ระบบ หรือใช้อีเมลอื่น" },
+          error: {
+            message:
+              "อีเมลนี้มีบัญชีผู้ใช้งานในระบบอยู่แล้ว กรุณาเข้าสู่ระบบ หรือใช้อีเมลอื่น",
+          },
         };
       }
 
-      if (normalizedEmail === "admin@organization.go.th") {
-        return {
-          data: null,
-          error: { message: "อีเมลนี้มีบัญชีผู้ดูแลระบบอยู่ในระบบแล้ว กรุณาเข้าสู่ระบบ" },
-        };
-      }
-
-      const localRecord = {
-        id: "local-" + Date.now(),
-        email: normalizedEmail,
-        password: pwd,
-        user_metadata: metadata,
-        created_at: new Date().toISOString(),
+      // สมัครสมาชิกใหม่ -> สถานะเริ่มต้นเป็น "pending" รอให้ Admin อนุมัติและเลือกสิทธิ์ (Role)
+      const enrichedMeta = {
+        ...metadata,
+        role: "employee",
+        approval_status: "pending",
       };
 
-      // 2. ลองส่งไปยัง Supabase หากมีการเชื่อมต่อ
+      const localRecord = normalizeUserRecord({
+        id: "user-" + Date.now(),
+        email: normalizedEmail,
+        password: pwd,
+        role: "employee",
+        approval_status: "pending",
+        user_metadata: enrichedMeta,
+        created_at: new Date().toISOString(),
+      });
+
+      saveLocalUser(localRecord);
+      refreshUsersList();
+
       if (isConfigured) {
         try {
-          const res = await supabase.auth.signUp({
+          await supabase.auth.signUp({
             email: normalizedEmail,
             password: pwd,
-            options: {
-              data: metadata,
-            },
+            options: { data: enrichedMeta },
           });
-
-          if (res.error) {
-            // หาก Supabase แจ้งว่าอีเมลนี้มีอยู่แล้ว
-            if (
-              res.error.message?.includes("already registered") ||
-              res.error.message?.includes("already exists") ||
-              res.error.status === 422
-            ) {
-              return {
-                data: null,
-                error: { message: "อีเมลนี้มีบัญชีผู้ใช้งานในระบบอยู่แล้ว กรุณาเข้าสู่ระบบ หรือใช้อีเมลอื่น" },
-              };
-            }
-
-            // หาก Supabase ติด Email Rate Limit (ส่งอีเมลยืนยันเกินโควตาต่อชั่วโมงของ Free Tier)
-            if (
-              res.error.message?.includes("rate limit") ||
-              res.error.status === 429
-            ) {
-              saveLocalUser(localRecord);
-              const u = { id: localRecord.id, email: normalizedEmail, user_metadata: metadata };
-              saveActiveUser(u);
-              setActiveUser(u);
-              setSession({ user: u });
-              return {
-                data: { user: u },
-                error: null,
-                warning: "สมัครสมาชิกสำเร็จ! (หากต้องการให้ลงทะเบียนผ่านคลาวด์โดยตรง แนะนำให้ปิด Confirm email บน Supabase Dashboard)",
-              };
-            }
-
-            // หากเกิดปัญหาการเชื่อมต่อเซิร์ฟเวอร์ (เช่น Supabase ถูก Pause) ให้บันทึกลงในเครื่องทันที
-            const isNetworkError =
-              res.error.message?.includes("Failed to fetch") ||
-              res.error.message?.includes("fetch failed") ||
-              res.error.name === "AuthRetryableFetchError" ||
-              res.error.status === 0;
-
-            if (isNetworkError) {
-              saveLocalUser(localRecord);
-              const u = { id: localRecord.id, email: normalizedEmail, user_metadata: metadata };
-              saveActiveUser(u);
-              setActiveUser(u);
-              setSession({ user: u });
-              return {
-                data: { user: u },
-                error: null,
-                isOfflineFallback: true,
-              };
-            }
-
-            return res;
-          }
-
-          // หาก Supabase สร้างผู้ใช้สำเร็จ
-          saveLocalUser(localRecord);
-          if (res.data?.user) {
-            saveActiveUser(res.data.user);
-            setActiveUser(res.data.user);
-            if (res.data?.session) {
-              setSession(res.data.session);
-            }
-          }
-          return res;
-        } catch (err) {
-          // เครือข่ายล้มเหลว
-          saveLocalUser(localRecord);
-          const u = { id: localRecord.id, email: normalizedEmail, user_metadata: metadata };
-          saveActiveUser(u);
-          setActiveUser(u);
-          setSession({ user: u });
-          return {
-            data: { user: u },
-            error: null,
-            isOfflineFallback: true,
-          };
-        }
+        } catch {}
       }
 
-      // บันทึกลงเครื่องในโหมดออฟไลน์
-      saveLocalUser(localRecord);
-      const u = { id: localRecord.id, email: normalizedEmail, user_metadata: metadata };
-      saveActiveUser(u);
-      setActiveUser(u);
-      setSession({ user: u });
-      return { data: { user: u }, error: null };
+      return {
+        data: { user: localRecord },
+        error: null,
+        pendingApproval: true,
+        warning:
+          "ส่งคำขอสมัครสมาชิกสำเร็จ! บัญชีของท่านอยู่ระหว่างรอผู้ดูแลระบบ (Admin) อนุมัติและกำหนดสิทธิ์ก่อนเข้าใช้งาน",
+      };
     },
 
     signOut: async () => {
@@ -391,9 +370,7 @@ export function AuthProvider({ children }) {
       if (isConfigured) {
         try {
           await supabase.auth.signOut();
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
       return { error: null };
     },

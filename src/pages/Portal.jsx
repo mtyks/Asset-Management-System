@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../lib/AuthContext";
+import { useAuth, ROLE_LABELS } from "../lib/AuthContext";
 import {
   Package,
   Wrench,
@@ -47,7 +47,7 @@ export default function Portal() {
             </div>
 
             {user ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <span
                   style={{
                     fontSize: "0.82rem",
@@ -60,6 +60,29 @@ export default function Portal() {
                 >
                   <User size={14} color="#059669" />
                   <span>{user.user_metadata?.full_name || user.email}</span>
+                  <span
+                    style={{
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      backgroundColor:
+                        user.role === "admin"
+                          ? "#ecfdf5"
+                          : user.role === "technician"
+                          ? "#e0f2fe"
+                          : "#f3e8ff",
+                      color:
+                        user.role === "admin"
+                          ? "#059669"
+                          : user.role === "technician"
+                          ? "#0284c7"
+                          : "#6d28d9",
+                      border: "1px solid rgba(15, 23, 42, 0.08)",
+                    }}
+                  >
+                    {ROLE_LABELS[user.role] || ROLE_LABELS.employee}
+                  </span>
                 </span>
                 <button
                   type="button"
@@ -73,13 +96,22 @@ export default function Portal() {
                 </button>
               </div>
             ) : (
-              <Link
-                to="/register"
-                className="btn btn-primary"
-                style={{ fontSize: "0.82rem", padding: "6px 16px" }}
-              >
-                สมัครสมาชิก
-              </Link>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Link
+                  to="/login"
+                  className="btn btn-outline-white"
+                  style={{ fontSize: "0.82rem", padding: "6px 14px" }}
+                >
+                  เข้าสู่ระบบ
+                </Link>
+                <Link
+                  to="/register"
+                  className="btn btn-primary"
+                  style={{ fontSize: "0.82rem", padding: "6px 16px" }}
+                >
+                  สมัครสมาชิก
+                </Link>
+              </div>
             )}
           </div>
         </div>

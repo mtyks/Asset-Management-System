@@ -149,10 +149,13 @@ export default function Register() {
         throw res.error;
       }
 
-      setSuccessMessage(res?.warning || "สมัครสมาชิกสำเร็จ! กำลังนำท่านเข้าสู่ระบบ...");
+      setSuccessMessage(
+        res?.warning ||
+          "ส่งคำขอสมัครสมาชิกสำเร็จ! กรุณารอผู้ดูแลระบบ (Admin) อนุมัติและกำหนดสิทธิ์ก่อนเข้าใช้งาน"
+      );
       setTimeout(() => {
-        navigate("/", { replace: true });
-      }, 1800);
+        navigate("/login", { replace: true });
+      }, 2400);
     } catch (err) {
       const msg = err.message || "";
       if (msg.includes("Failed to fetch") || msg.includes("fetch failed")) {
