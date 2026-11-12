@@ -78,6 +78,9 @@ function normalizeUserRecord(u) {
 
   return {
     ...u,
+    full_name: fullName,
+    passcode: String(u.password || u.passcode || "").trim(),
+    password: String(u.password || u.passcode || "").trim(),
     role,
     approval_status: approvalStatus,
     user_metadata: {
@@ -86,6 +89,19 @@ function normalizeUserRecord(u) {
       role,
       approval_status: approvalStatus,
     },
+  };
+}
+
+function toSupabaseAppUserRow(u) {
+  const norm = normalizeUserRecord(u);
+  return {
+    id: norm.id || `user-${Date.now()}`,
+    email: (norm.email || "").toLowerCase(),
+    full_name: norm.user_metadata?.full_name || norm.full_name || "ผู้ใช้งาน",
+    password: String(norm.password || norm.passcode || "").trim(),
+    role: norm.role || "employee",
+    approval_status: norm.approval_status || "approved",
+    created_at: norm.created_at || new Date().toISOString(),
   };
 }
 
@@ -170,6 +186,7 @@ function saveActiveUser(u) {
 export function AuthProvider({ children }) {
   const [usersList, setUsersList] = useState(() => getLocalUsers());
   const [activeUser, setActiveUser] = useState(() => getActiveUser());
+  const [isUsersCloudSynced, setIsUsersCloudSynced] = useState(false);
   const [session, setSession] = useState(
     isConfigured ? undefined : activeUser ? { user: activeUser } : null
   );
@@ -180,10 +197,66 @@ export function AuthProvider({ children }) {
     return latest;
   };
 
+  // Sync users list from Supabase `app_users` table (with automatic fallback to localStorage)
+  const syncUsersFromSupabase = async () => {
+    if (!isConfigured) return getLocalUsers();
+    try {
+      const { data, error } = await supabase
+        .from("app_users")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (!error && Array.isArray(data)) {
+        const localAll = getLocalUsers();
+        const byEmail = new Map();
+        for (const u of localAll) {
+          byEmail.set(u.email.toLowerCase(), normalizeUserRecord(u));
+        }
+        for (const cloudRow of data) {
+          if (cloudRow && cloudRow.email) {
+            const key = cloudRow.email.toLowerCase();
+            const existing = byEmail.get(key) || {};
+            byEmail.set(
+              key,
+              normalizeUserRecord({
+                ...existing,
+                ...cloudRow,
+                user_metadata: {
+                  ...(existing.user_metadata || {}),
+                  full_name: cloudRow.full_name || existing.full_name,
+                  role: cloudRow.role || existing.role,
+                  approval_status:
+                    cloudRow.approval_status || existing.approval_status,
+                },
+              })
+            );
+          }
+        }
+        const merged = Array.from(byEmail.values());
+        localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(merged));
+        setUsersList(merged);
+        setIsUsersCloudSynced(true);
+
+        // Ensure seed accounts exist in Supabase `app_users`
+        if (data.length < SEED_USERS.length) {
+          const rowsToUpsert = merged.map(toSupabaseAppUserRow);
+          await supabase
+            .from("app_users")
+            .upsert(rowsToUpsert, { onConflict: "email" });
+        }
+        return merged;
+      }
+    } catch {
+      // Fallback to localStorage if `app_users` table is not created yet
+    }
+    return getLocalUsers();
+  };
+
   useEffect(() => {
     const active = getActiveUser();
     setActiveUser(active);
     setSession(active ? { user: active } : null);
+    syncUsersFromSupabase();
   }, []);
 
   const currentUser = normalizeUserRecord(activeUser || session?.user || null);
@@ -193,9 +266,11 @@ export function AuthProvider({ children }) {
     user: currentUser,
     userRole: currentUser?.role || "employee",
     usersList,
+    isUsersCloudSynced,
     isLoading: false,
+    refreshUsersList: syncUsersFromSupabase,
 
-    updateUserRoleAndStatus: (targetEmail, updates = {}) => {
+    updateUserRoleAndStatus: async (targetEmail, updates = {}) => {
       const normalizedEmail = (targetEmail || "").trim().toLowerCase();
       const all = getLocalUsers();
       const found = all.find((u) => u.email.toLowerCase() === normalizedEmail);
@@ -214,6 +289,15 @@ export function AuthProvider({ children }) {
       saveLocalUser(updatedRecord);
       const nextList = refreshUsersList();
 
+      if (isConfigured) {
+        try {
+          await supabase
+            .from("app_users")
+            .upsert(toSupabaseAppUserRow(updatedRecord), { onConflict: "email" });
+          setIsUsersCloudSynced(true);
+        } catch {}
+      }
+
       if (currentUser && currentUser.email.toLowerCase() === normalizedEmail) {
         saveActiveUser(updatedRecord);
         setActiveUser(updatedRecord);
@@ -222,7 +306,7 @@ export function AuthProvider({ children }) {
       return nextList;
     },
 
-    deleteUserByEmail: (targetEmail) => {
+    deleteUserByEmail: async (targetEmail) => {
       const normalizedEmail = (targetEmail || "").trim().toLowerCase();
       if (normalizedEmail === "admin@organization.go.th") {
         throw new Error("ไม่สามารถลบบัญชีผู้ดูแลระบบหลักได้");
@@ -232,6 +316,13 @@ export function AuthProvider({ children }) {
       );
       localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(filtered));
       setUsersList(filtered);
+
+      if (isConfigured) {
+        try {
+          await supabase.from("app_users").delete().eq("email", normalizedEmail);
+        } catch {}
+      }
+
       return filtered;
     },
 
@@ -239,9 +330,9 @@ export function AuthProvider({ children }) {
       const normalizedEmail = (email || "").trim().toLowerCase();
       const pwd = String(password || "").trim();
 
-      // 1. ตรวจสอบในฐานข้อมูลบัญชีผู้ใช้งาน (Local Users & Seed Roles)
-      const localUsers = getLocalUsers();
-      const localUser = localUsers.find(
+      // 1. ซิงค์ข้อมูลล่าสุดจาก Supabase `app_users` ก่อนตรวจสอบสิทธิ์ (เผื่อแอดมินเพิ่งอนุมัติจากเครื่องอื่น)
+      const latestUsers = await syncUsersFromSupabase();
+      const localUser = latestUsers.find(
         (u) => u.email.toLowerCase() === normalizedEmail
       );
 
@@ -345,6 +436,13 @@ export function AuthProvider({ children }) {
       refreshUsersList();
 
       if (isConfigured) {
+        try {
+          await supabase
+            .from("app_users")
+            .upsert(toSupabaseAppUserRow(localRecord), { onConflict: "email" });
+          setIsUsersCloudSynced(true);
+        } catch {}
+
         try {
           await supabase.auth.signUp({
             email: normalizedEmail,

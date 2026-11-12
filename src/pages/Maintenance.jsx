@@ -545,6 +545,8 @@ export default function Maintenance() {
     user,
     userRole,
     usersList,
+    isUsersCloudSynced,
+    refreshUsersList,
     updateUserRoleAndStatus,
     deleteUserByEmail,
     signOut,
@@ -1323,7 +1325,10 @@ export default function Maintenance() {
                   position: "relative",
                   borderColor: pendingUsersCount > 0 ? "#f59e0b" : undefined,
                 }}
-                onClick={() => setShowUserMgmtModal(true)}
+                onClick={() => {
+                  refreshUsersList?.();
+                  setShowUserMgmtModal(true);
+                }}
                 title="อนุมัติผู้สมัครใหม่และกำหนดสิทธิ์ผู้ใช้งาน"
               >
                 <Users size={15} />
@@ -4396,9 +4401,29 @@ export default function Maintenance() {
                   <Users size={20} />
                 </div>
                 <div>
-                  <h3 className="modal-title" style={{ margin: 0 }}>
-                    จัดการผู้ใช้งานและอนุมัติสิทธิ์ (Admin Role Management)
-                  </h3>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <h3 className="modal-title" style={{ margin: 0 }}>
+                      จัดการผู้ใช้งานและอนุมัติสิทธิ์ (Admin Role Management)
+                    </h3>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        backgroundColor: isUsersCloudSynced ? "#ecfdf5" : "#f1f5f9",
+                        color: isUsersCloudSynced ? "#059669" : "#475569",
+                      }}
+                    >
+                      <Cloud size={12} />
+                      {isUsersCloudSynced
+                        ? "ซิงค์ตาราง app_users บน Supabase แล้ว"
+                        : "ซิงค์อัตโนมัติ (Local + Supabase Auth)"}
+                    </span>
+                  </div>
                   <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
                     อนุมัติผู้สมัครใหม่และกำหนดสิทธิ์การใช้งาน 3 ระดับ: แอดมิน / ช่าง / พนักงาน
                   </div>
