@@ -575,14 +575,24 @@ export default function Maintenance() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [repairTypeFilter, setRepairTypeFilter] = useState("all");
+  const [onlyMyTickets, setOnlyMyTickets] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: "created_at", direction: "desc" });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  const currentUserFullName = (user?.user_metadata?.full_name || "").trim();
+  const isOwnTicket = (ticket) =>
+    Boolean(
+      currentUserFullName &&
+        (ticket?.reporter_name || "").trim().toLowerCase() ===
+          currentUserFullName.toLowerCase()
+    );
+  const myTicketsCount = tickets.filter((t) => isOwnTicket(t)).length;
+
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, urgencyFilter, repairTypeFilter]);
+  }, [search, statusFilter, urgencyFilter, repairTypeFilter, onlyMyTickets]);
 
   const handleSort = (key) => {
     setSortConfig((prev) =>
@@ -630,6 +640,21 @@ export default function Maintenance() {
       );
     }
   }, [user]);
+
+  // Check if selected asset_code in Add Modal already has an active open repair ticket
+  const activeDuplicateTicket =
+    formData?.asset_code &&
+    formData.asset_code.trim() !== "" &&
+    formData.asset_code.trim() !== "-"
+      ? tickets.find(
+          (t) =>
+            (t.asset_code || "").toLowerCase() ===
+              formData.asset_code.trim().toLowerCase() &&
+            (t.status === "pending" ||
+              t.status === "in_progress" ||
+              t.status === "waiting_parts")
+        )
+      : null;
 
   // Form State: Update Ticket Status & Technician Info
   const [updateForm, setUpdateForm] = useState({
@@ -820,6 +845,13 @@ export default function Maintenance() {
       return;
     }
 
+    if (activeDuplicateTicket) {
+      const confirmDup = window.confirm(
+        `ครุภัณฑ์รหัส ${formData.asset_code} มีใบแจ้งซ่อมที่กำลังดำเนินการอยู่แล้ว (${activeDuplicateTicket.repair_no}: ${activeDuplicateTicket.problem})\n\nท่านต้องการยืนยันเปิดใบแจ้งซ่อมซ้ำหรือไม่?`
+      );
+      if (!confirmDup) return;
+    }
+
     const nextId = Date.now().toString();
     const repairNo = `RP-2569-${String(tickets.length + 1).padStart(3, "0")}`;
 
@@ -841,6 +873,8 @@ export default function Maintenance() {
       }
     }
 
+    const assignedTech = canUpdateTicket ? formData.technician_name.trim() : "";
+
     const newTicket = {
       id: nextId,
       repair_no: repairNo,
@@ -851,9 +885,9 @@ export default function Maintenance() {
       location: resolvedLocation.trim() || "ไม่ระบุสถานที่",
       reporter_name: formData.reporter_name.trim(),
       reporter_contact: formData.reporter_contact.trim() || "-",
-      status: formData.technician_name.trim() ? "in_progress" : "pending",
+      status: assignedTech ? "in_progress" : "pending",
       repair_type: formData.repair_type || "internal",
-      technician_name: formData.technician_name.trim() || "",
+      technician_name: assignedTech,
       vendor_name: "",
       expected_date: getAutoSlaExpectedDate(formData.urgency),
       repair_cost: 0,
@@ -905,10 +939,14 @@ export default function Maintenance() {
     setShowUpdateModal(true);
   };
 
-  // Handle Reporter Cancel Pending Ticket (Allowed ONLY when status === "pending")
+  // Handle Reporter Cancel Pending Ticket (Allowed ONLY when status === "pending" and owned by reporter)
   const handleReporterCancelTicket = async (ticket) => {
     if (ticket.status !== "pending") {
       alert("สามารถยกเลิกได้เฉพาะใบแจ้งซ่อมที่อยู่ในสถานะ 'รอดำเนินการ' เท่านั้น");
+      return;
+    }
+    if (!canUpdateTicket && !isOwnTicket(ticket)) {
+      alert("ท่านสามารถยกเลิกได้เฉพาะใบแจ้งซ่อมที่ท่านเป็นผู้แจ้งเท่านั้น");
       return;
     }
     if (!window.confirm(`ยืนยันการยกเลิกคำขอแจ้งซ่อม ${ticket.repair_no}?`)) return;
@@ -929,6 +967,14 @@ export default function Maintenance() {
 
     const isCompleted = updateForm.status === "completed";
     const isUnrepairable = updateForm.status === "unrepairable";
+    const isCancelled = updateForm.status === "cancelled";
+
+    if ((isUnrepairable || isCancelled) && !updateForm.technician_note.trim()) {
+      alert(
+        "กรุณาระบุสาเหตุในช่อง 'บันทึกผลการซ่อม / ความเห็นช่าง' เมื่อเปลี่ยนสถานะเป็น 'ซ่อมไม่ได้' หรือ 'ยกเลิกใบงาน'"
+      );
+      return;
+    }
 
     const updatedTicket = {
       ...selectedTicket,
@@ -1031,8 +1077,9 @@ export default function Maintenance() {
     const matchUrgency = urgencyFilter === "all" || t.urgency === urgencyFilter;
     const matchRepairType =
       repairTypeFilter === "all" || (t.repair_type || "internal") === repairTypeFilter;
+    const matchMine = !onlyMyTickets || isOwnTicket(t);
 
-    return matchSearch && matchStatus && matchUrgency && matchRepairType;
+    return matchSearch && matchStatus && matchUrgency && matchRepairType && matchMine;
   }).sort((a, b) => {
     const dir = sortConfig.direction === "asc" ? 1 : -1;
     switch (sortConfig.key) {
@@ -2007,6 +2054,29 @@ export default function Maintenance() {
             />
           </div>
 
+          {currentUserFullName && (
+            <button
+              type="button"
+              onClick={() => setOnlyMyTickets((prev) => !prev)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: onlyMyTickets ? "1.5px solid #0284c7" : "1px solid #cbd5e1",
+                backgroundColor: onlyMyTickets ? "#e0f2fe" : "#ffffff",
+                color: onlyMyTickets ? "#0369a1" : "#334155",
+                fontSize: "0.8rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+              title="สลับกรองเฉพาะใบงานที่คุณเป็นผู้แจ้งซ่อม"
+            >
+              {onlyMyTickets
+                ? `เฉพาะงานที่ฉันแจ้ง (${myTicketsCount}) ✓`
+                : `เฉพาะงานที่ฉันแจ้ง (${myTicketsCount})`}
+            </button>
+          )}
+
           <select
             className="filter-select"
             value={statusFilter}
@@ -2595,12 +2665,12 @@ export default function Maintenance() {
                                     </button>
                                   )}
                                 </>
-                              ) : t.status === "pending" ? (
+                              ) : t.status === "pending" && isOwnTicket(t) ? (
                                 <button
                                   type="button"
                                   className="action-btn-link danger"
                                   onClick={() => handleReporterCancelTicket(t)}
-                                  title="พนักงานผู้แจ้งซ่อมสามารถยกเลิกได้เฉพาะใบงานที่รอดำเนินการ"
+                                  title="ยกเลิกคำขอแจ้งซ่อมของคุณ (เฉพาะขณะรอดำเนินการ)"
                                   style={{ whiteSpace: "nowrap" }}
                                 >
                                   ยกเลิกคำขอ
@@ -3200,6 +3270,17 @@ export default function Maintenance() {
                                     title="เปลี่ยนสถานะใบงานด่วน (สำหรับช่างและแอดมิน)"
                                     onChange={async (e) => {
                                       const newStatus = e.target.value;
+                                      if (
+                                        (newStatus === "unrepairable" ||
+                                          newStatus === "cancelled") &&
+                                        !(t.technician_note || "").trim()
+                                      ) {
+                                        handleOpenUpdate({
+                                          ...t,
+                                          status: newStatus,
+                                        });
+                                        return;
+                                      }
                                       const updatedTicket = {
                                         ...t,
                                         status: newStatus,
@@ -3230,7 +3311,8 @@ export default function Maintenance() {
                                 <div
                                   className="kanban-footer-btns"
                                   style={
-                                    !canUpdateTicket && t.status !== "pending"
+                                    !canUpdateTicket &&
+                                    !(t.status === "pending" && isOwnTicket(t))
                                       ? { gridTemplateColumns: "1fr" }
                                       : undefined
                                   }
@@ -3256,7 +3338,7 @@ export default function Maintenance() {
                                     >
                                       <span>อัปเดตงาน</span>
                                     </button>
-                                  ) : t.status === "pending" ? (
+                                  ) : t.status === "pending" && isOwnTicket(t) ? (
                                     <button
                                       type="button"
                                       className="action-btn-link danger kanban-btn-item"
@@ -3465,6 +3547,29 @@ export default function Maintenance() {
                     </option>
                   ))}
                 </select>
+                {activeDuplicateTicket && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      backgroundColor: "#fffbeb",
+                      border: "1px solid #fde68a",
+                      color: "#b45309",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+                    <span>
+                      แจ้งเตือนป้องกันการแจ้งซ้ำ: ครุภัณฑ์รหัสนี้มีใบแจ้งซ่อมที่กำลังดำเนินการอยู่แล้ว (
+                      {activeDuplicateTicket.repair_no} — อาการ: {activeDuplicateTicket.problem})
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="form-grid" style={{ marginBottom: 14 }}>
@@ -3581,7 +3686,10 @@ export default function Maintenance() {
                 </div>
               </div>
 
-              <div className="form-grid" style={{ marginBottom: 14 }}>
+              <div
+                className={canUpdateTicket ? "form-grid" : ""}
+                style={{ marginBottom: 14 }}
+              >
                 <div className="form-group">
                   <label>สถานที่ตั้ง / ห้องประจำ</label>
                   <input
@@ -3593,18 +3701,20 @@ export default function Maintenance() {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label>มอบหมายทีมช่างเบื้องต้น (หากทราบ)</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="เช่น ทีมช่างไอที, ช่างอาคาร"
-                    value={formData.technician_name}
-                    onChange={(e) =>
-                      setFormData((f) => ({ ...f, technician_name: e.target.value }))
-                    }
-                  />
-                </div>
+                {canUpdateTicket && (
+                  <div className="form-group">
+                    <label>มอบหมายทีมช่างเบื้องต้น (เฉพาะแอดมิน/ช่าง)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="เช่น ทีมช่างไอที, ช่างอาคาร"
+                      value={formData.technician_name}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, technician_name: e.target.value }))
+                      }
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="form-grid" style={{ marginBottom: 20 }}>
