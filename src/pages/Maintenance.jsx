@@ -546,12 +546,19 @@ export default function Maintenance() {
   const [viewMode, setViewMode] = useState("table");
   const [userRoleMode, setUserRoleMode] = useState("staff");
 
-  // Filter & Sort States
+  // Filter, Sort & Pagination States
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [repairTypeFilter, setRepairTypeFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState({ key: "created_at", direction: "desc" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, urgencyFilter, repairTypeFilter]);
 
   const handleSort = (key) => {
     setSortConfig((prev) =>
@@ -1032,6 +1039,14 @@ export default function Maintenance() {
         return 0;
     }
   });
+
+  // Pagination slice for Table View
+  const totalItems = filteredTickets.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const paginatedTickets = filteredTickets.slice(startIndex, endIndex);
 
   // Export filtered tickets to Excel-compatible UTF-8 BOM CSV
   const handleExportCSV = () => {
@@ -2016,7 +2031,7 @@ export default function Maintenance() {
                       </td>
                     </tr>
                   ) : (
-                    filteredTickets.map((t) => {
+                    paginatedTickets.map((t) => {
                       const urgencyBadge =
                         t.urgency === "critical" ? (
                           <span
@@ -2442,6 +2457,112 @@ export default function Maintenance() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Bar */}
+            {!loading && totalItems > 0 && (
+              <div className="pagination-wrapper">
+                <div className="pagination-info">
+                  แสดงรายการแจ้งซ่อม <strong>{startIndex + 1}</strong> -{" "}
+                  <strong>{endIndex}</strong> จากทั้งหมด{" "}
+                  <strong>{totalItems.toLocaleString()}</strong> รายการ
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "14px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {/* Page Size Selector */}
+                  <div className="pagination-size-wrap">
+                    <span>แสดง:</span>
+                    <select
+                      className="pagination-size-select"
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <option value={5}>5 รายการ / หน้า</option>
+                      <option value={10}>10 รายการ / หน้า</option>
+                      <option value={25}>25 รายการ / หน้า</option>
+                      <option value={50}>50 รายการ / หน้า</option>
+                      <option value={100}>100 รายการ / หน้า</option>
+                    </select>
+                  </div>
+
+                  {/* Page Navigation Buttons */}
+                  <div className="pagination-controls">
+                    <button
+                      type="button"
+                      className="pagination-btn"
+                      disabled={safePage <= 1}
+                      onClick={() => setCurrentPage(1)}
+                      title="หน้าแรก"
+                    >
+                      &laquo;
+                    </button>
+                    <button
+                      type="button"
+                      className="pagination-btn"
+                      disabled={safePage <= 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      title="หน้าก่อนหน้า"
+                    >
+                      &lsaquo;
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(
+                        (p) =>
+                          p === 1 ||
+                          p === totalPages ||
+                          (p >= safePage - 2 && p <= safePage + 2)
+                      )
+                      .map((p, idx, arr) => {
+                        const prev = arr[idx - 1];
+                        const showEllipsis = prev && p - prev > 1;
+                        return (
+                          <React.Fragment key={p}>
+                            {showEllipsis && (
+                              <span style={{ padding: "0 4px", color: "#94a3b8" }}>...</span>
+                            )}
+                            <button
+                              type="button"
+                              className={`pagination-btn ${p === safePage ? "active" : ""}`}
+                              onClick={() => setCurrentPage(p)}
+                            >
+                              {p}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+
+                    <button
+                      type="button"
+                      className="pagination-btn"
+                      disabled={safePage >= totalPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      title="หน้าถัดไป"
+                    >
+                      &rsaquo;
+                    </button>
+                    <button
+                      type="button"
+                      className="pagination-btn"
+                      disabled={safePage >= totalPages}
+                      onClick={() => setCurrentPage(totalPages)}
+                      title="หน้าสุดท้าย"
+                    >
+                      &raquo;
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* 4B. Kanban Board View (4 Status Columns - Redesigned for Easy Scanning) */
