@@ -792,7 +792,7 @@ export async function listBorrowRecords() {
   try {
     const { data, error } = await supabase
       .from("borrow_records")
-      .select("*, assets(asset_code, name, color, image_url)")
+      .select("*, assets(asset_code, name, color, image_url, status)")
       .order("borrowed_at", { ascending: false });
     if (!error && Array.isArray(data)) {
       remoteRows = data;
@@ -802,9 +802,10 @@ export async function listBorrowRecords() {
   }
 
   const localRows = getLocalBorrowRecords();
-  if (localRows.length === 0) return remoteRows;
+  const overrides = getLocalAssetOverrides();
+  const statusLogs = getLocalStatusLogs();
 
-  // รวมข้อมูลจาก Cloud และ Local (ป้องกันซ้ำ และอัปเดตสถานะ returned_at หากคืนใน Local แล้ว)
+  // รวมข้อมูลจาก Cloud และ Local (ป้องกันซ้ำ และอัปเดตสถานะ returned_at / return_condition หากคืนใน Local แล้ว)
   const merged = [...remoteRows.map((r) => ({ ...r }))];
   for (const loc of localRows) {
     const idx = merged.findIndex(
@@ -821,8 +822,37 @@ export async function listBorrowRecords() {
       if (!merged[idx].returned_at && loc.returned_at) {
         merged[idx].returned_at = loc.returned_at;
       }
+      if (loc.return_condition) {
+        merged[idx].return_condition = loc.return_condition;
+      }
+      if (loc.return_note) {
+        merged[idx].return_note = loc.return_note;
+      }
     } else {
       merged.push(loc);
+    }
+  }
+
+  // ตรวจสอบสถานะการคืน (หากคืนแล้วและครุภัณฑ์ถูกตั้งเป็นชำรุดตอนคืน ให้ระบุ return_condition = "damaged")
+  for (const row of merged) {
+    const codeUpper = String(row.asset_code || row.assets?.asset_code || "")
+      .trim()
+      .toUpperCase();
+    if (row.returned_at && !row.return_condition) {
+      const matchingLog = statusLogs.find(
+        (l) =>
+          String(l.asset_code || "").trim().toUpperCase() === codeUpper &&
+          String(l.note || "").includes("รับคืนแล้ว - พบการชำรุด")
+      );
+      const currentStatus =
+        overrides[codeUpper]?.status || row.assets?.status || "normal";
+      if (matchingLog) {
+        row.return_condition = "damaged";
+        const parts = String(matchingLog.note || "").split("รับคืนแล้ว - พบการชำรุด:");
+        if (parts[1]) row.return_note = parts[1].trim();
+      } else if (currentStatus === "damaged") {
+        row.return_condition = "damaged";
+      }
     }
   }
 
@@ -947,16 +977,33 @@ export async function returnAsset(assetCode, borrowRecordId, condition = "normal
   const nowIso = new Date().toISOString();
   const codeUpper = String(assetCode || "").trim().toUpperCase();
 
-  // 1. อัปเดตใน Local Hybrid Sync ทันที
+  // 1. อัปเดตใน Local Hybrid Sync ทันที (พร้อมเก็บสภาพตอนคืน return_condition และ return_note)
+  let foundInLocal = false;
   const updatedLocal = getLocalBorrowRecords().map((r) => {
     const matchId = borrowRecordId && String(r.id) === String(borrowRecordId);
     const matchCode =
       !r.returned_at && String(r.asset_code || "").trim().toUpperCase() === codeUpper;
     if (matchId || matchCode) {
-      return { ...r, returned_at: nowIso };
+      foundInLocal = true;
+      return {
+        ...r,
+        returned_at: nowIso,
+        return_condition: condition,
+        return_note: note || null,
+      };
     }
     return r;
   });
+
+  if (!foundInLocal && borrowRecordId) {
+    updatedLocal.unshift({
+      id: borrowRecordId,
+      asset_code: assetCode,
+      returned_at: nowIso,
+      return_condition: condition,
+      return_note: note || null,
+    });
+  }
   saveLocalBorrowRecords(updatedLocal);
 
   // 2. พยายามอัปเดตขึ้น Supabase Cloud (ถ้าเป็นรายการบน Cloud และไม่ติด RLS)

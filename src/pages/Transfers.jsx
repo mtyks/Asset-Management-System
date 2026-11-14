@@ -380,10 +380,34 @@ export default function Transfers() {
                       <td>{returnDate}</td>
                       <td>
                         {!isBorrowing ? (
-                          <span className="status-pill status-normal">
-                            <span className="status-dot" />
-                            คืนแล้ว
-                          </span>
+                          (() => {
+                            const matchedAsset = assets.find(
+                              (a) =>
+                                String(a.asset_code || "").toUpperCase() ===
+                                String(assetCode || "").toUpperCase()
+                            );
+                            const isReturnedDamaged =
+                              r.return_condition === "damaged" ||
+                              (!r.return_condition && matchedAsset?.status === "damaged");
+                            return isReturnedDamaged ? (
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
+                                <span className="status-pill status-damaged">
+                                  <span className="status-dot" />
+                                  คืนแล้ว (ชำรุด)
+                                </span>
+                                {r.return_note && (
+                                  <span style={{ fontSize: "0.75rem", color: "#dc2626" }}>
+                                    สาเหตุ: {r.return_note}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="status-pill status-normal">
+                                <span className="status-dot" />
+                                คืนแล้ว (ปกติ)
+                              </span>
+                            );
+                          })()
                         ) : overdueDays > 0 ? (
                           <span className="status-pill status-damaged" title="เกินกำหนดส่งคืน">
                             <span className="status-dot" />
