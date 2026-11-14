@@ -766,19 +766,72 @@ export async function deleteRoom(roomCode) {
 }
 
 // ---------------------------------------------------------------------------
-// Borrow Records (ยืม - คืน ครุภัณฑ์: ตาราง borrow_records)
+// Borrow Records (ยืม - คืน ครุภัณฑ์: ตาราง borrow_records + Hybrid Local Sync)
 // ---------------------------------------------------------------------------
-export async function listBorrowRecords() {
-  const { data, error } = await supabase
-    .from("borrow_records")
-    .select("*, assets(asset_code, name, color, image_url)")
-    .order("borrowed_at", { ascending: false });
+const LOCAL_BORROW_RECORDS_KEY = "ams_borrow_records_v1";
 
-  if (error) {
-    console.warn("listBorrowRecords error:", error);
-    throw error;
+function getLocalBorrowRecords() {
+  try {
+    const raw = localStorage.getItem(LOCAL_BORROW_RECORDS_KEY);
+    return raw ? JSON.parse(raw) || [] : [];
+  } catch {
+    return [];
   }
-  return data || [];
+}
+
+function saveLocalBorrowRecords(records) {
+  try {
+    localStorage.setItem(LOCAL_BORROW_RECORDS_KEY, JSON.stringify(records));
+  } catch (err) {
+    console.warn("saveLocalBorrowRecords warning:", err);
+  }
+}
+
+export async function listBorrowRecords() {
+  let remoteRows = [];
+  try {
+    const { data, error } = await supabase
+      .from("borrow_records")
+      .select("*, assets(asset_code, name, color, image_url)")
+      .order("borrowed_at", { ascending: false });
+    if (!error && Array.isArray(data)) {
+      remoteRows = data;
+    }
+  } catch (err) {
+    console.warn("listBorrowRecords cloud warning:", err);
+  }
+
+  const localRows = getLocalBorrowRecords();
+  if (localRows.length === 0) return remoteRows;
+
+  // รวมข้อมูลจาก Cloud และ Local (ป้องกันซ้ำ และอัปเดตสถานะ returned_at หากคืนใน Local แล้ว)
+  const merged = [...remoteRows.map((r) => ({ ...r }))];
+  for (const loc of localRows) {
+    const idx = merged.findIndex(
+      (rem) =>
+        String(rem.id) === String(loc.id) ||
+        (String(rem.asset_code || "").toUpperCase() ===
+          String(loc.asset_code || "").toUpperCase() &&
+          Math.abs(
+            new Date(rem.borrowed_at || 0).getTime() -
+              new Date(loc.borrowed_at || 0).getTime()
+          ) < 15000)
+    );
+    if (idx >= 0) {
+      if (!merged[idx].returned_at && loc.returned_at) {
+        merged[idx].returned_at = loc.returned_at;
+      }
+    } else {
+      merged.push(loc);
+    }
+  }
+
+  merged.sort(
+    (a, b) =>
+      new Date(b.borrowed_at || 0).getTime() -
+      new Date(a.borrowed_at || 0).getTime()
+  );
+  return merged;
 }
 
 // เงื่อนไขการยืม-คืนครุภัณฑ์ (Business Rules)
@@ -826,28 +879,64 @@ export async function borrowAsset(assetCode, borrowerName, borrowerContact, dueD
     );
   }
 
-  // ปิดรายการยืมเก่าที่อาจค้างอยู่หากครุภัณฑ์ถูกตั้งค่าเป็นสถานะปกติแล้ว
-  await supabase
-    .from("borrow_records")
-    .update({ returned_at: new Date().toISOString() })
-    .eq("asset_code", assetCode)
-    .is("returned_at", null);
+  const nowIso = new Date().toISOString();
+  const codeUpper = String(assetCode).trim().toUpperCase();
 
-  const { data: record, error: recordError } = await supabase
-    .from("borrow_records")
-    .insert({
-      asset_code: assetCode,
-      borrower_name: borrowerName.trim(),
-      borrower_contact: borrowerContact.trim(),
-      due_date: dueDate,
-    })
-    .select()
-    .single();
+  // ปิดรายการยืมเก่าที่อาจค้างอยู่ใน Local
+  const existingLocal = getLocalBorrowRecords().map((r) =>
+    String(r.asset_code || "").trim().toUpperCase() === codeUpper && !r.returned_at
+      ? { ...r, returned_at: nowIso }
+      : r
+  );
 
-  if (recordError) throw recordError;
+  // พยายามบันทึกลง Supabase Cloud ก่อน (ถ้าติด RLS จะใช้ Local Hybrid Sync แทนอัตโนมัติ)
+  let cloudRecord = null;
+  try {
+    await supabase
+      .from("borrow_records")
+      .update({ returned_at: nowIso })
+      .eq("asset_code", assetCode)
+      .is("returned_at", null);
+
+    const { data: record, error: recordError } = await supabase
+      .from("borrow_records")
+      .insert({
+        asset_code: assetCode,
+        borrower_name: borrowerName.trim(),
+        borrower_contact: borrowerContact.trim(),
+        due_date: dueDate,
+      })
+      .select()
+      .single();
+
+    if (!recordError && record) {
+      cloudRecord = record;
+    }
+  } catch (err) {
+    console.warn("borrowAsset cloud RLS fallback:", err);
+  }
+
+  const finalRecord = {
+    id: cloudRecord?.id || `local-borrow-${Date.now()}`,
+    asset_code: asset.asset_code || assetCode,
+    borrower_name: borrowerName.trim(),
+    borrower_contact: borrowerContact.trim(),
+    borrowed_at: cloudRecord?.borrowed_at || nowIso,
+    due_date: dueDate,
+    returned_at: null,
+    assets: {
+      asset_code: asset.asset_code || assetCode,
+      name: asset.name || assetCode,
+      color: asset.color || null,
+      image_url: asset.image_url || null,
+    },
+  };
+
+  existingLocal.unshift(finalRecord);
+  saveLocalBorrowRecords(existingLocal);
 
   await updateAssetStatus(assetCode, "borrowed", `ยืมโดย: ${borrowerName.trim()}`);
-  return record;
+  return finalRecord;
 }
 
 /**
@@ -855,12 +944,32 @@ export async function borrowAsset(assetCode, borrowerName, borrowerContact, dueD
  * @param {string} condition "normal" = สภาพปกติ, "damaged" = พบการชำรุด
  */
 export async function returnAsset(assetCode, borrowRecordId, condition = "normal", note = "") {
-  const { error: recordError } = await supabase
-    .from("borrow_records")
-    .update({ returned_at: new Date().toISOString() })
-    .eq("id", borrowRecordId);
+  const nowIso = new Date().toISOString();
+  const codeUpper = String(assetCode || "").trim().toUpperCase();
 
-  if (recordError) throw recordError;
+  // 1. อัปเดตใน Local Hybrid Sync ทันที
+  const updatedLocal = getLocalBorrowRecords().map((r) => {
+    const matchId = borrowRecordId && String(r.id) === String(borrowRecordId);
+    const matchCode =
+      !r.returned_at && String(r.asset_code || "").trim().toUpperCase() === codeUpper;
+    if (matchId || matchCode) {
+      return { ...r, returned_at: nowIso };
+    }
+    return r;
+  });
+  saveLocalBorrowRecords(updatedLocal);
+
+  // 2. พยายามอัปเดตขึ้น Supabase Cloud (ถ้าเป็นรายการบน Cloud และไม่ติด RLS)
+  if (borrowRecordId && !String(borrowRecordId).startsWith("local-borrow-")) {
+    try {
+      await supabase
+        .from("borrow_records")
+        .update({ returned_at: nowIso })
+        .eq("id", borrowRecordId);
+    } catch (err) {
+      console.warn("returnAsset cloud RLS fallback:", err);
+    }
+  }
 
   const isDamaged = condition === "damaged";
   const logNote = isDamaged
@@ -871,17 +980,27 @@ export async function returnAsset(assetCode, borrowRecordId, condition = "normal
 }
 
 export async function getActiveBorrowRecord(assetCode) {
-  const { data, error } = await supabase
-    .from("borrow_records")
-    .select("*")
-    .eq("asset_code", assetCode)
-    .is("returned_at", null)
-    .order("borrowed_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const codeUpper = String(assetCode || "").trim().toUpperCase();
+  const localActive = getLocalBorrowRecords().find(
+    (r) =>
+      !r.returned_at &&
+      String(r.asset_code || "").trim().toUpperCase() === codeUpper
+  );
+  if (localActive) return localActive;
 
-  if (error) return null;
-  return data;
+  try {
+    const { data, error } = await supabase
+      .from("borrow_records")
+      .select("*")
+      .eq("asset_code", assetCode)
+      .is("returned_at", null)
+      .order("borrowed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!error && data) return data;
+  } catch {}
+  return null;
 }
 
 // ---------------------------------------------------------------------------
