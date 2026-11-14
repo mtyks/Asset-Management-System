@@ -2,9 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   getAssetByCode,
-  getAssetHistory,
   getActiveBorrowRecord,
-  updateAssetStatus,
 } from "../lib/queries";
 import StatusBadge from "../components/StatusBadge";
 import QRCodeDisplay from "../components/QRCodeDisplay";
@@ -15,36 +13,22 @@ import {
   ExternalLink,
   ShieldCheck,
   Info,
-  Wrench,
-  CheckCircle2,
 } from "lucide-react";
 
 export default function AssetDetail() {
   const { assetCode } = useParams();
 
   const [asset, setAsset] = useState(null);
-  const [history, setHistory] = useState([]);
   const [activeBorrow, setActiveBorrow] = useState(null);
   const [error, setError] = useState(null);
   const [showFullImage, setShowFullImage] = useState(false);
-
-  // In-page Status / Repair Modal & Notification States
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [targetStatus, setTargetStatus] = useState("repair");
-  const [statusNote, setStatusNote] = useState("");
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [noticeBanner, setNoticeBanner] = useState("");
 
   const load = useCallback(async () => {
     try {
       const a = await getAssetByCode(assetCode);
       setAsset(a);
       const codeKey = a.asset_code || a.code || assetCode;
-      const [h, b] = await Promise.all([
-        getAssetHistory(codeKey),
-        getActiveBorrowRecord(codeKey),
-      ]);
-      setHistory(h || []);
+      const b = await getActiveBorrowRecord(codeKey);
       setActiveBorrow(b || null);
       setError(null);
     } catch (err) {
@@ -89,82 +73,9 @@ export default function AssetDetail() {
     : "ห้องธุรการและสารบรรณ";
 
   const codeStr = asset.asset_code || asset.code || "";
-  const isInRepairOrDamaged = asset.status === "repair" || asset.status === "damaged";
-
-  const openRepairOrStatusModal = () => {
-    if (isInRepairOrDamaged) return;
-    setTargetStatus("repair");
-    setStatusNote("");
-    setShowStatusModal(true);
-  };
-
-  const handleConfirmStatusUpdate = async (e) => {
-    e.preventDefault();
-    setUpdatingStatus(true);
-    try {
-      const defaultNote =
-        targetStatus === "damaged"
-          ? "แจ้งครุภัณฑ์ชำรุด รอตรวจสอบ"
-          : "แจ้งส่งซ่อมครุภัณฑ์";
-      const finalNote = statusNote.trim() || defaultNote;
-
-      await updateAssetStatus(codeStr, targetStatus, finalNote);
-      setShowStatusModal(false);
-      await load();
-
-      const statusLabel = targetStatus === "damaged" ? "ชำรุด" : "ส่งซ่อม";
-      setNoticeBanner(
-        `แจ้งเตือน: บันทึกสถานะ "${statusLabel}" สำหรับครุภัณฑ์ "${asset.name}" (${codeStr}) เรียบร้อยแล้ว`
-      );
-    } catch (err) {
-      alert("บันทึกสถานะไม่สำเร็จ: " + err.message);
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
 
   return (
     <div className="page-container" style={{ maxWidth: 1080 }}>
-      {/* Notification Banner after confirming repair / status update */}
-      {noticeBanner && (
-        <div
-          style={{
-            marginBottom: 18,
-            padding: "14px 18px",
-            borderRadius: 10,
-            backgroundColor: "#ecfdf5",
-            border: "1px solid #6ee7b7",
-            color: "#065f46",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            fontSize: "0.95rem",
-            fontWeight: 600,
-            boxShadow: "0 4px 12px rgba(16, 185, 129, 0.08)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <CheckCircle2 size={20} color="#059669" />
-            <span>{noticeBanner}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setNoticeBanner("")}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#047857",
-              cursor: "pointer",
-              fontWeight: 700,
-              fontSize: "0.85rem",
-            }}
-          >
-            ปิด
-          </button>
-        </div>
-      )}
-
       {/* Header */}
       <div className="page-heading-row">
         <div className="page-title-group">
@@ -178,20 +89,6 @@ export default function AssetDetail() {
         </div>
 
         <div className="page-actions-group">
-          {!isInRepairOrDamaged && (
-            <button
-              type="button"
-              onClick={openRepairOrStatusModal}
-              className="btn btn-primary"
-              style={{
-                backgroundColor: "#0284c7",
-                borderColor: "#0284c7",
-              }}
-            >
-              <Wrench size={16} />
-              <span>แจ้งซ่อมครุภัณฑ์นี้</span>
-            </button>
-          )}
           <Link to="/assets" className="btn btn-outline-white">
             <ArrowLeft size={16} />
             <span>ย้อนกลับ</span>
@@ -357,7 +254,7 @@ export default function AssetDetail() {
               ป้ายทะเบียน QR Code
             </h3>
             <p style={{ fontSize: "0.82rem", color: "#64748b", margin: "0 0 16px" }}>
-              สแกนด้วยกล้องมือถือเพื่อเข้าถึงหน้ารายละเอียดหรือแจ้งซ่อมได้ทันที
+              สแกนด้วยกล้องมือถือเพื่อตรวจสอบข้อมูลทะเบียนครุภัณฑ์และสถานที่ตั้งได้ทันที
             </p>
 
             <div style={{ display: "inline-block", margin: "0 auto 16px" }}>
@@ -372,34 +269,6 @@ export default function AssetDetail() {
                 <Printer size={16} />
                 <span>พิมพ์สติ๊กเกอร์ QR</span>
               </button>
-              {isInRepairOrDamaged ? (
-                <span
-                  className="btn btn-outline-white"
-                  style={{
-                    color: "#059669",
-                    backgroundColor: "#ecfdf5",
-                    borderColor: "#a7f3d0",
-                    cursor: "default",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <CheckCircle2 size={16} />
-                  <span>บันทึกการส่งแล้ว</span>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={openRepairOrStatusModal}
-                  className="btn btn-outline-white"
-                  style={{
-                    color: "#0284c7",
-                    borderColor: "#bae6fd",
-                  }}
-                >
-                  <Wrench size={16} />
-                  <span>แจ้งซ่อมด่วน</span>
-                </button>
-              )}
             </div>
           </div>
 
@@ -412,129 +281,12 @@ export default function AssetDetail() {
               </h3>
             </div>
             <p style={{ fontSize: "0.84rem", color: "#64748b", margin: 0, lineHeight: 1.6 }}>
-              ข้อมูลนี้ได้รับการรับรองจากระบบบริหารจัดการพัสดุและครุภัณฑ์ หากพบว่าครุภัณฑ์ชำรุดเสียหาย สามารถกดปุ่ม <strong>แจ้งซ่อมครุภัณฑ์นี้</strong> เพื่อบันทึกสถานะการส่งซ่อมและประวัติการเปลี่ยนแปลงในระบบได้ทันที
+              ข้อมูลนี้ได้รับการรับรองจากระบบบริหารจัดการครุภัณฑ์ ใช้สำหรับตรวจสอบรายละเอียดทรัพย์สิน หมวดหมู่ สถานที่จัดเก็บ และประวัติการยืม-คืนของหน่วยงาน
             </p>
           </div>
         </div>
       </div>
 
-      {/* History Log (Read-Only) */}
-      {history.length > 0 && (
-        <div className="table-card">
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0" }}>
-            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
-              ประวัติการเปลี่ยนแปลงสถานะ (Timeline)
-            </h3>
-          </div>
-          <div className="table-responsive">
-            <table className="modern-table">
-              <thead>
-                <tr>
-                  <th>วัน / เวลา</th>
-                  <th>สถานะเดิม</th>
-                  <th>สถานะใหม่</th>
-                  <th>หมายเหตุ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((h) => (
-                  <tr key={h.id}>
-                    <td>{new Date(h.changed_at).toLocaleString("th-TH")}</td>
-                    <td>{h.old_status ? <StatusBadge status={h.old_status} /> : "-"}</td>
-                    <td><StatusBadge status={h.new_status} /></td>
-                    <td>{h.note || "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* In-Page Repair / Status Update Confirmation Modal */}
-      {showStatusModal && (
-        <div className="modal-overlay" onClick={() => setShowStatusModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 8,
-                    backgroundColor: "#e0f2fe",
-                    color: "#0284c7",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Wrench size={20} />
-                </div>
-                <h3 className="modal-title" style={{ margin: 0 }}>
-                  ยืนยันการแจ้งซ่อม / เปลี่ยนสถานะครุภัณฑ์
-                </h3>
-              </div>
-            </div>
-
-            <form onSubmit={handleConfirmStatusUpdate}>
-              <div style={{ fontSize: "0.9rem", color: "#475569", margin: "12px 0 16px" }}>
-                ครุภัณฑ์: <strong>{asset.name}</strong> (รหัส: <strong>{codeStr}</strong>)
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: "0.86rem", fontWeight: 600 }}>
-                  เลือกสถานะที่ต้องการบันทึก *
-                </label>
-                <select
-                  className="form-control"
-                  value={targetStatus}
-                  onChange={(e) => setTargetStatus(e.target.value)}
-                  required
-                >
-                  <option value="repair">ส่งซ่อม (Repair)</option>
-                  <option value="damaged">ชำรุด (Damaged)</option>
-                </select>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 18 }}>
-                <label style={{ fontSize: "0.86rem", fontWeight: 600 }}>
-                  รายละเอียดอาการ / หมายเหตุการบันทึก
-                </label>
-                <textarea
-                  className="form-control"
-                  rows={3}
-                  value={statusNote}
-                  onChange={(e) => setStatusNote(e.target.value)}
-                  placeholder="ระบุอาการชำรุด หรือสาเหตุการส่งซ่อม..."
-                />
-              </div>
-
-              <div className="form-actions">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowStatusModal(false)}
-                  disabled={updatingStatus}
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{
-                    backgroundColor: "#0284c7",
-                    borderColor: "#0284c7",
-                  }}
-                  disabled={updatingStatus}
-                >
-                  {updatingStatus ? "กำลังบันทึก..." : "ยืนยันการบันทึก"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
       {/* Full Image Lightbox Modal */}
       {showFullImage && asset.image_url && (
         <div

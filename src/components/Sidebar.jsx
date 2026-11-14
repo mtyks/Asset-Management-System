@@ -121,7 +121,7 @@ export default function Sidebar({ isOpen, onClose }) {
             onClick={handleLinkClick}
           >
             <QrCode className="sidebar-icon" size={18} />
-            <span>ตรวจนับ QR / Demo</span>
+            <span>สแกนตรวจสอบ QR</span>
           </NavLink>
         </nav>
 

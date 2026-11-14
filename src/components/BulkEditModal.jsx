@@ -177,7 +177,6 @@ export default function BulkEditModal({
               >
                 <option value="normal">ใช้งานปกติ</option>
                 <option value="borrowed">ยืมใช้งาน</option>
-                <option value="repair">ส่งซ่อม</option>
                 <option value="damaged">ชำรุด</option>
               </select>
             )}

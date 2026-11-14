@@ -13,9 +13,20 @@ import QRCodeDisplay from "../components/QRCodeDisplay";
 import { Plus, Save, ArrowLeft, RefreshCw, CheckCircle, Upload, Image as ImageIcon } from "lucide-react";
 
 function generateAssetCode() {
-  const currentYear = 2569;
+  let prefix = "A-2569-";
+  try {
+    const raw = localStorage.getItem("ams_system_settings_v1");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.autoCodePrefix && String(parsed.autoCodePrefix).trim()) {
+        prefix = String(parsed.autoCodePrefix).trim();
+      }
+    }
+  } catch {
+    // ignore storage errors
+  }
   const randomPart = Math.floor(1000 + Math.random() * 9000);
-  return `A-${currentYear}-${randomPart}`;
+  return `${prefix}${randomPart}`;
 }
 
 const emptyForm = {
@@ -64,7 +75,8 @@ export default function AssetForm() {
     getAssetByCode(actualLookupCode)
       .then((asset) => {
         if (cancelled) return;
-        const currentStat = asset.status || "normal";
+        const rawStat = asset.status || "normal";
+        const currentStat = rawStat === "repair" ? "damaged" : rawStat;
         setInitialStatus(currentStat);
         setForm({
           asset_code: asset.asset_code || "",
@@ -400,7 +412,6 @@ export default function AssetForm() {
                 onChange={handleChange}
               >
                 <option value="normal">ใช้งานปกติ</option>
-                <option value="repair">ส่งซ่อม</option>
                 <option value="damaged">ชำรุด</option>
                 <option value="borrowed">ยืมใช้งาน</option>
               </select>

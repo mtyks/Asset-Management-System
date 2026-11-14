@@ -345,20 +345,8 @@ export async function listAssets(filters = {}) {
 
   let rows = applyAssetOverrides(data || []);
 
-  // แนบข้อมูลประวัติการซ่อม (repair_info) ให้ครุภัณฑ์แต่ละชิ้น
-  const { repairedMap } = await getRepairHistorySummary();
-  rows = rows.map((r) => {
-    const codeUpper = String(r.asset_code || "").trim().toUpperCase();
-    return {
-      ...r,
-      repair_info: repairedMap[codeUpper] || null,
-    };
-  });
-
   if (filters.status === "repair_damaged") {
     rows = rows.filter((r) => r.status === "repair" || r.status === "damaged");
-  } else if (filters.status === "repaired") {
-    rows = rows.filter((r) => Boolean(r.repair_info?.isRepairedAndNormal));
   } else if (filters.status) {
     rows = rows.filter((r) => (r.status || "normal") === filters.status);
   }
@@ -793,25 +781,80 @@ export async function listBorrowRecords() {
   return data || [];
 }
 
+// เงื่อนไขการยืม-คืนครุภัณฑ์ (Business Rules)
+export const BORROW_RULES = {
+  maxBorrowDays: 30, // ยืมได้สูงสุดไม่เกิน 30 วัน
+  quickDays: [3, 7, 14, 30], // ปุ่มลัดเลือกระยะเวลายืม
+};
+
+function parseLocalDate(dateStr) {
+  const [y, m, d] = String(dateStr || "")
+    .slice(0, 10)
+    .split("-")
+    .map(Number);
+  if (!y || !m || !d) return new Date(dateStr);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
 export async function borrowAsset(assetCode, borrowerName, borrowerContact, dueDate) {
+  // 1. ตรวจข้อมูลที่จำเป็น
+  if (!assetCode) throw new Error("กรุณาเลือกครุภัณฑ์ที่ต้องการยืม");
+  if (!borrowerName || !borrowerName.trim()) throw new Error("กรุณาระบุชื่อผู้ยืม");
+  if (!borrowerContact || !borrowerContact.trim()) {
+    throw new Error("กรุณาระบุเบอร์ติดต่อ / สังกัดของผู้ยืม");
+  }
+  if (!dueDate) throw new Error("กรุณาระบุกำหนดวันส่งคืน");
+
+  // 2. ตรวจวันกำหนดคืน: ห้ามย้อนหลัง และห้ามเกินระยะเวลาสูงสุด
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = parseLocalDate(dueDate);
+  if (due < today) throw new Error("กำหนดวันส่งคืนต้องไม่ย้อนหลังก่อนวันนี้");
+  const diffDays = Math.round((due - today) / 86400000);
+  if (diffDays > BORROW_RULES.maxBorrowDays) {
+    throw new Error(`ระยะเวลายืมต้องไม่เกิน ${BORROW_RULES.maxBorrowDays} วัน`);
+  }
+
+  // 3. ตรวจสถานะครุภัณฑ์: ต้อง "ใช้งานปกติ"
+  const asset = await getAssetByCode(assetCode);
+  const st = asset?.status || "normal";
+  if (st !== "normal") {
+    throw new Error(
+      st === "borrowed"
+        ? "ครุภัณฑ์ชิ้นนี้กำลังถูกยืมใช้งานอยู่ ไม่สามารถยืมซ้ำได้"
+        : "ครุภัณฑ์ชิ้นนี้อยู่ในสถานะชำรุด งดให้ยืม"
+    );
+  }
+
+  // ปิดรายการยืมเก่าที่อาจค้างอยู่หากครุภัณฑ์ถูกตั้งค่าเป็นสถานะปกติแล้ว
+  await supabase
+    .from("borrow_records")
+    .update({ returned_at: new Date().toISOString() })
+    .eq("asset_code", assetCode)
+    .is("returned_at", null);
+
   const { data: record, error: recordError } = await supabase
     .from("borrow_records")
     .insert({
       asset_code: assetCode,
       borrower_name: borrowerName.trim(),
-      borrower_contact: borrowerContact ? borrowerContact.trim() : null,
-      due_date: dueDate || null,
+      borrower_contact: borrowerContact.trim(),
+      due_date: dueDate,
     })
     .select()
     .single();
 
   if (recordError) throw recordError;
 
-  await updateAssetStatus(assetCode, "borrowed", `ยืมโดย: ${borrowerName}`);
+  await updateAssetStatus(assetCode, "borrowed", `ยืมโดย: ${borrowerName.trim()}`);
   return record;
 }
 
-export async function returnAsset(assetCode, borrowRecordId) {
+/**
+ * บันทึกรับคืนครุภัณฑ์ พร้อมตรวจสภาพตอนรับคืน
+ * @param {string} condition "normal" = สภาพปกติ, "damaged" = พบการชำรุด
+ */
+export async function returnAsset(assetCode, borrowRecordId, condition = "normal", note = "") {
   const { error: recordError } = await supabase
     .from("borrow_records")
     .update({ returned_at: new Date().toISOString() })
@@ -819,7 +862,12 @@ export async function returnAsset(assetCode, borrowRecordId) {
 
   if (recordError) throw recordError;
 
-  await updateAssetStatus(assetCode, "normal", "ส่งคืนเรียบร้อย");
+  const isDamaged = condition === "damaged";
+  const logNote = isDamaged
+    ? `รับคืนแล้ว - พบการชำรุด${note ? `: ${note}` : ""}`
+    : `ส่งคืนเรียบร้อย สภาพปกติ${note ? ` (${note})` : ""}`;
+
+  await updateAssetStatus(assetCode, isDamaged ? "damaged" : "normal", logNote);
 }
 
 export async function getActiveBorrowRecord(assetCode) {

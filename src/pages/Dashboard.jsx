@@ -6,7 +6,6 @@ import {
   Package,
   CheckCircle2,
   ArrowLeftRight,
-  Wrench,
   Plus,
   QrCode,
   ArrowRight,
@@ -194,18 +193,18 @@ export default function Dashboard() {
           </div>
         </Link>
 
-        {/* Card 4: Repair / Damaged */}
+        {/* Card 4: Damaged */}
         <Link to="/assets?status=repair_damaged" className="kpi-card">
           <div className="kpi-card-top">
             <div>
-              <span className="kpi-card-label">ส่งซ่อม / ชำรุด</span>
+              <span className="kpi-card-label">ครุภัณฑ์ชำรุด</span>
               <div className="kpi-card-value" style={{ color: "#dc2626" }}>
                 {repairCount.toLocaleString()}
                 <span className="kpi-card-unit">รายการ</span>
               </div>
             </div>
             <div className="kpi-card-icon repair">
-              <Wrench size={24} />
+              <AlertTriangle size={24} />
             </div>
           </div>
           <div className="kpi-card-footer">
@@ -214,7 +213,7 @@ export default function Dashboard() {
               {repairCount > 0 ? `ชำรุด ${repairPct}%` : "ปกติทั้งหมด"}
             </span>
             <span style={{ color: "#94a3b8" }}>
-              {repairCount > 0 ? "ต้องตรวจสอบ" : "ไม่มีค้างซ่อม"}
+              {repairCount > 0 ? "รอตรวจสอบสภาพ" : "สภาพปกติทั้งหมด"}
             </span>
           </div>
         </Link>

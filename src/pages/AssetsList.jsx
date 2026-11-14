@@ -7,8 +7,6 @@ import {
   getDashboardCounts,
   deleteAsset,
   bulkDeleteAssets,
-  updateAssetStatus,
-  getRepairHistorySummary,
 } from "../lib/queries";
 import StatusBadge from "../components/StatusBadge";
 import ImportCSVModal from "../components/ImportCSVModal";
@@ -22,7 +20,6 @@ import {
   Package,
   CheckCircle2,
   Inbox,
-  Wrench,
   Monitor,
   Laptop,
   Tv,
@@ -78,13 +75,7 @@ export default function AssetsList() {
   const [noticeMessage, setNoticeMessage] = useState("");
   const [deletingCode, setDeletingCode] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [repairCompleteTarget, setRepairCompleteTarget] = useState(null);
-  const [repairCompleteNote, setRepairCompleteNote] = useState("ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ");
-  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [repairSummary, setRepairSummary] = useState({ repairedMap: {}, repairLogs: [] });
-  const [showRepairHistoryModal, setShowRepairHistoryModal] = useState(false);
-  const [historyModalTab, setHistoryModalTab] = useState("completed");
 
   // Sync URL query param (?status=...) when navigating from Dashboard
   useEffect(() => {
@@ -123,20 +114,15 @@ export default function AssetsList() {
       listCategories().then(setCategories).catch(() => {}),
       listRooms().then(setRooms).catch(() => {}),
       getDashboardCounts().then(setCounts).catch(() => {}),
-      getRepairHistorySummary().then(setRepairSummary).catch(() => {}),
     ]);
   }, []);
 
   // โหลดรายการครุภัณฑ์ตาม Filter
   const fetchAssets = () => {
     setLoading(true);
-    Promise.all([
-      listAssets(filters),
-      getRepairHistorySummary().catch(() => ({ repairedMap: {}, repairLogs: [] })),
-    ])
-      .then(([data, summary]) => {
+    listAssets(filters)
+      .then((data) => {
         setAssets(data || []);
-        if (summary) setRepairSummary(summary);
         setError(null);
       })
       .catch((err) => setError(err.message))
@@ -211,9 +197,7 @@ export default function AssetsList() {
       const status =
         a.status === "borrowed"
           ? "ยืมใช้งาน"
-          : a.status === "repair"
-          ? "ส่งซ่อม"
-          : a.status === "damaged"
+          : a.status === "repair" || a.status === "damaged"
           ? "ชำรุด"
           : "ใช้งานปกติ";
       const date = a.received_date || "-";
@@ -270,30 +254,6 @@ export default function AssetsList() {
       alert("ลบรายการที่เลือกไม่สำเร็จ: " + err.message);
     } finally {
       setBulkDeleting(false);
-    }
-  };
-
-  // บันทึกซ่อมเสร็จ / เปลี่ยนสถานะกลับเป็นใช้งานปกติ
-  const confirmRepairComplete = async () => {
-    if (!repairCompleteTarget) return;
-    setUpdatingStatus(true);
-    try {
-      await updateAssetStatus(
-        repairCompleteTarget.asset_code,
-        "normal",
-        repairCompleteNote.trim() || "ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ"
-      );
-      setNoticeMessage(
-        `บันทึกสถานะ "ใช้งานปกติ (ซ่อมเสร็จ)" สำหรับครุภัณฑ์ "${repairCompleteTarget.name}" (${repairCompleteTarget.asset_code}) เรียบร้อยแล้ว`
-      );
-      setRepairCompleteTarget(null);
-      setRepairCompleteNote("ซ่อมบำรุงเสร็จเรียบร้อย กลับมาใช้งานตามปกติ");
-      fetchAssets();
-      getDashboardCounts().then(setCounts).catch(() => {});
-    } catch (err) {
-      alert("อัปเดตสถานะไม่สำเร็จ: " + err.message);
-    } finally {
-      setUpdatingStatus(false);
     }
   };
 
@@ -489,7 +449,7 @@ export default function AssetsList() {
           </div>
         </div>
 
-        {/* Repair */}
+        {/* Damaged */}
         <div
           className="stat-box"
           onClick={() => handleQuickStatusFilter("repair_damaged")}
@@ -508,13 +468,13 @@ export default function AssetsList() {
                 ? "#fef2f2"
                 : undefined,
           }}
-          title="คลิกเพื่อกรองเฉพาะครุภัณฑ์ที่ส่งซ่อม / ชำรุด"
+          title="คลิกเพื่อกรองเฉพาะครุภัณฑ์ที่ชำรุด"
         >
           <div className="stat-box-icon repair">
-            <Wrench size={22} />
+            <AlertTriangle size={22} />
           </div>
           <div className="stat-box-body">
-            <div className="stat-box-label">ส่งซ่อม / ชำรุด</div>
+            <div className="stat-box-label">ครุภัณฑ์ชำรุด</div>
             <div className="stat-box-val-row">
               <span className="stat-box-number repair">
                 {(counts.repair ?? 0).toLocaleString()}
@@ -583,122 +543,9 @@ export default function AssetsList() {
           <option value="">ทุกสถานะ</option>
           <option value="normal">ใช้งานปกติ</option>
           <option value="borrowed">ยืมใช้งาน</option>
-          <option value="repair_damaged">ส่งซ่อม / ชำรุด (ทั้งหมด)</option>
-          <option value="repair">ส่งซ่อม</option>
-          <option value="damaged">ชำรุด</option>
-          <option value="repaired">ซ่อมเสร็จแล้ว (เคยส่งซ่อม)</option>
+          <option value="repair_damaged">ชำรุด</option>
         </select>
-
-        <button
-          type="button"
-          className="btn btn-outline-white"
-          onClick={() => {
-            setHistoryModalTab("completed");
-            setShowRepairHistoryModal(true);
-          }}
-          style={{
-            borderColor: "#a7f3d0",
-            backgroundColor: "#ecfdf5",
-            color: "#047857",
-            fontWeight: 600,
-            whiteSpace: "nowrap",
-          }}
-          title="ดูประวัติครุภัณฑ์ที่เคยส่งซ่อมและซ่อมเสร็จแล้วทั้งหมด"
-        >
-          <CheckCircle2 size={16} color="#059669" />
-          <span>ประวัติซ่อมเสร็จ</span>
-        </button>
       </div>
-
-      {/* แถบสลับดูรายการ กำลังส่งซ่อม vs ซ่อมเสร็จแล้ว เมื่ออยู่ในหมวดส่งซ่อม/ซ่อมเสร็จ */}
-      {(filters.status === "repair_damaged" ||
-        filters.status === "repair" ||
-        filters.status === "damaged" ||
-        filters.status === "repaired") && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 10,
-            marginBottom: 16,
-            padding: "10px 14px",
-            backgroundColor: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            borderRadius: 10,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => handleQuickStatusFilter("repair_damaged")}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                fontSize: "0.86rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                border:
-                  filters.status !== "repaired"
-                    ? "1px solid #f59e0b"
-                    : "1px solid #cbd5e1",
-                backgroundColor:
-                  filters.status !== "repaired" ? "#fffbeb" : "#ffffff",
-                color: filters.status !== "repaired" ? "#b45309" : "#475569",
-              }}
-            >
-              🔧 กำลังส่งซ่อม / ชำรุด ({counts.repair ?? 0} ชิ้น)
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickStatusFilter("repaired")}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                fontSize: "0.86rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                border:
-                  filters.status === "repaired"
-                    ? "1px solid #10b981"
-                    : "1px solid #cbd5e1",
-                backgroundColor:
-                  filters.status === "repaired" ? "#ecfdf5" : "#ffffff",
-                color: filters.status === "repaired" ? "#047857" : "#475569",
-              }}
-            >
-              ✓ ซ่อมเสร็จแล้ว / เคยส่งซ่อม (
-              {
-                Object.values(repairSummary.repairedMap || {}).filter(
-                  (x) => x.isRepairedAndNormal
-                ).length
-              }{" "}
-              ชิ้น)
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setHistoryModalTab("all");
-              setShowRepairHistoryModal(true);
-            }}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 8,
-              fontSize: "0.84rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              border: "1px solid #bae6fd",
-              backgroundColor: "#f0f9ff",
-              color: "#0369a1",
-            }}
-          >
-            📋 ดูตารางประวัติการซ่อมทั้งหมด ({(repairSummary.repairLogs || []).length} รายการ)
-          </button>
-        </div>
-      )}
 
       {/* Bulk Action Bar (Visible when >= 1 items selected) */}
       {selectedCodes.length > 0 && (
@@ -869,37 +716,6 @@ export default function AssetsList() {
                       <td>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
                           <StatusBadge status={asset.status || "normal"} />
-                          {asset.repair_info?.isRepairedAndNormal && (
-                            <span
-                              onClick={() => {
-                                setHistoryModalTab("completed");
-                                setShowRepairHistoryModal(true);
-                              }}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                fontSize: "0.74rem",
-                                fontWeight: 600,
-                                color: "#047857",
-                                backgroundColor: "#d1fae5",
-                                border: "1px solid #6ee7b7",
-                                borderRadius: 6,
-                                padding: "2px 7px",
-                                cursor: "pointer",
-                              }}
-                              title={
-                                asset.repair_info.lastCompletedNote
-                                  ? `ประวัติซ่อมล่าสุด: ${asset.repair_info.lastCompletedNote}`
-                                  : "คลิกเพื่อดูประวัติการซ่อม"
-                              }
-                            >
-                              ✓ ซ่อมเสร็จแล้ว
-                              {asset.repair_info.lastCompletedAt
-                                ? ` (${new Date(asset.repair_info.lastCompletedAt).toLocaleDateString("th-TH")})`
-                                : ""}
-                            </span>
-                          )}
                         </div>
                       </td>
 
@@ -1163,268 +979,6 @@ export default function AssetsList() {
           getDashboardCounts().then(setCounts).catch(() => {});
         }}
       />
-
-      {/* Repair History & Completed Repairs Modal */}
-      {showRepairHistoryModal && (
-        <div className="modal-overlay" onClick={() => setShowRepairHistoryModal(false)}>
-          <div
-            className="modal-content"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 880, width: "95%", maxHeight: "88vh", overflowY: "auto" }}
-          >
-            <div
-              className="modal-header"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                borderBottom: "1px solid #e2e8f0",
-                paddingBottom: 12,
-                marginBottom: 14,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 10,
-                    backgroundColor: "#ecfdf5",
-                    color: "#059669",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <CheckCircle2 size={22} />
-                </div>
-                <div>
-                  <h3 className="modal-title" style={{ margin: 0, fontSize: "1.1rem" }}>
-                    ประวัติครุภัณฑ์ที่ส่งซ่อมและซ่อมเสร็จแล้ว
-                  </h3>
-                  <p style={{ margin: "2px 0 0", fontSize: "0.82rem", color: "#64748b" }}>
-                    ตรวจสอบรายการครุภัณฑ์ที่ซ่อมเสร็จกลับมาใช้งานปกติ และประวัติการแจ้งซ่อมย้อนหลังทั้งหมด
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowRepairHistoryModal(false)}
-                style={{ padding: "6px 12px" }}
-              >
-                ปิดหน้าต่าง
-              </button>
-            </div>
-
-            {/* Tabs inside modal */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-              <button
-                type="button"
-                onClick={() => setHistoryModalTab("completed")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  fontSize: "0.88rem",
-                  cursor: "pointer",
-                  border:
-                    historyModalTab === "completed"
-                      ? "1px solid #059669"
-                      : "1px solid #cbd5e1",
-                  backgroundColor:
-                    historyModalTab === "completed" ? "#059669" : "#ffffff",
-                  color: historyModalTab === "completed" ? "#ffffff" : "#334155",
-                }}
-              >
-                ✓ ครุภัณฑ์ที่ซ่อมเสร็จแล้ว (
-                {
-                  Object.values(repairSummary.repairedMap || {}).filter(
-                    (x) => x.isRepairedAndNormal
-                  ).length
-                }{" "}
-                รายการ)
-              </button>
-              <button
-                type="button"
-                onClick={() => setHistoryModalTab("all")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  fontSize: "0.88rem",
-                  cursor: "pointer",
-                  border:
-                    historyModalTab === "all"
-                      ? "1px solid #0284c7"
-                      : "1px solid #cbd5e1",
-                  backgroundColor:
-                    historyModalTab === "all" ? "#0284c7" : "#ffffff",
-                  color: historyModalTab === "all" ? "#ffffff" : "#334155",
-                }}
-              >
-                📋 ประวัติการส่งซ่อม - ซ่อมเสร็จทั้งหมด (
-                {(repairSummary.repairLogs || []).length} เหตุการณ์)
-              </button>
-            </div>
-
-            {historyModalTab === "completed" ? (
-              <div className="table-responsive">
-                <table className="modern-table">
-                  <thead>
-                    <tr>
-                      <th>วันที่ซ่อมเสร็จล่าสุด</th>
-                      <th>รหัสครุภัณฑ์</th>
-                      <th>รายการ / สถานที่</th>
-                      <th>สถานะปัจจุบัน</th>
-                      <th>รายละเอียด / หมายเหตุการซ่อม</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.values(repairSummary.repairedMap || {}).filter(
-                      (x) => x.isRepairedAndNormal
-                    ).length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="table-empty-row">
-                          ยังไม่มีรายการครุภัณฑ์ที่ซ่อมเสร็จแล้วในขณะนี้ (เมื่อช่างในระบบแจ้งซ่อมกดปิดงานซ่อมเสร็จ รายการจะแสดงที่นี่อัตโนมัติ)
-                        </td>
-                      </tr>
-                    ) : (
-                      Object.values(repairSummary.repairedMap || {})
-                        .filter((x) => x.isRepairedAndNormal)
-                        .sort(
-                          (a, b) =>
-                            new Date(b.lastCompletedAt || 0).getTime() -
-                            new Date(a.lastCompletedAt || 0).getTime()
-                        )
-                        .map((item) => {
-                          const matchedLog = (repairSummary.repairLogs || []).find(
-                            (l) =>
-                              String(l.asset_code || "").toUpperCase() ===
-                              String(item.asset_code || "").toUpperCase()
-                          );
-                          return (
-                            <tr key={item.asset_code}>
-                              <td style={{ whiteSpace: "nowrap", fontSize: "0.86rem" }}>
-                                {item.lastCompletedAt
-                                  ? new Date(item.lastCompletedAt).toLocaleString("th-TH")
-                                  : "-"}
-                              </td>
-                              <td>
-                                <Link
-                                  to={`/asset/${encodeURIComponent(item.asset_code)}`}
-                                  onClick={() => setShowRepairHistoryModal(false)}
-                                  className="asset-code-main"
-                                >
-                                  {item.asset_code}
-                                </Link>
-                              </td>
-                              <td>
-                                <div style={{ fontWeight: 600, color: "#0f172a" }}>
-                                  {matchedLog?.asset_name || item.asset_code}
-                                </div>
-                                <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
-                                  {matchedLog?.room_name || ""}
-                                </div>
-                              </td>
-                              <td>
-                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-                                  <StatusBadge status="normal" />
-                                  <span
-                                    style={{
-                                      fontSize: "0.72rem",
-                                      fontWeight: 600,
-                                      color: "#047857",
-                                      backgroundColor: "#d1fae5",
-                                      padding: "1px 6px",
-                                      borderRadius: 4,
-                                    }}
-                                  >
-                                    ✓ ซ่อมเสร็จแล้ว
-                                  </span>
-                                </div>
-                              </td>
-                              <td style={{ fontSize: "0.86rem", color: "#334155" }}>
-                                {item.lastCompletedNote || "ซ่อมเสร็จสิ้น กลับมาใช้งานปกติ"}
-                              </td>
-                            </tr>
-                          );
-                        })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="table-responsive">
-                <table className="modern-table">
-                  <thead>
-                    <tr>
-                      <th>วัน / เวลา</th>
-                      <th>รหัสครุภัณฑ์</th>
-                      <th>ชื่อครุภัณฑ์</th>
-                      <th>สถานะเดิม</th>
-                      <th>สถานะใหม่</th>
-                      <th>รายละเอียด / หมายเหตุ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(repairSummary.repairLogs || []).length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="table-empty-row">
-                          ยังไม่มีประวัติการแจ้งซ่อมหรือซ่อมเสร็จในระบบ
-                        </td>
-                      </tr>
-                    ) : (
-                      (repairSummary.repairLogs || []).map((log) => (
-                        <tr key={log.id}>
-                          <td style={{ whiteSpace: "nowrap", fontSize: "0.85rem" }}>
-                            {new Date(log.changed_at).toLocaleString("th-TH")}
-                          </td>
-                          <td>
-                            <Link
-                              to={`/asset/${encodeURIComponent(log.asset_code)}`}
-                              onClick={() => setShowRepairHistoryModal(false)}
-                              className="asset-code-main"
-                            >
-                              {log.asset_code}
-                            </Link>
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{log.asset_name}</td>
-                          <td>
-                            {log.old_status ? <StatusBadge status={log.old_status} /> : "-"}
-                          </td>
-                          <td>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <StatusBadge status={log.new_status} />
-                              {log.is_completed_event && (
-                                <span
-                                  style={{
-                                    fontSize: "0.72rem",
-                                    fontWeight: 600,
-                                    color: "#047857",
-                                    backgroundColor: "#d1fae5",
-                                    padding: "1px 6px",
-                                    borderRadius: 4,
-                                  }}
-                                >
-                                  ✓ ซ่อมเสร็จ
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td style={{ fontSize: "0.86rem", color: "#334155" }}>
-                            {log.note || "-"}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

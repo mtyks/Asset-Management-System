@@ -5,8 +5,8 @@ const STATUS_MAP = {
   in_use: { label: "ใช้งานปกติ", className: "status-normal" },
   borrowed: { label: "ยืมใช้งาน", className: "status-borrowed" },
   borrow: { label: "ยืมใช้งาน", className: "status-borrowed" },
-  repair: { label: "ส่งซ่อม", className: "status-repair" },
-  maintenance: { label: "ส่งซ่อม", className: "status-repair" },
+  repair: { label: "ชำรุด", className: "status-damaged" },
+  maintenance: { label: "ชำรุด", className: "status-damaged" },
   damaged: { label: "ชำรุด", className: "status-damaged" },
 };
 

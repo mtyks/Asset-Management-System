@@ -13,7 +13,7 @@ const ROUTE_NAME_MAP = {
   "transfers": "ยืม / คืน ครุภัณฑ์",
   "maintenance": "ระบบแจ้งซ่อมและบำรุงรักษา",
   "settings": "ตั้งค่าระบบ",
-  "scan": "ตรวจนับ QR / Demo",
+  "scan": "สแกนตรวจสอบ QR",
   "login": "เข้าสู่ระบบ",
   "asset": "รายละเอียดครุภัณฑ์",
 };
@@ -21,6 +21,17 @@ const ROUTE_NAME_MAP = {
 export default function TopHeader({ onToggleSidebar }) {
   const location = useLocation();
   const pathSegments = location.pathname.split("/").filter(Boolean);
+
+  let budgetYear = "2569";
+  try {
+    const raw = localStorage.getItem("ams_system_settings_v1");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.budgetYear) budgetYear = parsed.budgetYear;
+    }
+  } catch {
+    // ignore storage errors
+  }
 
   // สร้าง breadcrumb items
   const breadcrumbs = [];
@@ -95,7 +106,7 @@ export default function TopHeader({ onToggleSidebar }) {
 
         <div className="budget-year-badge">
           <Calendar size={13} style={{ color: "#64748b" }} />
-          <span>ปีงบประมาณ 2569</span>
+          <span>ปีงบประมาณ {budgetYear}</span>
         </div>
       </div>
     </header>

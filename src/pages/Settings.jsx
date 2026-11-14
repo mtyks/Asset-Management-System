@@ -1,14 +1,45 @@
 import React, { useState } from "react";
 import { Settings as SettingsIcon, Save, Database, Shield, Building, Globe } from "lucide-react";
 
+const SYSTEM_SETTINGS_KEY = "ams_system_settings_v1";
+
+function loadSystemSettings() {
+  try {
+    const raw = localStorage.getItem(SYSTEM_SETTINGS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 export default function Settings() {
-  const [orgName, setOrgName] = useState("กองเทคโนโลยีสารสนเทศและพัสดุ");
-  const [budgetYear, setBudgetYear] = useState("2569");
-  const [autoCodePrefix, setAutoCodePrefix] = useState("DEMO-2569-");
+  const savedSettings = loadSystemSettings();
+  const [orgName, setOrgName] = useState(
+    savedSettings?.orgName || "กองเทคโนโลยีสารสนเทศและพัสดุ"
+  );
+  const [budgetYear, setBudgetYear] = useState(
+    savedSettings?.budgetYear || "2569"
+  );
+  const [autoCodePrefix, setAutoCodePrefix] = useState(
+    savedSettings?.autoCodePrefix || "A-2569-"
+  );
   const [saved, setSaved] = useState(false);
 
   const handleSave = (e) => {
     e.preventDefault();
+    try {
+      localStorage.setItem(
+        SYSTEM_SETTINGS_KEY,
+        JSON.stringify({
+          orgName: orgName.trim() || "กองเทคโนโลยีสารสนเทศและพัสดุ",
+          budgetYear: budgetYear || "2569",
+          autoCodePrefix: autoCodePrefix.trim() || `A-${budgetYear || "2569"}-`,
+        })
+      );
+    } catch {
+      // ignore storage errors
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
